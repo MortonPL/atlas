@@ -1,0 +1,27 @@
+[general]
+name = "Default Genfile"
+version = "0.1.0"
+base_version = "0.1.0"
+description = "This is the default Genfile used for world generation."
+
+[[tiles]]
+name = "plain"
+color = [0.0, 1.0, 0.0]
+
+[[tiles]]
+name = "water"
+color = [0.0, 0.0, 1.0]
+
+[[transforms]]
+name = "superflat"
+mode.Fill.Tile = "plain"
+
+[[transforms]]
+name = "random water puddles"
+mode.Noise.Pepper = { value.Tile = "water", frequency = 0.1 }
+
+#[[transforms]]
+#name = "pepper"
+#mode.Noise.Pepper = { value.Height = 2, frequency = 0.5 }
+#tile = { default = "plain", datatype = "tile", values = [] }
+#frequency = { default = 0.1, datatype = "f32", range = [0.0, 0.1] }
