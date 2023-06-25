@@ -28,6 +28,28 @@ color = [0.7, 0.7, 0.7]
 name = "high mountain"
 color = [0.4, 0.4, 0.4]
 
+# Transform modes:
+# * mode.Fill.Simple          Set every tile
+#     * value.Tile or vale.Height
+# * mode.Fill.Conditional     Set tile based on condition
+#     * value.Tile or value.Height
+#     * min - minimum height condition
+#     * max - maximum height condition
+# * mode.Fill.Flood           Set random region based on condition
+#     * value.Tile or value.Height
+#     * origins = number of region origins to pick
+#     * min - minimum height condition
+#     * max - maximum height condition
+# * mode.Noise.Pepper         Set tile based on random chance
+#     * value.Tile or value.Height
+#     * frequency - chance of occurence
+#     * deviation - random +- deviation value (applicable to height)
+#     * on.Tile (optional) - apply only to tiles of this type
+# * mode.Noise.Perlin         Set tile based on Perlin noise map
+#     * value.Height - noise amplitude
+#     * offset - offset added to random value
+#     * scale - Perlin noise scale, higher means more detail
+
 [[transforms]]
 name = "superflat"
 mode.Fill.Simple = { value.Tile = "plain" }

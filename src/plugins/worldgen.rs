@@ -94,11 +94,9 @@ fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, ma
             queue.push_back(Span{ x1: originx as i32, x2: originx as i32, y: (originy - 1) as i32, dy: -1});
         }
 
-        println!("{} {}", originx, originy);
         while !queue.is_empty() {
             let mut span = queue.pop_back().unwrap();
             let mut x = span.x1;
-            println!("start: {} {} {} {} {}", span.x1, span.x2, span.y, span.dy, x);
             // go through left of span
             if inside(x, span.y, tilemap) {
                 while inside(x - 1, span.y, tilemap) {
@@ -106,12 +104,10 @@ fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, ma
                     x -= 1;
                 }
             }
-            println!("#1: \t\t\t{} {} {} {} {}", span.x1, span.x2, span.y, span.dy, x);
             // queue new span in reverse horizontal direction if we moved at all
             if x < span.x1 {
                 queue.push_back(Span{x1: x, x2: span.x1 - 1, y: span.y - span.dy, dy: -span.dy});
             }
-            println!("#2: \t\t\t{} {} {} {} {}", span.x1, span.x2, span.y, span.dy, x);
             // scan in span
             while span.x1 <= span.x2 {
                 // scan right of start of span
