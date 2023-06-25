@@ -14,11 +14,19 @@ color = [0.0, 0.0, 1.0]
 
 [[transforms]]
 name = "superflat"
-mode.Fill.Tile = "plain"
+mode.Fill.Simple = { value.Tile = "plain" }
+
+#[[transforms]]
+#name = "random water puddles"
+#mode.Noise.Pepper = { value.Tile = "water", frequency = 0.1 }
 
 [[transforms]]
-name = "random water puddles"
-mode.Noise.Pepper = { value.Tile = "water", frequency = 0.1 }
+name = "random height spikes"
+mode.Noise.Pepper = { value.Height = 2.0, frequency = 0.4 }
+
+[[transforms]]
+name = "the flood"
+mode.Fill.Flood = { value.Tile = "water", origins = 1, max = 0.0 }
 
 #[[transforms]]
 #name = "pepper"

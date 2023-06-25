@@ -13,12 +13,13 @@ pub struct General {
     pub name: String,
     pub version: String,
     pub base_version: String,
-    pub description: Option<String>
+    pub description: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct TileType {
     pub name: String,
+    pub description: Option<String>,
     pub color: [f32; 3],
 }
 
@@ -30,9 +31,15 @@ pub struct Transform {
 
 #[derive(Deserialize)]
 pub enum OperateMode {
-    Fill(OperateOnType),
+    Fill(FillTypes),
     Noise(NoiseTypes),
     Custom,
+}
+
+#[derive(Deserialize)]
+pub enum FillTypes {
+    Simple(FillSimpleParams),
+    Flood(FillFloodParams),
 }
 
 #[derive(Deserialize)]
@@ -43,13 +50,25 @@ pub enum NoiseTypes {
 #[derive(Deserialize)]
 pub struct NoisePepperParams {
     pub value: OperateOnType,
-    pub frequency: f32
+    pub frequency: f32,
+}
+
+#[derive(Deserialize)]
+pub struct FillSimpleParams {
+    pub value: OperateOnType,
+}
+
+#[derive(Deserialize)]
+pub struct FillFloodParams {
+    pub value: OperateOnType,
+    pub origins: usize,
+    pub max: f32,
 }
 
 #[derive(Deserialize)]
 pub enum OperateOnType {
     Tile(String),
-    Height(i32),
+    Height(f32),
     Index(usize),
 }
 
