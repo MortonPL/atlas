@@ -6,27 +6,59 @@ description = "This is the default Genfile used for world generation."
 
 [[tiles]]
 name = "plain"
-color = [0.0, 1.0, 0.0]
+color = [0.60, 0.93, 0.44]
+
+[[tiles]]
+name = "forest"
+color = [0.19, 0.51, 0.21]
 
 [[tiles]]
 name = "water"
-color = [0.0, 0.0, 1.0]
+color = [0.36, 0.71, 0.86]
+
+[[tiles]]
+name = "deep water"
+color = [0.18, 0.37, 0.63]
+
+[[tiles]]
+name = "low mountain"
+color = [0.7, 0.7, 0.7]
+
+[[tiles]]
+name = "high mountain"
+color = [0.4, 0.4, 0.4]
 
 [[transforms]]
 name = "superflat"
 mode.Fill.Simple = { value.Tile = "plain" }
 
-#[[transforms]]
-#name = "random water puddles"
-#mode.Noise.Pepper = { value.Tile = "water", frequency = 0.1 }
+[[transforms]]
+name = "height map"
+mode.Noise.Perlin = { value.Height = 5.0, offset = 0.0, scale = 2.5 }
 
 [[transforms]]
-name = "random height spikes"
-mode.Noise.Pepper = { value.Height = 2.0, frequency = 0.4 }
+name = "random height deviation"
+mode.Noise.Pepper = { value.Height = 0.0, frequency = 1.0, deviation = 0.5 }
 
 [[transforms]]
-name = "the flood"
-mode.Fill.Flood = { value.Tile = "water", origins = 1, max = 0.0 }
+name = "random forest"
+mode.Noise.Pepper = { value.Tile = "forest", frequency = 0.2, deviation = 0.0, on.Tile = "plain" }
+
+[[transforms]]
+name = "flood oceans"
+mode.Fill.Flood = { value.Tile = "water", origins = 10, min = -9999.9, max = 0.0 }
+
+[[transforms]]
+name = "set deep water"
+mode.Fill.Conditional = { value.Tile = "deep water", min = -9999.9, max = -2.0 }
+
+[[transforms]]
+name = "set hills"
+mode.Fill.Conditional = { value.Tile = "low mountain", min = 2.5, max = 9999.9 }
+
+[[transforms]]
+name = "set high hills"
+mode.Fill.Conditional = { value.Tile = "high mountain", min = 3.5, max = 9999.9 }
 
 #[[transforms]]
 #name = "pepper"

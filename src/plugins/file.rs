@@ -44,13 +44,29 @@ fn index_types(genfile: &mut Genfile, tempmap: &HashMap<String, usize>) {
                     OperateOnType::Tile(t) => {sp.value = OperateOnType::Index(*tempmap.get(t).unwrap())},
                     _ => {},
                 }
+                FillTypes::Conditional(cp) => match &cp.value {
+                    OperateOnType::Tile(t) => {cp.value = OperateOnType::Index(*tempmap.get(t).unwrap())},
+                    _ => {},
+                }
                 FillTypes::Flood(fp) => match &fp.value {
                     OperateOnType::Tile(t) => {fp.value = OperateOnType::Index(*tempmap.get(t).unwrap())},
                     _ => {},
                 }
             }
             OperateMode::Noise(nt) => match nt {
-                NoiseTypes::Pepper(pp) => match &pp.value {
+                NoiseTypes::Pepper(pp) => {
+                    match &pp.value {
+                        OperateOnType::Tile(t) => {pp.value = OperateOnType::Index(*tempmap.get(t).unwrap())},
+                        _ => {},
+                    }
+                    if let Some(on) = &mut pp.on {
+                        match on {
+                            OperateOnType::Tile(t) => {*on = OperateOnType::Index(*tempmap.get(t).unwrap())},
+                            _ => {},
+                        }
+                    }
+                },
+                NoiseTypes::Perlin(pp) => match &pp.value {
                     OperateOnType::Tile(t) => {pp.value = OperateOnType::Index(*tempmap.get(t).unwrap())},
                     _ => {},
                 },

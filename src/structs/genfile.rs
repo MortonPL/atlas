@@ -39,18 +39,29 @@ pub enum OperateMode {
 #[derive(Deserialize)]
 pub enum FillTypes {
     Simple(FillSimpleParams),
+    Conditional(FillConditionalParams),
     Flood(FillFloodParams),
 }
 
 #[derive(Deserialize)]
 pub enum NoiseTypes {
     Pepper(NoisePepperParams),
+    Perlin(NoisePerlinParams),
 }
 
 #[derive(Deserialize)]
 pub struct NoisePepperParams {
     pub value: OperateOnType,
     pub frequency: f32,
+    pub deviation: f32,
+    pub on: Option<OperateOnType>,
+}
+
+#[derive(Deserialize)]
+pub struct NoisePerlinParams {
+    pub value: OperateOnType,
+    pub offset: f32,
+    pub scale: f32,
 }
 
 #[derive(Deserialize)]
@@ -59,9 +70,17 @@ pub struct FillSimpleParams {
 }
 
 #[derive(Deserialize)]
+pub struct FillConditionalParams {
+    pub value: OperateOnType,
+    pub min: f32,
+    pub max: f32,
+}
+
+#[derive(Deserialize)]
 pub struct FillFloodParams {
     pub value: OperateOnType,
     pub origins: usize,
+    pub min: f32,
     pub max: f32,
 }
 
