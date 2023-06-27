@@ -5,7 +5,7 @@ use noise::{NoiseFn, Perlin};
 use bevy::{prelude::*};
 use bevy::sprite::MaterialMesh2dBundle;
 
-use crate::structs::{Genfile, OperateMode, OperateOnType, NoiseTypes, FillTypes};
+use crate::files::genfile::{Genfile, OperateMode, OperateOnType, NoiseTypes, FillTypes};
 
 pub struct WorldGeneratorPlugin;
 

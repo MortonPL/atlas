@@ -3,7 +3,7 @@ use toml;
 
 use bevy::prelude::*;
 
-use crate::structs::{Genfile, OperateMode, NoiseTypes, OperateOnType, TileType, FillTypes};
+use crate::files::genfile::{Genfile, OperateMode, NoiseTypes, OperateOnType, TileType, FillTypes};
 
 type GenericResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 

@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 
-mod components;
-mod systems;
-mod plugins;
-mod structs;
-use crate::plugins::{FilePlugin, WorldGeneratorPlugin};
+mod camera;
+mod files;
+mod gen;
+mod sim;
+mod world;
+use crate::files::FilePlugin;
+use crate::gen::WorldGeneratorPlugin;
 
 fn main() {
     App::new()
