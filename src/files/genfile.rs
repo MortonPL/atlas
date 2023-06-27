@@ -1,14 +1,14 @@
 use bevy::prelude::Resource;
 use serde_derive::Deserialize;
 
-#[derive(Deserialize, Resource)]
+#[derive(Debug, Deserialize, Resource)]
 pub struct Genfile {
     pub general: General,
     pub tiles: Vec<TileType>,
     pub transforms: Vec<Transform>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct General {
     pub name: String,
     pub version: String,
@@ -16,40 +16,40 @@ pub struct General {
     pub description: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TileType {
     pub name: String,
     pub description: Option<String>,
     pub color: [f32; 3],
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Transform {
     pub name: String,
     pub mode: OperateMode,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub enum OperateMode {
     Fill(FillTypes),
     Noise(NoiseTypes),
     Custom,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub enum FillTypes {
     Simple(FillSimpleParams),
     Conditional(FillConditionalParams),
     Flood(FillFloodParams),
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub enum NoiseTypes {
     Pepper(NoisePepperParams),
     Perlin(NoisePerlinParams),
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct NoisePepperParams {
     pub value: OperateOnType,
     pub frequency: f32,
@@ -57,26 +57,26 @@ pub struct NoisePepperParams {
     pub on: Option<OperateOnType>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct NoisePerlinParams {
     pub value: OperateOnType,
     pub offset: f32,
     pub scale: f32,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct FillSimpleParams {
     pub value: OperateOnType,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct FillConditionalParams {
     pub value: OperateOnType,
     pub min: f32,
     pub max: f32,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct FillFloodParams {
     pub value: OperateOnType,
     pub origins: usize,
@@ -84,14 +84,14 @@ pub struct FillFloodParams {
     pub max: f32,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub enum OperateOnType {
     Tile(String),
     Height(f32),
     Index(usize),
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Param<T> {
     pub default: T,
     pub datatype: String,

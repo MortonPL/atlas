@@ -1,21 +1,40 @@
-use std::{f32::consts::PI, collections::VecDeque};
-use rand::{Rng, rngs::ThreadRng};
 use noise::{NoiseFn, Perlin};
+use rand::{rngs::ThreadRng, Rng, RngCore};
+use std::{collections::VecDeque, f32::consts::PI, ops::Deref, ops::DerefMut};
 
-use bevy::{prelude::*};
+use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 
-use crate::files::genfile::{Genfile, OperateMode, OperateOnType, NoiseTypes, FillTypes};
+use crate::files::genfile::{FillTypes, Genfile, NoiseTypes, OperateMode, OperateOnType};
+
+struct WorldGenRng(Box<dyn RngCore + 'static>);
+
+impl Deref for WorldGenRng {
+    type Target = dyn RngCore + 'static;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for WorldGenRng {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 pub struct WorldGeneratorPlugin;
 
 impl Plugin for WorldGeneratorPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(create_tilemap(20, 20));
-        app.add_startup_system(transforms).add_startup_system(create_meshes);
+        app.insert_non_send_resource(WorldGenRng(Box::new(ThreadRng::default())));
+        app.add_startup_system(transforms)
+            .add_startup_system(create_meshes);
     }
 }
 
+#[derive(Debug)]
 struct Tile {
     x: f32,
     y: f32,
@@ -24,7 +43,7 @@ struct Tile {
     set: bool,
 }
 
-#[derive(Resource)]
+#[derive(Debug, Resource)]
 struct Tilemap {
     tiles: Vec<Tile>,
     width: usize,
@@ -37,12 +56,22 @@ fn create_tilemap(width: usize, height: usize) -> Tilemap {
     const DIST: f32 = 18.0;
     let mut tiles: Vec<Tile> = Vec::with_capacity((w * h).try_into().unwrap());
     for j in 0..(w * h) {
-        tiles.push(Tile{x: (j % w - w / 2) as f32 * DIST, y: (j / w - h / 2) as f32 * DIST, z: 0.0, idx: 0, set: false});
+        tiles.push(Tile {
+            x: (j % w - w / 2) as f32 * DIST,
+            y: (j / w - h / 2) as f32 * DIST,
+            z: 0.0,
+            idx: 0,
+            set: false,
+        });
     }
-    Tilemap{tiles, width, height}
+    Tilemap {
+        tiles,
+        width,
+        height,
+    }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy)]
 struct Span {
     pub x1: i32,
     pub x2: i32,
@@ -50,24 +79,37 @@ struct Span {
     pub dy: i32,
 }
 
-fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, max: f32, rng: &mut ThreadRng) {
+fn span_fill(
+    tilemap: &mut Tilemap,
+    idx: usize,
+    num_origins: usize,
+    min: f32,
+    max: f32,
+    rng: &mut dyn RngCore,
+) {
     let mut queue: VecDeque<Span> = default();
     for _ in 0..num_origins {
-        let mut originx= rng.gen_range(0..tilemap.width);
+        let mut originx = rng.gen_range(0..tilemap.width);
         let mut originy = rng.gen_range(0..tilemap.height);
 
         let set = |x: i32, y: i32, tilemap: &mut Tilemap| {
             if y < tilemap.height as i32 && y >= 0 && x < tilemap.width as i32 && x >= 0 {
                 let x = x as usize;
                 let y = y as usize;
-                tilemap.tiles[y * tilemap.width + x] = Tile{idx, set: true, ..tilemap.tiles[y * tilemap.width + x]};
+                tilemap.tiles[y * tilemap.width + x] = Tile {
+                    idx,
+                    set: true,
+                    ..tilemap.tiles[y * tilemap.width + x]
+                };
             }
         };
         let inside = |x: i32, y: i32, tilemap: &mut Tilemap| {
             if y < tilemap.height as i32 && y >= 0 && x < tilemap.width as i32 && x >= 0 {
                 let x = x as usize;
                 let y = y as usize;
-                !tilemap.tiles[y * tilemap.width + x].set && tilemap.tiles[y * tilemap.width + x].z <= max && tilemap.tiles[y * tilemap.width + x].z >= min
+                !tilemap.tiles[y * tilemap.width + x].set
+                    && tilemap.tiles[y * tilemap.width + x].z <= max
+                    && tilemap.tiles[y * tilemap.width + x].z >= min
             } else {
                 false
             }
@@ -88,10 +130,20 @@ fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, ma
         }
 
         // add origin
-        queue.push_back(Span{ x1: originx as i32, x2: originx as i32, y: originy as i32, dy: 1});
+        queue.push_back(Span {
+            x1: originx as i32,
+            x2: originx as i32,
+            y: originy as i32,
+            dy: 1,
+        });
         // add below origin if possible
         if originy > 0 {
-            queue.push_back(Span{ x1: originx as i32, x2: originx as i32, y: (originy - 1) as i32, dy: -1});
+            queue.push_back(Span {
+                x1: originx as i32,
+                x2: originx as i32,
+                y: (originy - 1) as i32,
+                dy: -1,
+            });
         }
 
         while !queue.is_empty() {
@@ -106,7 +158,12 @@ fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, ma
             }
             // queue new span in reverse horizontal direction if we moved at all
             if x < span.x1 {
-                queue.push_back(Span{x1: x, x2: span.x1 - 1, y: span.y - span.dy, dy: -span.dy});
+                queue.push_back(Span {
+                    x1: x,
+                    x2: span.x1 - 1,
+                    y: span.y - span.dy,
+                    dy: -span.dy,
+                });
             }
             // scan in span
             while span.x1 <= span.x2 {
@@ -117,10 +174,20 @@ fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, ma
                 }
 
                 // go up in our direction, mark entire explored line as span
-                queue.push_back(Span{x1: x, x2: span.x1 - 1, y: span.y + span.dy, dy: span.dy});
+                queue.push_back(Span {
+                    x1: x,
+                    x2: span.x1 - 1,
+                    y: span.y + span.dy,
+                    dy: span.dy,
+                });
                 // if we went past the end of this span, add in reverse
                 if span.x1 - 1 > span.x2 {
-                    queue.push_back(Span{x1: span.x2 + 1, x2: span.x1 - 1, y: span.y - span.dy, dy: -span.dy});
+                    queue.push_back(Span {
+                        x1: span.x2 + 1,
+                        x2: span.x1 - 1,
+                        y: span.y - span.dy,
+                        dy: -span.dy,
+                    });
                 }
                 span.x1 += 1;
                 // ???
@@ -133,41 +200,39 @@ fn span_fill(tilemap: &mut Tilemap, idx: usize, num_origins: usize, min: f32, ma
     }
 }
 
-fn transforms(genfile: Res<Genfile>, mut tilemap: ResMut<Tilemap>) {
-    let mut rng = rand::thread_rng();
-
+fn transforms(genfile: Res<Genfile>, mut tilemap: ResMut<Tilemap>, mut rng: NonSendMut<WorldGenRng>) {
     for transform in &genfile.transforms {
         match &transform.mode {
             OperateMode::Fill(f) => match f {
                 FillTypes::Simple(s) => match s.value {
                     OperateOnType::Index(i) => {
                         for tile in &mut tilemap.tiles {
-                            *tile = Tile{idx: i, ..*tile};
+                            *tile = Tile { idx: i, ..*tile };
                         }
-                    },
+                    }
                     OperateOnType::Height(h) => {
                         for tile in &mut tilemap.tiles {
                             tile.z = h;
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 },
-                FillTypes::Flood(f) => match f.value {
-                    OperateOnType::Index(i) => {
-                        span_fill(&mut tilemap, i, f.origins, f.min, f.max, &mut rng);
-                    },
-                    _ => {},
-                },
+                FillTypes::Flood(f) => {
+                    if let OperateOnType::Index(i) = f.value {
+                        span_fill(&mut tilemap, i, f.origins, f.min, f.max, &mut rng.0);
+                    }
+                }
                 FillTypes::Conditional(c) => match c.value {
+                    #[allow(clippy::single_match)]
                     OperateOnType::Index(i) => {
                         for tile in &mut tilemap.tiles {
                             if tile.z >= c.min && tile.z <= c.max {
-                                *tile = Tile{idx: i, ..*tile};
+                                *tile = Tile { idx: i, ..*tile };
                             }
                         }
-                    },
-                    _ => {},
-                }
+                    }
+                    _ => {}
+                },
             },
             OperateMode::Noise(n) => match n {
                 NoiseTypes::Pepper(p) => match p.value {
@@ -180,22 +245,24 @@ fn transforms(genfile: Res<Genfile>, mut tilemap: ResMut<Tilemap>) {
                             };
                         }
                         for tile in &mut tilemap.tiles {
-                            if rng.gen::<f32>() <= p.frequency && (idx == -1 || tile.idx == idx as usize) {
-                                *tile = Tile{idx: i, ..*tile};
+                            if rng.gen::<f32>() <= p.frequency
+                                && (idx == -1 || tile.idx == idx as usize)
+                            {
+                                *tile = Tile { idx: i, ..*tile };
                             }
                         }
-                    },
+                    }
                     OperateOnType::Height(h) => {
                         for tile in &mut tilemap.tiles {
                             if rng.gen::<f32>() <= p.frequency {
                                 tile.z += h + rng.gen_range(-p.deviation..=p.deviation);
                             }
                         }
-                    },
-                    _ => {},
-                }
-                NoiseTypes::Perlin(p) => match p.value {
-                    OperateOnType::Height(h) => {
+                    }
+                    _ => {}
+                },
+                NoiseTypes::Perlin(p) => {
+                    if let OperateOnType::Height(h) = p.value {
                         let perlin = Perlin::new(rng.gen());
                         let w = tilemap.width;
                         let hh = tilemap.height;
@@ -205,11 +272,10 @@ fn transforms(genfile: Res<Genfile>, mut tilemap: ResMut<Tilemap>) {
                             let v = perlin.get([x * p.scale as f64, y * p.scale as f64]);
                             tile.z += v as f32 * h + p.offset;
                         }
-                    },
-                    _ => {},
+                    }
                 }
-            }
-            _ => {},
+            },
+            _ => {}
         }
     }
 }
@@ -224,15 +290,30 @@ fn create_meshes(
 ) {
     for tile in &tilemap.tiles {
         let color = genfile.tiles[tile.idx].color;
-        commands.spawn(MaterialMesh2dBundle{
-            mesh: meshes.add(Mesh::from(shape::RegularPolygon::new(12.0, 4))).into(),
-            transform: Transform::from_xyz(tile.x, tile.y, 0.0).with_rotation(Quat::from_rotation_z(PI/4.0)),
-            material: materials.add(ColorMaterial::from(Color::Rgba{red: color[0], green: color[1], blue: color[2], alpha: 1.0})),
+        commands.spawn(MaterialMesh2dBundle {
+            mesh: meshes
+                .add(Mesh::from(shape::RegularPolygon::new(12.0, 4)))
+                .into(),
+            transform: Transform::from_xyz(tile.x, tile.y, 0.0)
+                .with_rotation(Quat::from_rotation_z(PI / 4.0)),
+            material: materials.add(ColorMaterial::from(Color::Rgba {
+                red: color[0],
+                green: color[1],
+                blue: color[2],
+                alpha: 1.0,
+            })),
             ..default()
         });
-        commands.spawn(Text2dBundle{
+        commands.spawn(Text2dBundle {
             text: Text {
-                sections: vec![TextSection{value: format!("{:.1}", tile.z), style: TextStyle { font: asset_server.load("fonts/default.ttf"), font_size: 15.0, color: Color::BLACK }}],
+                sections: vec![TextSection {
+                    value: format!("{:.1}", tile.z),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/default.ttf"),
+                        font_size: 15.0,
+                        color: Color::BLACK,
+                    },
+                }],
                 alignment: TextAlignment::Center,
                 linebreak_behaviour: bevy::text::BreakLineOn::WordBoundary,
             },
