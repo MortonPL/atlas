@@ -8,8 +8,6 @@
 		"recommendations": [
 			"rust-lang.rust-analyzer",
 			"tamasfe.even-better-toml",
-			"mhutchie.git-graph",
-			"eamodio.gitlens",
 			"wayou.vscode-todo-highlight",
 		]
 	},
@@ -49,9 +47,9 @@
 			}
 		],
 		"rust-analyzer.linkedProjects": [
-			".\\Cargo.toml",
-			".\\Cargo.toml",
-			".\\Cargo.toml"
+			".\\atlas_gen\\Cargo.toml",
+			".\\atlas_lib\\Cargo.toml",
+			".\\atlas_sim\\Cargo.toml",
 		],
 	},
 }
