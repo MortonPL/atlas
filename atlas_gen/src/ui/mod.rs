@@ -1,2 +1,4 @@
-mod ui;
-pub use ui::*;
+mod internal;
+mod plugin;
+
+pub use plugin::*;

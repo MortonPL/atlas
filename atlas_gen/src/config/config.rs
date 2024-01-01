@@ -1,8 +1,8 @@
 use bevy::prelude::Resource;
-use documented::{Documented, DocumentedFields};
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+/// Complete configuration for the map generator.
+#[derive(Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
 pub struct GeneratorConfig {
     pub general: GeneralConfig,
     pub topography: TopographyConfig,
@@ -10,11 +10,8 @@ pub struct GeneratorConfig {
 }
 
 /// Config for the general map settings.
-#[derive(Debug, Deserialize, Documented, DocumentedFields, Resource, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Resource, Serialize)]
 pub struct GeneralConfig {
-    /// World model describes the geometric model of the world which
-    /// impacts the coordinate system, map visualisation and map border
-    /// behavior.
     pub world_model: WorldModel,
     pub world_size: [u32; 2],
     pub tile_resolution: f32,
@@ -22,7 +19,11 @@ pub struct GeneralConfig {
 
 impl Default for GeneralConfig {
     fn default() -> Self {
-        Self { world_model: Default::default(), world_size: [300, 200], tile_resolution: 100.0 }
+        Self {
+            world_model: Default::default(),
+            world_size: [300, 200],
+            tile_resolution: 100.0,
+        }
     }
 }
 
@@ -45,8 +46,8 @@ impl WorldModel {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
 pub struct TopographyConfig {}
 
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
 pub struct ClimateConfig {}
