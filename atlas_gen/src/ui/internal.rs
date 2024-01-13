@@ -2,11 +2,11 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::egui::{self, Context, Response, Ui};
+use bevy_egui::egui::{self, Context, Ui};
 
-use crate::config::{load_config, save_config, GeneratorConfig, WorldModel};
+use crate::config::{load_config, save_config, GeneratorConfig};
 
-type FnPanelCreator = fn(&mut Ui, &mut ResMut<GeneratorConfig>);
+use super::panel_general::MainPanelGeneral;
 
 /// Default sidebar width in points. Should be greater or equal to [SIDEBAR_MIN_WIDTH].
 const SIDEBAR_WIDTH: f32 = 400.0;
@@ -19,18 +19,6 @@ const MIN_CAMERA_ZOOM: f32 = 2.5;
 const MAX_CAMERA_ZOOM: f32 = 5.0;
 /// Mutliplier to current Z.
 const CAMERA_ZOOM_SPEED: f32 = 0.05;
-
-/// Type of UI panels with adjustable settings.
-#[derive(Default)]
-enum UiPanel {
-    /// World model, world resolution, tile size...
-    #[default]
-    General,
-    /// Height map...
-    Topography,
-    /// Temperature model, precipitation, currents...
-    Climate,
-}
 
 #[derive(Clone, Copy, Default)]
 enum FileDialogMode {
@@ -53,9 +41,27 @@ pub struct MainCamera;
 #[derive(Default, Resource)]
 pub struct UiState {
     pub viewport_size: bevy::prelude::Vec2,
-    current_panel: UiPanel,
+    current_panel: Box<dyn MainPanel + Sync + Send>,
     file_dialog: Option<egui_file::FileDialog>,
     file_dialog_mode: FileDialogMode,
+}
+
+/// A sidebar page.
+pub trait MainPanel {
+    /// Get panel heading.
+    fn get_heading(&self) -> &'static str;
+
+    /// Create UI for this panel.
+    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>);
+
+    /// Handle transitioning to the previous or next panel.
+    fn transition(&self, prev: bool, next: bool) -> Box<dyn MainPanel + Sync + Send>;
+}
+
+impl Default for Box<dyn MainPanel + Sync + Send> {
+    fn default() -> Self {
+        Box::new(MainPanelGeneral::default())
+    }
 }
 
 /// Add the entire UI.
@@ -138,7 +144,7 @@ fn create_sidebar_head(
                 .button(egui::RichText::new("Reset Config").size(12.0))
                 .clicked()
             {
-                config.set_if_neq(GeneratorConfig::default());
+                **config = GeneratorConfig::default();
             }
         });
     });
@@ -151,83 +157,14 @@ fn create_current_panel(
     config: &mut ResMut<GeneratorConfig>,
     ui_state: &mut ResMut<UiState>,
 ) {
-    let (head, panel_fun, prev, next): (&str, &FnPanelCreator, UiPanel, UiPanel) =
-        match ui_state.current_panel {
-            UiPanel::General => (
-                "General",
-                &(create_panel_general as FnPanelCreator),
-                UiPanel::General,
-                UiPanel::Topography,
-            ),
-            UiPanel::Topography => (
-                "Topography",
-                &(create_panel_topography as FnPanelCreator),
-                UiPanel::General,
-                UiPanel::Climate,
-            ),
-            UiPanel::Climate => (
-                "Climate",
-                &(create_panel_climate as FnPanelCreator),
-                UiPanel::Topography,
-                UiPanel::Climate,
-            ),
-        };
-    ui.heading(head);
-    egui::ScrollArea::both().show(ui, |ui| panel_fun(ui, config));
+    ui.heading(ui_state.current_panel.get_heading());
+    egui::ScrollArea::both().show(ui, |ui| ui_state.current_panel.show(ui, config));
+    ui.separator();
     ui.horizontal(|ui| {
-        if ui.button("Previous").clicked() {
-            ui_state.current_panel = prev;
-        }
-        if ui.button("Next").clicked() {
-            ui_state.current_panel = next;
-        }
+        ui_state.current_panel = ui_state
+            .current_panel
+            .transition(ui.button("Previous").clicked(), ui.button("Next").clicked());
     });
-}
-
-fn create_panel_general(ui: &mut Ui, config: &mut ResMut<GeneratorConfig>) {
-    add_section(ui, "Stuff", |ui| {
-        ui.label("World Model").on_hover_text_at_pointer("TODO");
-        egui::ComboBox::from_label("")
-            .selected_text(config.general.world_model.str())
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut config.general.world_model,
-                    WorldModel::Flat,
-                    WorldModel::Flat.str(),
-                );
-                ui.selectable_value(
-                    &mut config.general.world_model,
-                    WorldModel::Globe,
-                    WorldModel::Globe.str(),
-                )
-            })
-            .response
-            .on_hover_text_at_pointer("TODO");
-        ui.end_row();
-    });
-}
-
-fn create_panel_topography(_ui: &mut Ui, _config: &mut ResMut<GeneratorConfig>) {
-    // TODO
-}
-
-fn create_panel_climate(_ui: &mut Ui, _config: &mut ResMut<GeneratorConfig>) {
-    // TODO
-}
-
-/// Add a section consisting of a collapsible header and a grid.
-fn add_section<BodyRet>(
-    ui: &mut Ui,
-    header: impl Into<String>,
-    add_body: impl FnOnce(&mut Ui) -> BodyRet,
-) -> Response {
-    let header: String = header.into();
-    egui::CollapsingHeader::new(egui::RichText::new(header.clone()).heading())
-        .default_open(true)
-        .show(ui, |ui| {
-            egui::Grid::new(format!("{}_grid", header)).show(ui, add_body);
-        })
-        .header_response
 }
 
 /// Adjust viewport size to not overlap the sidebar.
@@ -247,19 +184,16 @@ fn handle_file_dialog(
     ui_state: &mut ResMut<UiState>,
 ) {
     let mode = ui_state.file_dialog_mode;
-    let Some(file_dialog) = &mut ui_state.file_dialog else {
-        return;
-    };
-    if !file_dialog.show(ctx).selected() {
-        return;
+    if let Some(file_dialog) = &mut ui_state.file_dialog {
+        if file_dialog.show(ctx).selected() {
+            if let Some(file) = file_dialog.path() {
+                match mode {
+                    FileDialogMode::LoadConfig => **config = load_config(file).unwrap(), // TODO error handling
+                    FileDialogMode::SaveConfig => save_config(config, file).unwrap(), // TODO error handling
+                    _ => {}
+                }
+            }
+            ui_state.file_dialog = None;
+        }
     }
-    let Some(file) = file_dialog.path() else {
-        return;
-    };
-    match mode {
-        FileDialogMode::LoadConfig => _ = config.set_if_neq(load_config(file).unwrap()), // TODO error handling
-        FileDialogMode::SaveConfig => save_config(config, file).unwrap(), // TODO error handling
-        _ => {}
-    }
-    ui_state.file_dialog = None;
 }

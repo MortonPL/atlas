@@ -1,7 +1,7 @@
 use bevy::app::{MainScheduleOrder, RunFixedUpdateLoop};
 use bevy::input::mouse::MouseWheel;
-use bevy::{prelude::*, ecs::schedule::ScheduleLabel};
 use bevy::render::camera::Viewport;
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 use bevy_egui::{EguiContexts, EguiPlugin};
 
 use crate::config::GeneratorConfig;
@@ -50,9 +50,7 @@ pub fn update(
 /// Startup system
 ///
 /// Spawn the main camera that the viewport will use.
-pub fn startup(
-    mut commands: Commands,
-) {
+pub fn startup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 5.0)
