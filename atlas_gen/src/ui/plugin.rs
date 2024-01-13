@@ -1,10 +1,10 @@
+use bevy::app::{MainScheduleOrder, RunFixedUpdateLoop};
 use bevy::input::mouse::MouseWheel;
-use bevy::prelude::*;
+use bevy::{prelude::*, ecs::schedule::ScheduleLabel};
 use bevy::render::camera::Viewport;
-use bevy_egui::EguiContexts;
+use bevy_egui::{EguiContexts, EguiPlugin};
 
 use crate::config::GeneratorConfig;
-
 use crate::ui::internal::{create_ui, MainCamera, UiState};
 
 use super::internal::handle_camera;
@@ -14,19 +14,27 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        let mut schedule_order = app.world.get_resource_mut::<MainScheduleOrder>().unwrap();
+        schedule_order.insert_after(RunFixedUpdateLoop, UiUpdate);
         // Systems that create Egui widgets should be run during the `CoreSet::Update` set,
         // or after the `EguiSet::BeginFrame` system (which belongs to the `CoreSet::PreUpdate` set).
         app.init_resource::<UiState>()
+            .add_plugins(EguiPlugin)
+            .init_schedule(UiUpdate)
             .add_systems(Startup, startup)
-            .add_systems(Update, update)
-            .add_systems(PostUpdate, post_update.after(update));
+            .add_systems(UiUpdate, update)
+            .add_systems(UiUpdate, after_update.after(update));
     }
 }
+
+/// Schedule run before [Update], designed for UI handling.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct UiUpdate;
 
 /// Update system
 ///
 /// Redraw the immediate UI.
-fn update(
+pub fn update(
     config: ResMut<GeneratorConfig>,
     mut contexts: EguiContexts,
     state: ResMut<UiState>,
@@ -42,38 +50,23 @@ fn update(
 /// Startup system
 ///
 /// Spawn the main camera that the viewport will use.
-fn startup(
+pub fn startup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 5.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
             ..Default::default()
         },
         MainCamera,
     ));
-
-    // DEBUG Spawn a red sphere to confirm the camera is set up correctly.
-    let mesh = meshes.add(shape::UVSphere::default().into());
-    let material = materials.add(StandardMaterial {
-        base_color: Color::RED,
-        ..Default::default()
-    });
-    commands.spawn(PbrBundle {
-        mesh,
-        material,
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..Default::default()
-    });
 }
 
-/// Post update system.
+/// Update system (after update).
 ///
 /// Set the viewport rectangle to whatever is not occupied by the UI sidebar.
-fn post_update(
+pub fn after_update(
     egui_settings: Res<bevy_egui::EguiSettings>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
     ui_state: Res<UiState>,
