@@ -5,6 +5,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct GeneratorConfig {
     pub general: GeneralConfig,
+    pub continents: ContinentsConfig,
     pub topography: TopographyConfig,
     pub climate: ClimateConfig,
 }
@@ -14,6 +15,7 @@ pub struct GeneratorConfig {
 pub struct GeneralConfig {
     pub world_model: WorldModel,
     pub tile_resolution: f32,
+    pub seed: u32,
 }
 
 impl Default for GeneralConfig {
@@ -21,6 +23,7 @@ impl Default for GeneralConfig {
         Self {
             world_model: Default::default(),
             tile_resolution: 100.0,
+            seed: rand::random(),
         }
     }
 }
@@ -39,6 +42,13 @@ impl WorldModel {
         match self {
             Self::Flat(_) => "Flat",
             Self::Globe(_) => "Globe",
+        }
+    }
+
+    pub fn get_dimensions(&self) -> (u32, u32) {
+        match self {
+            Self::Flat(x) => (x.world_size[0], x.world_size[1]),
+            Self::Globe(_) => (100, 100),
         }
     }
 }
@@ -65,8 +75,26 @@ impl Default for FlatWorldModel {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
 
-#[derive(Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
+/// Config for layout of continets and oceans.
+#[derive(Debug, Deserialize, Resource, Serialize)]
+pub struct ContinentsConfig {
+    pub num_continents: u8,
+    pub num_oceans: u8,
+    pub data: Vec<u8>,
+}
+
+impl Default for ContinentsConfig {
+    fn default() -> Self {
+        Self {
+            num_continents: 2,
+            num_oceans: 1,
+            data: Default::default()
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct TopographyConfig {}
 
-#[derive(Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
+#[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct ClimateConfig {}

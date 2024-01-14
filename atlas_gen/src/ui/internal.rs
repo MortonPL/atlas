@@ -1,27 +1,29 @@
+use std::path::Path;
+
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
-    prelude::*,
+    prelude::*
 };
 use bevy_egui::egui::{self, Context, Ui};
 
-use crate::config::{load_config, save_config, GeneratorConfig};
+use crate::{config::{load_config, save_config, GeneratorConfig, load_image, self}, map::ViewedMapLayer};
 
 use super::panel_general::MainPanelGeneral;
 
 /// Default sidebar width in points. Should be greater or equal to [SIDEBAR_MIN_WIDTH].
 const SIDEBAR_WIDTH: f32 = 400.0;
 /// Minimal sidebar width in points.
-const SIDEBAR_MIN_WIDTH: f32 = 400.0;
+const SIDEBAR_MIN_WIDTH: f32 = 300.0;
 
 /// Minimal camera zoom as Z in world space (bad idea?).
-const MIN_CAMERA_ZOOM: f32 = 2.5;
+const MIN_CAMERA_ZOOM: f32 = 2.0;
 /// Minimal camera zoom as Z in world space (bad idea?).
 const MAX_CAMERA_ZOOM: f32 = 5.0;
 /// Mutliplier to current Z.
 const CAMERA_ZOOM_SPEED: f32 = 0.05;
 
 #[derive(Clone, Copy, Default)]
-enum FileDialogMode {
+pub enum FileDialogMode {
     /// Save generator configuration to TOML file.
     #[default]
     SaveConfig,
@@ -30,20 +32,33 @@ enum FileDialogMode {
     /// Save generation layer output to PNG file.
     SaveImage,
     /// Load generation layer output from PNG file.
-    LoadImage,
+    LoadImage(ImageLayer),
+}
+
+#[derive(Clone, Copy)]
+pub enum ImageLayer {
+    Continental,
+    Topographical,
+    Climate,
 }
 
 /// Camera tag.
 #[derive(Component)]
 pub struct MainCamera;
 
-/// Struct that contains only the UI-related state (no logic).
+/// Struct that contains only the UI-related state (no logic). 
 #[derive(Default, Resource)]
 pub struct UiState {
     pub viewport_size: bevy::prelude::Vec2,
-    current_panel: Box<dyn MainPanel + Sync + Send>,
-    file_dialog: Option<egui_file::FileDialog>,
-    file_dialog_mode: FileDialogMode,
+    pub file_dialog: Option<egui_file::FileDialog>,
+    pub file_dialog_mode: FileDialogMode,
+    pub just_loaded_layer: bool,
+    pub just_changed_dimensions: bool,
+}
+
+#[derive(Default, Resource)]
+pub struct UiStatePanel {
+    pub current_panel: Box<dyn MainPanel + Sync + Send>,
 }
 
 /// A sidebar page.
@@ -52,10 +67,13 @@ pub trait MainPanel {
     fn get_heading(&self) -> &'static str;
 
     /// Create UI for this panel.
-    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>);
+    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState);
 
     /// Handle transitioning to the previous or next panel.
     fn transition(&self, prev: bool, next: bool) -> Box<dyn MainPanel + Sync + Send>;
+
+    /// Map self to [ViewedMapLayer].
+    fn get_map_layer(&self) -> ViewedMapLayer;
 }
 
 impl Default for Box<dyn MainPanel + Sync + Send> {
@@ -69,6 +87,7 @@ pub fn create_ui(
     ctx: &Context,
     mut config: ResMut<GeneratorConfig>,
     mut ui_state: ResMut<UiState>,
+    mut ui_panel: ResMut<UiStatePanel>,
 ) {
     // The UI is a resizeable sidebar fixed to the right window border.
     // __________________
@@ -81,7 +100,7 @@ pub fn create_ui(
         .default_width(SIDEBAR_WIDTH)
         .show(ctx, |ui| {
             create_sidebar_head(ui, &mut config, &mut ui_state);
-            create_current_panel(ui, &mut config, &mut ui_state);
+            create_current_panel(ui, &mut config, &mut ui_state, &mut ui_panel);
             adjust_viewport(ui, &mut ui_state);
         });
 
@@ -117,7 +136,7 @@ pub fn handle_camera(
 fn create_sidebar_head(
     ui: &mut Ui,
     config: &mut ResMut<GeneratorConfig>,
-    ui_state: &mut ResMut<UiState>,
+    ui_state: &mut UiState,
 ) {
     ui.vertical(|ui| {
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
@@ -156,19 +175,20 @@ fn create_current_panel(
     ui: &mut Ui,
     config: &mut ResMut<GeneratorConfig>,
     ui_state: &mut ResMut<UiState>,
+    ui_panel: &mut ResMut<UiStatePanel>,
 ) {
-    ui.heading(ui_state.current_panel.get_heading());
-    egui::ScrollArea::both().show(ui, |ui| ui_state.current_panel.show(ui, config));
+    ui.heading(ui_panel.current_panel.get_heading());
+    egui::ScrollArea::both().show(ui, |ui| ui_panel.current_panel.show(ui, config, ui_state));
     ui.separator();
     ui.horizontal(|ui| {
-        ui_state.current_panel = ui_state
+        ui_panel.current_panel = ui_panel
             .current_panel
             .transition(ui.button("Previous").clicked(), ui.button("Next").clicked());
     });
 }
 
 /// Adjust viewport size to not overlap the sidebar.
-fn adjust_viewport(ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
     let window_size = ui.clip_rect().size();
     let ui_size = ui.max_rect().size();
     ui_state.viewport_size = Vec2 {
@@ -181,7 +201,7 @@ fn adjust_viewport(ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
 fn handle_file_dialog(
     ctx: &Context,
     config: &mut ResMut<GeneratorConfig>,
-    ui_state: &mut ResMut<UiState>,
+    ui_state: &mut UiState,
 ) {
     let mode = ui_state.file_dialog_mode;
     if let Some(file_dialog) = &mut ui_state.file_dialog {
@@ -190,10 +210,24 @@ fn handle_file_dialog(
                 match mode {
                     FileDialogMode::LoadConfig => **config = load_config(file).unwrap(), // TODO error handling
                     FileDialogMode::SaveConfig => save_config(config, file).unwrap(), // TODO error handling
-                    _ => {}
-                }
+                    FileDialogMode::LoadImage(layer) => {
+                        handle_load_file(config, file, layer).unwrap(); // TODO error handling
+                        ui_state.just_loaded_layer = true;
+                    },
+                    _ => {},
+                };
             }
             ui_state.file_dialog = None;
         }
     }
+}
+
+fn handle_load_file(config: &mut ResMut<GeneratorConfig>, file: &Path, layer: ImageLayer) -> Result<(), config::Error> {
+    let (width, height) = config.general.world_model.get_dimensions();
+    let data = load_image(file, width, height)?;
+    match layer {
+        ImageLayer::Continental => config.continents.data = data,
+        _ => {},
+    };
+    Ok(())
 }

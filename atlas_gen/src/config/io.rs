@@ -1,5 +1,5 @@
 use crate::config::GeneratorConfig;
-use std::{fs, path::Path};
+use std::{fs::{self, File}, path::Path};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -11,6 +11,12 @@ pub enum Error {
     Deser(#[from] toml::de::Error),
     #[error("{0}")]
     Serde(#[from] toml::ser::Error),
+    #[error("{0}")]
+    PngDecode(#[from] png::DecodingError),
+    #[error("Image resolution {0}x{1} doesn't match world size {2}x{3}")]
+    ResolutionMismatch(u32, u32, u32, u32),
+    #[error("Image byte per pixel value is {0}, but only 4 is accepted")]
+    InvalidBytePerPixel(usize),
 }
 
 /// Load a generator config from a TOML file.
@@ -25,4 +31,23 @@ pub fn save_config(config: &GeneratorConfig, path: impl AsRef<Path>) -> Result<(
     let text = toml::to_string(config)?;
     fs::write(path, text)?;
     Ok(())
+}
+
+/// Load a generator image (layer) from a PNG file.
+pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec<u8>> {
+    let decoder = png::Decoder::new(File::open(path)?);
+    let mut reader = decoder.read_info()?;
+    let info = reader.info();
+
+    if (info.width != width) || (info.height != height) {
+        return Err(Error::ResolutionMismatch(info.width, info.height, width, height));
+    }
+    let bypp = info.bytes_per_pixel();
+    if bypp != 4 {
+        return Err(Error::InvalidBytePerPixel(bypp));
+    }
+    let mut buf = vec![0; reader.output_buffer_size()];
+    reader.next_frame(&mut buf)?;
+
+    Ok(buf)
 }

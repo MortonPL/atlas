@@ -1,15 +1,15 @@
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
-use crate::config::GeneratorConfig;
+use crate::{config::GeneratorConfig, map::ViewedMapLayer};
 
-use super::{internal::MainPanel, panel_topography::MainPanelTopography};
+use super::{internal::{MainPanel, UiState}, panel_topography::MainPanelTopography};
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelClimate;
 
 impl MainPanel for MainPanelClimate {
-    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>) {
+    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
         // TODO
     }
 
@@ -23,5 +23,9 @@ impl MainPanel for MainPanelClimate {
         } else {
             Box::new(*self)
         }
+    }
+
+    fn get_map_layer(&self) -> ViewedMapLayer {
+        ViewedMapLayer::Climate
     }
 }
