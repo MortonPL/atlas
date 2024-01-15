@@ -74,7 +74,7 @@ pub fn update_layer_change (
         ViewedMapLayer::All => &mut graphics.layer_all,
         _ => &mut graphics.layer_none,
     };
-    layer.outdated |= ui_state.just_loaded_layer;
+    layer.invalidated |= ui_state.just_loaded_layer;
     if ui_state.just_changed_dimensions {
         graphics.layer_cont.invalidated = true;
         graphics.layer_topo.invalidated = true;

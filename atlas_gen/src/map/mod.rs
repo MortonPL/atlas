@@ -226,7 +226,7 @@ pub fn update_validate_layers(
         material.base_color_texture = Some(image);
 
         graphics.layer_cont.invalidated = false;
-        graphics.layer_cont.outdated = false;
+        graphics.layer_cont.outdated = true;
     } else if graphics.layer_cont.outdated {
         let image = images.get_mut(&graphics.layer_cont.image).unwrap();
         image.data = config.continents.data.clone();

@@ -94,7 +94,9 @@ pub fn create_ui(
     // | Sidebar Head   |  <-- Title, "Save"/"Load"/"Reset" buttons.
     // |----------------|
     // | Panel-specific |  <-- Panel displaying current stage settings
-    // |________________|      and "Previous"/"Next" buttons.
+    // |                |      and "Previous"/"Next" buttons.
+    // |  Prev || Next  |
+    // |________________|
     egui::SidePanel::right("ui_root")
         .min_width(SIDEBAR_MIN_WIDTH)
         .default_width(SIDEBAR_WIDTH)
