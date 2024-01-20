@@ -6,7 +6,7 @@ use bevy_egui::{EguiContexts, EguiPlugin};
 
 use crate::config::GeneratorConfig;
 use crate::map::{MapGraphicsData, ViewedMapLayer};
-use crate::ui::internal::{create_ui, MainCamera, UiState, handle_camera, UiStatePanel};
+use crate::ui::internal::{create_ui, handle_camera, MainCamera, UiState, UiStatePanel};
 
 /// Plugin responsible for the entire GUI and viewport rectangle.
 pub struct UiPlugin;
@@ -42,13 +42,11 @@ pub fn update_ui(
     ui_state: ResMut<UiState>,
     ui_panel: ResMut<UiStatePanel>,
 ) {
-    let ctx = contexts.ctx_mut();
-    create_ui(ctx, config, ui_state, ui_panel);
-    
+    create_ui(contexts.ctx_mut(), config, ui_state, ui_panel);
 }
 
 /// Update system
-/// 
+///
 /// Handle user input
 pub fn update_input(
     kb: Res<Input<KeyCode>>,
@@ -59,9 +57,9 @@ pub fn update_input(
 }
 
 /// Update system (after [update_ui])
-/// 
+///
 /// Set visible map layer depending on the current UI panel.
-pub fn update_layer_change (
+pub fn update_layer_change(
     mut graphics: ResMut<MapGraphicsData>,
     mut ui_state: ResMut<UiState>,
     ui_panel: ResMut<UiStatePanel>,

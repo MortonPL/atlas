@@ -1,9 +1,18 @@
 use bevy::prelude::*;
-use bevy_egui::egui::{self, DragValue, Ui};
+use bevy_egui::egui::{self, Ui};
 
-use crate::{config::{FlatWorldModel, GeneratorConfig, GlobeWorldModel, WorldModel}, map::ViewedMapLayer};
+use crate::{
+    config::{FlatWorldModel, GeneratorConfig, GlobeWorldModel, WorldModel},
+    map::ViewedMapLayer,
+};
 
-use super::{internal::{MainPanel, UiState}, panel_continents::MainPanelContinents, utils::add_section};
+use atlas_lib::ui::{UiControl, UiSlider, UiSliderN};
+
+use super::{
+    internal::{MainPanel, UiState},
+    panel_continents::MainPanelContinents,
+    utils::add_section,
+};
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelGeneral;
@@ -15,7 +24,7 @@ impl MainPanel for MainPanelGeneral {
             WorldModel::Globe(_) => true,
         };
         let mut model_globe = old_model_globe;
-        add_section(ui, "Stuff", |ui| {
+        add_section(ui, "World", |ui| {
             ui.label("Seed").on_hover_text_at_pointer("TODO");
             ui.horizontal(|ui| {
                 ui.add(
@@ -41,9 +50,9 @@ impl MainPanel for MainPanelGeneral {
                 .on_hover_text_at_pointer("TODO");
             ui.end_row();
 
-            ui.label("Tile resolution").on_hover_text_at_pointer("TODO");
-            ui.add(egui::DragValue::new(&mut config.general.tile_resolution).clamp_range(10.0..=200.0)).on_hover_text_at_pointer("TODO");
-            ui.end_row()
+            UiSlider::new(ui, "Tile resolution", &mut config.general.tile_resolution)
+                .clamp_range(10.0..=200.0)
+                .show(None);
         });
         if old_model_globe != model_globe {
             config.general.world_model = match model_globe {
@@ -69,7 +78,7 @@ impl MainPanel for MainPanelGeneral {
 
     fn transition(&self, _prev: bool, next: bool) -> Box<dyn MainPanel + Sync + Send> {
         if next {
-            Box::new(MainPanelContinents::default())
+            Box::<MainPanelContinents>::default()
         } else {
             Box::new(*self)
         }
@@ -81,23 +90,17 @@ impl MainPanel for MainPanelGeneral {
 }
 
 fn create_general_flat_settings(ui: &mut Ui, ui_state: &mut UiState, config: &mut FlatWorldModel) {
-    let (old_width, old_height) = (config.world_size[0], config.world_size[1]);
-    ui.label("World Size").on_hover_text_at_pointer("TODO");
-    ui.add(
-        DragValue::new(&mut config.world_size[0])
-            .speed(0.5)
-            .clamp_range(100..=500),
-    )
-    .on_hover_text_at_pointer("TODO");
-    ui.add(
-        DragValue::new(&mut config.world_size[1])
-            .speed(0.5)
-            .clamp_range(100..=500),
-    )
-    .on_hover_text_at_pointer("TODO");
-    ui_state.just_changed_dimensions = (config.world_size[0] != old_width) || (config.world_size[1] != old_height);
+    let old = config.world_size;
+    UiSliderN::new(ui, "World Size", &mut config.world_size)
+        .clamp_range(100..=500)
+        .show(None);
+    ui_state.just_changed_dimensions = old != config.world_size;
 }
 
-fn create_general_globe_settings(ui: &mut Ui, ui_state: &mut UiState, config: &mut GlobeWorldModel) {
+fn create_general_globe_settings(
+    _ui: &mut Ui,
+    _ui_state: &mut UiState,
+    _config: &mut GlobeWorldModel,
+) {
     // TODO
 }

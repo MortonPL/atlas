@@ -1,3 +1,4 @@
+use atlas_lib::MakeUi;
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
 
@@ -76,9 +77,16 @@ impl Default for FlatWorldModel {
 pub struct GlobeWorldModel;
 
 /// Config for layout of continets and oceans.
-#[derive(Debug, Deserialize, Resource, Serialize)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct ContinentsConfig {
+    #[name("# of Continents")]
+    #[control(UiSlider)]
+    #[add(clamp_range(0..=10))]
+    #[hint("Balbinka")]
     pub num_continents: u8,
+    #[name("# of Oceans")]
+    #[control(UiSlider)]
+    #[add(clamp_range(0..=10))]
     pub num_oceans: u8,
     pub data: Vec<u8>,
 }
@@ -88,7 +96,7 @@ impl Default for ContinentsConfig {
         Self {
             num_continents: 2,
             num_oceans: 1,
-            data: Default::default()
+            data: Default::default(),
         }
     }
 }

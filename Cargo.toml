@@ -3,6 +3,7 @@ members = [
     "atlas_lib",
     "atlas_gen",
     "atlas_sim",
+    "atlas_macro",
 ]
 resolver = "2"
 

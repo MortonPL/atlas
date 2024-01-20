@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-atlas_lib = { path = "../atlas_lib" }   # common library
-bevy = { version = "0.12.0" }           # game engine        (TODO) #features = ["dynamic_linking"] }
-bevy_egui = "0.24.0"                    # GUI
-egui_file = "0.13.0"                    # GUI - file dialog
-noise = "0.8.2"                         # noise generation
-png = "0.17.11"                         # PNG codec
-rand = "0.8.5"                          # RNG
-serde = "1.0.164"                       # (de)serialization of data
-serde_derive = "1.0.164"                # "
-serde_with = "3.0.0"                    # "
-thiserror = "1.0.53"                    # convenient error handling
-toml = "0.7.4"                          # serde for TOML
+atlas_lib = { path = "../atlas_lib" }     # inhouse common library
+bevy = { version = "0.12.0" }             # game engine        (TODO) #features = ["dynamic_linking"] }
+bevy_egui = "0.24.0"                      # GUI
+egui_file = "0.13.0"                      # GUI - file dialog
+noise = "0.8.2"                           # noise generation
+png = "0.17.11"                           # PNG codec
+rand = "0.8.5"                            # RNG
+serde = "1.0.164"                         # (de)serialization of data
+serde_derive = "1.0.164"                  # "
+serde_with = "3.0.0"                      # "
+thiserror = "1.0.53"                      # convenient error handling
+toml = "0.7.4"                            # serde for TOML

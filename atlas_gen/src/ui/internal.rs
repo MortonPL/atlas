@@ -2,11 +2,14 @@ use std::path::Path;
 
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
-    prelude::*
+    prelude::*,
 };
 use bevy_egui::egui::{self, Context, Ui};
 
-use crate::{config::{load_config, save_config, GeneratorConfig, load_image, self}, map::ViewedMapLayer};
+use crate::{
+    config::{self, load_config, load_image, save_config, save_image, GeneratorConfig},
+    map::ViewedMapLayer,
+};
 
 use super::panel_general::MainPanelGeneral;
 
@@ -30,7 +33,7 @@ pub enum FileDialogMode {
     /// Load generator configuration to TOML file.
     LoadConfig,
     /// Save generation layer output to PNG file.
-    SaveImage,
+    SaveImage(ImageLayer),
     /// Load generation layer output from PNG file.
     LoadImage(ImageLayer),
 }
@@ -46,7 +49,7 @@ pub enum ImageLayer {
 #[derive(Component)]
 pub struct MainCamera;
 
-/// Struct that contains only the UI-related state (no logic). 
+/// Struct that contains only the UI-related state (no logic).
 #[derive(Default, Resource)]
 pub struct UiState {
     pub viewport_size: bevy::prelude::Vec2,
@@ -78,7 +81,7 @@ pub trait MainPanel {
 
 impl Default for Box<dyn MainPanel + Sync + Send> {
     fn default() -> Self {
-        Box::new(MainPanelGeneral::default())
+        Box::<MainPanelGeneral>::default()
     }
 }
 
@@ -135,11 +138,7 @@ pub fn handle_camera(
 }
 
 /// Add a top bar with configuration S/L.
-fn create_sidebar_head(
-    ui: &mut Ui,
-    config: &mut ResMut<GeneratorConfig>,
-    ui_state: &mut UiState,
-) {
+fn create_sidebar_head(ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
     ui.vertical(|ui| {
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
         ui.horizontal(|ui| {
@@ -200,11 +199,7 @@ fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
 }
 
 /// Handle the file dialog window if it is open. Perform configuration S/L if the user selected a file.
-fn handle_file_dialog(
-    ctx: &Context,
-    config: &mut ResMut<GeneratorConfig>,
-    ui_state: &mut UiState,
-) {
+fn handle_file_dialog(ctx: &Context, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
     let mode = ui_state.file_dialog_mode;
     if let Some(file_dialog) = &mut ui_state.file_dialog {
         if file_dialog.show(ctx).selected() {
@@ -215,8 +210,10 @@ fn handle_file_dialog(
                     FileDialogMode::LoadImage(layer) => {
                         handle_load_file(config, file, layer).unwrap(); // TODO error handling
                         ui_state.just_loaded_layer = true;
-                    },
-                    _ => {},
+                    }
+                    FileDialogMode::SaveImage(layer) => {
+                        handle_save_file(config, file, layer).unwrap(); // TODO error handling
+                    }
                 };
             }
             ui_state.file_dialog = None;
@@ -224,12 +221,31 @@ fn handle_file_dialog(
     }
 }
 
-fn handle_load_file(config: &mut ResMut<GeneratorConfig>, file: &Path, layer: ImageLayer) -> Result<(), config::Error> {
+fn handle_load_file(
+    config: &mut ResMut<GeneratorConfig>,
+    file: &Path,
+    layer: ImageLayer,
+) -> Result<(), config::Error> {
     let (width, height) = config.general.world_model.get_dimensions();
     let data = load_image(file, width, height)?;
     match layer {
         ImageLayer::Continental => config.continents.data = data,
-        _ => {},
+        _ => {}
     };
+    Ok(())
+}
+
+fn handle_save_file(
+    config: &mut ResMut<GeneratorConfig>,
+    file: &Path,
+    layer: ImageLayer,
+) -> Result<(), config::Error> {
+    let (width, height) = config.general.world_model.get_dimensions();
+    let empty = vec![];
+    let data = match layer {
+        ImageLayer::Continental => &config.continents.data,
+        _ => &empty,
+    };
+    save_image(file, data, width, height)?;
     Ok(())
 }

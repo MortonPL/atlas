@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = "1.0.164"
-serde_derive = "1.0.164"
-serde_with = "3.0.0"
-toml = "0.7.4"
+atlas_macro = { path = "../atlas_macro" } # inhouse procedural macros
+bevy_egui = "0.24.0"                    # GUI
+serde = "1.0.164"                       # (de)serialization of data
+serde_derive = "1.0.164"                # "
+serde_with = "3.0.0"                    # "
+toml = "0.7.4"                          # serde for TOML

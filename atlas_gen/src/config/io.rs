@@ -1,5 +1,8 @@
 use crate::config::GeneratorConfig;
-use std::{fs::{self, File}, path::Path};
+use std::{
+    fs::{self, File},
+    path::Path,
+};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -13,6 +16,8 @@ pub enum Error {
     Serde(#[from] toml::ser::Error),
     #[error("{0}")]
     PngDecode(#[from] png::DecodingError),
+    #[error("{0}")]
+    PngEncode(#[from] png::EncodingError),
     #[error("Image resolution {0}x{1} doesn't match world size {2}x{3}")]
     ResolutionMismatch(u32, u32, u32, u32),
     #[error("Image byte per pixel value is {0}, but only 4 is accepted")]
@@ -40,7 +45,12 @@ pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec
     let info = reader.info();
 
     if (info.width != width) || (info.height != height) {
-        return Err(Error::ResolutionMismatch(info.width, info.height, width, height));
+        return Err(Error::ResolutionMismatch(
+            info.width,
+            info.height,
+            width,
+            height,
+        ));
     }
     let bypp = info.bytes_per_pixel();
     if bypp != 4 {
@@ -50,4 +60,15 @@ pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec
     reader.next_frame(&mut buf)?;
 
     Ok(buf)
+}
+
+/// Save a generator image (layer) to a PNG file.
+pub fn save_image(path: impl AsRef<Path>, data: &[u8], width: u32, height: u32) -> Result<()> {
+    let mut encoder = png::Encoder::new(File::create(path)?, width, height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header()?;
+    writer.write_image_data(data)?;
+
+    Ok(())
 }
