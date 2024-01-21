@@ -1,4 +1,7 @@
-use atlas_lib::MakeUi;
+use atlas_lib::{
+    ui::UiControl,
+    MakeUi, UiConfigurableEnum,
+};
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
 
@@ -12,10 +15,18 @@ pub struct GeneratorConfig {
 }
 
 /// Config for the general map settings.
-#[derive(Debug, Deserialize, Resource, Serialize)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct GeneralConfig {
+    #[name("World Model")]
+    #[control(UiEnumDropdown)]
     pub world_model: WorldModel,
+    #[name("Tile Resolution")]
+    #[control(UiSlider)]
+    #[add(clamp_range(10.0..=200.0))]
     pub tile_resolution: f32,
+    #[name("World Seed")]
+    #[control(UiSliderRandom)]
+    #[add(speed(100.0))]
     pub seed: u32,
 }
 
@@ -32,20 +43,13 @@ impl Default for GeneralConfig {
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Debug, Deserialize, Resource, Serialize)]
+#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnum)]
 pub enum WorldModel {
     Flat(FlatWorldModel),
     Globe(GlobeWorldModel),
 }
 
 impl WorldModel {
-    pub fn str(&self) -> &'static str {
-        match self {
-            Self::Flat(_) => "Flat",
-            Self::Globe(_) => "Globe",
-        }
-    }
-
     pub fn get_dimensions(&self) -> (u32, u32) {
         match self {
             Self::Flat(x) => (x.world_size[0], x.world_size[1]),
@@ -60,8 +64,11 @@ impl Default for WorldModel {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, MakeUi)]
 pub struct FlatWorldModel {
+    #[name("World Size")]
+    #[control(UiSliderN)]
+    #[add(clamp_range(100..=500))]
     pub world_size: [u32; 2],
 }
 
@@ -81,13 +88,13 @@ pub struct GlobeWorldModel;
 pub struct ContinentsConfig {
     #[name("# of Continents")]
     #[control(UiSlider)]
-    #[add(clamp_range(0..=10))]
-    #[hint("Balbinka")]
+    #[add(clamp_range(1..=10))]
     pub num_continents: u8,
     #[name("# of Oceans")]
     #[control(UiSlider)]
-    #[add(clamp_range(0..=10))]
+    #[add(clamp_range(1..=10))]
     pub num_oceans: u8,
+    // Internal - no UI
     pub data: Vec<u8>,
 }
 

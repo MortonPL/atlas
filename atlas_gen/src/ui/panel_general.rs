@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-use bevy_egui::egui::{self, Ui};
+use bevy_egui::egui::Ui;
 
 use crate::{
     config::{FlatWorldModel, GeneratorConfig, GlobeWorldModel, WorldModel},
     map::ViewedMapLayer,
 };
 
-use atlas_lib::ui::{UiControl, UiSlider, UiSliderN};
+use atlas_lib::ui::{MakeUi, UiConfigurableEnum};
 
 use super::{
     internal::{MainPanel, UiState},
@@ -19,50 +19,25 @@ pub struct MainPanelGeneral;
 
 impl MainPanel for MainPanelGeneral {
     fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
-        let old_model_globe = match &config.general.world_model {
-            WorldModel::Flat(_) => false,
-            WorldModel::Globe(_) => true,
-        };
-        let mut model_globe = old_model_globe;
+        let old_world_model = config.general.world_model.self_as_index();
+        let mut ui_results = vec![];
         add_section(ui, "World", |ui| {
-            ui.label("Seed").on_hover_text_at_pointer("TODO");
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::DragValue::new(&mut config.general.seed)
-                        .speed(10)
-                        .clamp_range(u32::MIN..=u32::MAX),
-                )
-                .on_hover_text_at_pointer("TODO");
-                if ui.button("Random").clicked() {
-                    config.general.seed = rand::random()
-                }
-            });
-            ui.end_row();
-
-            ui.label("World Model").on_hover_text_at_pointer("TODO");
-            egui::ComboBox::from_label("")
-                .selected_text(config.general.world_model.str())
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut model_globe, false, "Flat");
-                    ui.selectable_value(&mut model_globe, true, "Globe")
-                })
-                .response
-                .on_hover_text_at_pointer("TODO");
-            ui.end_row();
-
-            UiSlider::new(ui, "Tile resolution", &mut config.general.tile_resolution)
-                .clamp_range(10.0..=200.0)
-                .show(None);
+            ui_results = config.general.make_ui(ui);
         });
-        if old_model_globe != model_globe {
-            config.general.world_model = match model_globe {
-                false => WorldModel::Flat(Default::default()),
-                true => WorldModel::Globe(Default::default()),
-            };
+        // TODO: Bit hacky with raw indices, oh well
+        if ui_results[2] == 1 {
+            config.general.seed = rand::random();
+        }
+        let new_world_model = ui_results[0];
+        if old_world_model != new_world_model {
+            config.general.world_model = WorldModel::index_as_self(new_world_model);
         }
         add_section(
             ui,
-            format!("{} World Settings", config.general.world_model.str()),
+            format!(
+                "{} World Settings",
+                config.general.world_model.self_as_str()
+            ),
             |ui| {
                 match &mut config.general.world_model {
                     WorldModel::Flat(x) => create_general_flat_settings(ui, ui_state, x),
@@ -91,9 +66,7 @@ impl MainPanel for MainPanelGeneral {
 
 fn create_general_flat_settings(ui: &mut Ui, ui_state: &mut UiState, config: &mut FlatWorldModel) {
     let old = config.world_size;
-    UiSliderN::new(ui, "World Size", &mut config.world_size)
-        .clamp_range(100..=500)
-        .show(None);
+    config.make_ui(ui);
     ui_state.just_changed_dimensions = old != config.world_size;
 }
 

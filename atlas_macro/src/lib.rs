@@ -31,6 +31,8 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
         let mut label: Option<TokenStream2> = None;
         let mut hint: Option<TokenStream2> = None;
         let mut funs = vec![];
+        let ident = field.ident.unwrap();
+
         for attr in field.attrs {
             if attr.path().is_ident("name") {
                 label = match attr.meta {
@@ -63,19 +65,66 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
         }
         controls.push(control.unwrap());
         labels.push(label.expect("Config field UI label must be provided"));
-        idents.push(field.ident.unwrap());
+        idents.push(ident);
         all_funs.push(funs);
         hints.push(hint.unwrap_or_else(|| quote!(Option::<&str>::None)));
     }
 
     TokenStream::from(quote! {
-        use atlas_lib::ui::UiControl;
-
         impl #impl_generics atlas_lib::ui::MakeUi for #struct_name #type_generics #where_clause {
-            fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+            fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) -> Vec<usize> {
+                let mut results = vec![];
                 #(
-                    atlas_lib::ui::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints);
+                    results.push(atlas_lib::ui::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints));
                 )*
+                results
+            }
+        }
+    })
+}
+
+#[proc_macro_derive(UiConfigurableEnum)]
+pub fn ui_configurable_enum_derive(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let enum_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    let variants = match ast.data {
+        syn::Data::Enum(e) => e.variants,
+        syn::Data::Struct(_) => unimplemented!(),
+        syn::Data::Union(_) => unimplemented!(),
+    };
+
+    let len = variants.len();
+    let mut idents = vec![];
+    let indices: Vec<_> = (0..len).collect();
+    for variant in variants.into_iter() {
+        idents.push(variant.ident);
+    }
+
+    TokenStream::from(quote! {
+        impl #impl_generics atlas_lib::ui::UiConfigurableEnum for #enum_name #type_generics #where_clause {
+            const LEN: usize = #len;
+
+            fn self_as_index(&self) -> usize {
+                match self {
+                    #(Self::#idents(_) => #indices,)*
+                }
+            }
+
+            fn index_as_self(idx: usize) -> Self {
+                match idx {
+                    #(#indices => Self::#idents(Default::default()),)*
+                    _ => panic!(),
+                }
+            }
+
+            fn index_to_str(idx: usize) -> &'static str {
+                match idx {
+                    #(#indices => stringify!(#idents),)*
+                    _ => panic!(),
+                }
             }
         }
     })

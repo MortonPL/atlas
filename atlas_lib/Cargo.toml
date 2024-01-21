@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 atlas_macro = { path = "../atlas_macro" } # inhouse procedural macros
 bevy_egui = "0.24.0"                    # GUI
+rand = "0.8.5"                          # RNG
 serde = "1.0.164"                       # (de)serialization of data
 serde_derive = "1.0.164"                # "
 serde_with = "3.0.0"                    # "
