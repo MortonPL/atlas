@@ -113,7 +113,7 @@ pub fn ui_configurable_enum_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn index_as_self(idx: usize) -> Self {
+            fn index_as_self(&self, idx: usize) -> Self {
                 match idx {
                     #(#indices => Self::#idents(Default::default()),)*
                     _ => panic!(),

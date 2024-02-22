@@ -6,7 +6,7 @@ use crate::{
     map::ViewedMapLayer,
 };
 
-use atlas_lib::ui::{MakeUi, UiConfigurableEnum};
+use atlas_lib::{ui::{MakeUi, UiConfigurableEnum}, update_enum};
 
 use super::{
     internal::{MainPanel, UiState},
@@ -19,7 +19,6 @@ pub struct MainPanelGeneral;
 
 impl MainPanel for MainPanelGeneral {
     fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
-        let old_world_model = config.general.world_model.self_as_index();
         let mut ui_results = vec![];
         add_section(ui, "World", |ui| {
             ui_results = config.general.make_ui(ui);
@@ -28,10 +27,8 @@ impl MainPanel for MainPanelGeneral {
         if ui_results[2] == 1 {
             config.general.seed = rand::random();
         }
-        let new_world_model = ui_results[0];
-        if old_world_model != new_world_model {
-            config.general.world_model = WorldModel::index_as_self(new_world_model);
-        }
+        
+        update_enum!(config.general.world_model, ui_results[0]);
         add_section(
             ui,
             format!(
@@ -45,6 +42,11 @@ impl MainPanel for MainPanelGeneral {
                 };
             },
         );
+        
+        update_enum!(config.general.generator, ui_results[3]);
+        add_section(ui, format!("{} Generator Settings", config.general.generator.self_as_str()), |ui| {
+
+        });
     }
 
     fn get_heading(&self) -> &'static str {

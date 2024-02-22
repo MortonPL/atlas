@@ -28,6 +28,9 @@ pub struct GeneralConfig {
     #[control(UiSliderRandom)]
     #[add(speed(100.0))]
     pub seed: u32,
+    #[name("Generator")]
+    #[control(UiEnumDropdown)]
+    pub generator: Generator,
 }
 
 impl Default for GeneralConfig {
@@ -36,6 +39,7 @@ impl Default for GeneralConfig {
             world_model: Default::default(),
             tile_resolution: 100.0,
             seed: rand::random(),
+            generator: Default::default(),
         }
     }
 }
@@ -82,6 +86,28 @@ impl Default for FlatWorldModel {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
+
+#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnum)]
+pub enum Generator {
+    Simple(SimpleGenerator),
+    Advanced(AdvancedGenerator),
+}
+
+impl Default for Generator {
+    fn default() -> Self {
+        Generator::Simple(SimpleGenerator::default())
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct SimpleGenerator {
+
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct AdvancedGenerator {
+
+}
 
 /// Config for layout of continets and oceans.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]

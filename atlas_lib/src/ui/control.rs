@@ -15,7 +15,7 @@ pub trait UiConfigurableEnum {
 
     fn self_as_index(&self) -> usize;
 
-    fn index_as_self(idx: usize) -> Self;
+    fn index_as_self(&self, idx: usize) -> Self;
 
     fn index_to_str(idx: usize) -> &'static str;
 
@@ -195,7 +195,7 @@ where
     fn show(mut self, hint: Option<&str>) -> usize {
         let hint = hint.unwrap_or(NO_HINT_MESSAGE);
         self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        egui::ComboBox::from_label("")
+        egui::ComboBox::new(self.label, "")
             .show_index(self.ui, &mut self.selection, T::LEN, T::index_to_str)
             .on_hover_text_at_pointer(hint);
         self.ui.end_row();
