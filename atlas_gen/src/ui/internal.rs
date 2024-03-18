@@ -4,7 +4,7 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::egui::{self, Context, Ui};
+use bevy_egui::egui::{self, Context, RichText, Ui};
 
 use crate::{
     config::{self, load_config, load_image, save_config, save_image, GeneratorConfig},
@@ -64,6 +64,13 @@ pub struct UiStatePanel {
     pub current_panel: Box<dyn MainPanel + Sync + Send>,
 }
 
+/// Transition between sidebar panels
+pub enum MainPanelTransition {
+    None,
+    Previous,
+    Next,
+}
+
 /// A sidebar page.
 pub trait MainPanel {
     /// Get panel heading.
@@ -73,7 +80,7 @@ pub trait MainPanel {
     fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState);
 
     /// Handle transitioning to the previous or next panel.
-    fn transition(&self, prev: bool, next: bool) -> Box<dyn MainPanel + Sync + Send>;
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send>;
 
     /// Map self to [ViewedMapLayer].
     fn get_map_layer(&self) -> ViewedMapLayer;
@@ -182,9 +189,14 @@ fn create_current_panel(
     egui::ScrollArea::both().show(ui, |ui| ui_panel.current_panel.show(ui, config, ui_state));
     ui.separator();
     ui.horizontal(|ui| {
+        let transition = match (ui.button("Previous").clicked(), ui.button("Next").clicked()) {
+            (true, _) => MainPanelTransition::Previous,
+            (false, true) => MainPanelTransition::Next,
+            _ => MainPanelTransition::None,
+        };
         ui_panel.current_panel = ui_panel
             .current_panel
-            .transition(ui.button("Previous").clicked(), ui.button("Next").clicked());
+            .transition(transition);
     });
 }
 
@@ -229,7 +241,7 @@ fn handle_load_file(
     let (width, height) = config.general.world_model.get_dimensions();
     let data = load_image(file, width, height)?;
     match layer {
-        ImageLayer::Continental => config.continents.data = data,
+        //ImageLayer::Continental => config.continents.data = data,
         _ => {}
     };
     Ok(())
@@ -243,9 +255,37 @@ fn handle_save_file(
     let (width, height) = config.general.world_model.get_dimensions();
     let empty = vec![];
     let data = match layer {
-        ImageLayer::Continental => &config.continents.data,
+        //ImageLayer::Continental => &config.continents.data,
         _ => &empty,
     };
     save_image(file, data, width, height)?;
     Ok(())
+}
+
+pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ImageLayer)
+{
+    ui.horizontal(|ui| {
+        if ui
+            .add(egui::Button::new(
+                RichText::new("Load Layer").size(24.0),
+            ))
+            .clicked()
+        {
+            let mut file_picker = egui_file::FileDialog::open_file(None);
+            file_picker.open();
+            ui_state.file_dialog = Some(file_picker);
+            ui_state.file_dialog_mode = FileDialogMode::LoadImage(layer);
+        }
+        if ui
+            .add(egui::Button::new(
+                RichText::new("Save Layer").size(24.0),
+            ))
+            .clicked()
+        {
+            let mut file_picker = egui_file::FileDialog::save_file(None);
+            file_picker.open();
+            ui_state.file_dialog = Some(file_picker);
+            ui_state.file_dialog_mode = FileDialogMode::SaveImage(layer);
+        }
+    });
 }

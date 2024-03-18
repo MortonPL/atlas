@@ -4,7 +4,7 @@ use bevy_egui::egui::Ui;
 use crate::{config::GeneratorConfig, map::ViewedMapLayer};
 
 use super::{
-    internal::{MainPanel, UiState},
+    internal::{make_layer_save_load, ImageLayer, MainPanel, MainPanelTransition, UiState},
     panel_climate::MainPanelClimate,
     panel_continents::MainPanelContinents,
 };
@@ -13,7 +13,8 @@ use super::{
 pub struct MainPanelTopography;
 
 impl MainPanel for MainPanelTopography {
-    fn show(&self, _ui: &mut Ui, _config: &mut ResMut<GeneratorConfig>, _ui_state: &mut UiState) {
+    fn show(&self, ui: &mut Ui, _config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
+        make_layer_save_load(ui, ui_state, ImageLayer::Topographical);
         // TODO
     }
 
@@ -21,13 +22,11 @@ impl MainPanel for MainPanelTopography {
         "Topography"
     }
 
-    fn transition(&self, prev: bool, next: bool) -> Box<dyn MainPanel + Sync + Send> {
-        if prev {
-            Box::<MainPanelContinents>::default()
-        } else if next {
-            Box::<MainPanelClimate>::default()
-        } else {
-            Box::new(*self)
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
+        match transition {
+            MainPanelTransition::None => Box::new(*self),
+            MainPanelTransition::Previous => Box::<MainPanelContinents>::default(),
+            MainPanelTransition::Next => Box::<MainPanelClimate>::default(),
         }
     }
 

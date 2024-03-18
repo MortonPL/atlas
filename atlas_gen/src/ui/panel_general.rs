@@ -6,11 +6,11 @@ use crate::{
     map::ViewedMapLayer,
 };
 
-use atlas_lib::{ui::{MakeUi, UiConfigurableEnum}, update_enum};
+use atlas_lib::{ui::{MakeUi, UiConfigurableEnum, UiControl, UiEnumDropdown}, update_enum};
 
 use super::{
-    internal::{MainPanel, UiState},
-    panel_continents::MainPanelContinents,
+    internal::{MainPanel, MainPanelTransition, UiState},
+    //panel_continents::MainPanelContinents,
     utils::add_section,
 };
 
@@ -42,10 +42,10 @@ impl MainPanel for MainPanelGeneral {
                 };
             },
         );
-        
-        update_enum!(config.general.generator, ui_results[3]);
-        add_section(ui, format!("{} Generator Settings", config.general.generator.self_as_str()), |ui| {
 
+        add_section(ui, "Generator", |ui| {
+            let generator = UiEnumDropdown::new(ui, "Type", &mut config.generator).show(None);
+            update_enum!(config.generator, generator);
         });
     }
 
@@ -53,11 +53,10 @@ impl MainPanel for MainPanelGeneral {
         "General"
     }
 
-    fn transition(&self, _prev: bool, next: bool) -> Box<dyn MainPanel + Sync + Send> {
-        if next {
-            Box::<MainPanelContinents>::default()
-        } else {
-            Box::new(*self)
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
+        match transition {
+            //MainPanelTransition::Next => Box::<MainPanelContinents>::default(),
+            _ => Box::new(*self),
         }
     }
 

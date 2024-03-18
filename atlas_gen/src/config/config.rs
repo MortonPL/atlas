@@ -1,7 +1,4 @@
-use atlas_lib::{
-    ui::UiControl,
-    MakeUi, UiConfigurableEnum,
-};
+use atlas_lib::{ui::UiControl, MakeUi, UiConfigurableEnum};
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
 
@@ -9,37 +6,35 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct GeneratorConfig {
     pub general: GeneralConfig,
-    pub continents: ContinentsConfig,
-    pub topography: TopographyConfig,
-    pub climate: ClimateConfig,
+    pub generator: GeneratorType,
 }
+
+// ******************************************************** //
+// ******************** GENERAL CONFIG ******************** //
+// ******************************************************** //
 
 /// Config for the general map settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct GeneralConfig {
-    #[name("World Model")]
-    #[control(UiEnumDropdown)]
-    pub world_model: WorldModel,
-    #[name("Tile Resolution")]
-    #[control(UiSlider)]
-    #[add(clamp_range(10.0..=200.0))]
-    pub tile_resolution: f32,
     #[name("World Seed")]
     #[control(UiSliderRandom)]
     #[add(speed(100.0))]
     pub seed: u32,
-    #[name("Generator")]
+    #[name("Tile Resolution")]
+    #[control(UiSlider)]
+    #[add(clamp_range(10.0..=200.0))]
+    pub tile_resolution: f32,
+    #[name("World Model")]
     #[control(UiEnumDropdown)]
-    pub generator: Generator,
+    pub world_model: WorldModel,
 }
 
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            world_model: Default::default(),
-            tile_resolution: 100.0,
             seed: rand::random(),
-            generator: Default::default(),
+            tile_resolution: 100.0,
+            world_model: Default::default(),
         }
     }
 }
@@ -48,6 +43,7 @@ impl Default for GeneralConfig {
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
 #[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnum)]
+#[serde(rename_all = "lowercase")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
     Globe(GlobeWorldModel),
@@ -88,25 +84,43 @@ impl Default for FlatWorldModel {
 pub struct GlobeWorldModel;
 
 #[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnum)]
-pub enum Generator {
+#[serde(rename_all = "lowercase")]
+pub enum GeneratorType {
     Simple(SimpleGenerator),
     Advanced(AdvancedGenerator),
 }
 
-impl Default for Generator {
+impl Default for GeneratorType {
     fn default() -> Self {
-        Generator::Simple(SimpleGenerator::default())
+        GeneratorType::Simple(SimpleGenerator::default())
     }
 }
 
+// ******************************************************** //
+// **************** SIMPLE GENERATOR CONFIG *************** //
+// ******************************************************** //
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct SimpleGenerator {
-
+    pub topology: SimpleTopographyConfig,
+    pub climate: SimpleClimateConfig,
 }
+
+#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+pub struct SimpleClimateConfig {}
+
+#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+pub struct SimpleTopographyConfig {}
+
+// ******************************************************** //
+// *************** ADVANCED GENERATOR CONFIG ************** //
+// ******************************************************** //
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct AdvancedGenerator {
-
+    pub continents: ContinentsConfig,
+    pub topography: TopographyConfig,
+    pub climate: ClimateConfig,
 }
 
 /// Config for layout of continets and oceans.

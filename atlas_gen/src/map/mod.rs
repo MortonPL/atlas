@@ -229,7 +229,7 @@ pub fn update_validate_layers(
         graphics.layer_cont.outdated = true;
     } else if graphics.layer_cont.outdated {
         let image = images.get_mut(&graphics.layer_cont.image).unwrap();
-        image.data = config.continents.data.clone();
+        //image.data = config.continents.data.clone();
         let material = materials.get_mut(&graphics.layer_cont.material).unwrap();
         material.base_color_texture = Some(graphics.layer_cont.image.clone());
 
