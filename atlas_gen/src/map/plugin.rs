@@ -9,7 +9,11 @@ use atlas_lib::UiConfigurableEnum;
 
 use crate::{
     config::{GeneratorConfig, WorldModel},
-    map::internal::{MapGraphicsData, MapGraphicsLayer, WorldGlobeMesh, WorldMapMesh},
+    event::EventStruct,
+    map::internal::{
+        CurrentWorldModel, MapGraphicsData, MapGraphicsLayer, MapLogicData, WorldGlobeMesh,
+        WorldMapMesh,
+    },
 };
 
 /// Plugin responsible for the world map graphics.
@@ -18,10 +22,18 @@ pub struct MapPlugin;
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MapGraphicsData>()
+            .init_resource::<MapLogicData>()
             .add_systems(Startup, startup_materials)
             .add_systems(Startup, startup_model.after(startup_materials))
-            .add_systems(Update, update_validate_layers)
-            .add_systems(Update, update.after(update_validate_layers));
+            .add_systems(
+                Update,
+                update_event_world_model.run_if(check_event_world_model),
+            )
+            .add_systems(
+                Update,
+                update_event_layer_changed.run_if(check_event_layer_changed),
+            )
+            .add_systems(Update, update_validate_layers);
     }
 }
 
@@ -46,6 +58,7 @@ fn startup_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut graphics: ResMut<MapGraphicsData>,
+    mut logics: ResMut<MapLogicData>,
 ) {
     use ViewedMapLayer::*;
 
@@ -64,10 +77,24 @@ fn startup_materials(
         base_color_texture: Some(image.clone()),
         ..Default::default()
     };
+    graphics.empty_material = materials.add(material_base.clone());
 
-    for layer in [Continents, Topography, Temperature, Humidity, Climate, Fertility, Resource, Richness] {
+    for layer in [
+        Continents,
+        Topography,
+        Temperature,
+        Humidity,
+        Climate,
+        Fertility,
+        Resource,
+        Richness,
+    ] {
         let material = materials.add(material_base.clone());
-        graphics.layers.insert(layer, MapGraphicsLayer::new(material.clone(), image.clone()));
+        graphics.layers.insert(
+            layer,
+            MapGraphicsLayer::new(material.clone(), image.clone()),
+        );
+        logics.layers.insert(layer, vec![]);
     }
 }
 
@@ -79,7 +106,10 @@ fn startup_model(
     mut meshes: ResMut<Assets<Mesh>>,
     graphics: ResMut<MapGraphicsData>,
 ) {
-    let layer = graphics.layers.get(&ViewedMapLayer::default()).expect("Uninitialized map layer materials");
+    let layer = graphics
+        .layers
+        .get(&ViewedMapLayer::default())
+        .expect("Uninitialized map layer materials");
 
     // Sphere / globe
     commands.spawn((
@@ -90,6 +120,7 @@ fn startup_model(
             ..Default::default()
         },
         WorldGlobeMesh,
+        CurrentWorldModel,
     ));
     // Plane / map
     commands.spawn((
@@ -108,52 +139,72 @@ fn startup_model(
     ));
 }
 
+/// Run Condition
+///
+/// Check if "change world model" UI event needs handling.
+fn check_event_world_model(events: Res<EventStruct>) -> bool {
+    events.world_model_changed.is_some()
+}
+
 /// Update system
 ///
-/// Display map or globe model depending on configuration.
-fn update(
-    config: Res<GeneratorConfig>,
-    mut map: Query<
-        (
-            &mut Visibility,
-            &mut Transform,
-            &mut Handle<StandardMaterial>,
-        ),
-        With<WorldMapMesh>,
-    >,
-    mut globe: Query<
-        (&mut Visibility, &mut Handle<StandardMaterial>),
-        (With<WorldGlobeMesh>, Without<WorldMapMesh>),
-    >,
-    mut graphics: ResMut<MapGraphicsData>,
+/// Handle "change world model" UI event.
+fn update_event_world_model(
+    mut commands: Commands,
+    mut events: ResMut<EventStruct>,
+    mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
+    mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
 ) {
-    let (mut map_vis, mut map_tran, mut map_mat) = map.single_mut();
-    let (mut globe_vis, mut globe_mat) = globe.single_mut();
-    let layer = graphics.layers.get(&graphics.current).expect("Uninitialized map layer materials");
+    let (map_en, mut map_vis, mut map_tran) = map.single_mut();
+    let (globe_en, mut globe_vis) = globe.single_mut();
 
-    match &config.general.world_model {
-        WorldModel::Flat(x) => {
-            *map_vis = Visibility::Visible;
-            *globe_vis = Visibility::Hidden;
-            map_tran.scale.x = x.world_size[0] as f32 / 100.0;
-            map_tran.scale.z = x.world_size[1] as f32 / 100.0;
-            if layer.invalidated {
-                //*map_mat = graphics.layer_none.material.clone();
-                dbg!("Layer invalidated without recovery");
-            } else if graphics.current != graphics.previous {
-                *map_mat = layer.material.clone();
-                dbg!("Changing layers");
+    if let Some(model) = &events.world_model_changed {
+        match model {
+            WorldModel::Flat(x) => {
+                *map_vis = Visibility::Visible;
+                *globe_vis = Visibility::Hidden;
+                map_tran.scale.x = x.world_size[0] as f32 / 100.0; // TODO invalidate material, but only if world_size changed
+                map_tran.scale.z = x.world_size[1] as f32 / 100.0;
+                commands.entity(map_en).insert(CurrentWorldModel);
+                commands.entity(globe_en).remove::<CurrentWorldModel>();
+            }
+            WorldModel::Globe(_) => {
+                *map_vis = Visibility::Hidden;
+                *globe_vis = Visibility::Visible;
+                commands.entity(globe_en).insert(CurrentWorldModel);
+                commands.entity(map_en).remove::<CurrentWorldModel>();
             }
         }
-        WorldModel::Globe(_) => {
-            *map_vis = Visibility::Hidden;
-            *globe_vis = Visibility::Visible;
-            if graphics.current != graphics.previous {
-                *globe_mat = layer.material.clone();
-            }
-        }
-    };
-    graphics.previous = graphics.current;
+    }
+
+    events.world_model_changed = None;
+}
+
+/// Run Condition
+///
+/// Check if "change viewed layer" UI event needs handling.
+fn check_event_layer_changed(events: Res<EventStruct>) -> bool {
+    events.viewed_layer_changed.is_some()
+}
+
+/// Update system
+///
+/// Assign respective layer material to the world model.
+fn update_event_layer_changed(
+    mut events: ResMut<EventStruct>,
+    graphics: Res<MapGraphicsData>,
+    mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
+) {
+    let mut mat = world.single_mut();
+    if let Some(layer) = events.viewed_layer_changed {
+        let layer = graphics
+            .layers
+            .get(&layer)
+            .expect("Uninitialized map layer materials");
+        *mat = layer.material.clone();
+    }
+
+    events.viewed_layer_changed = None;
 }
 
 /// Update system

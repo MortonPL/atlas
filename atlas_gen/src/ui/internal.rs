@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
@@ -12,7 +10,8 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{self, load_config, load_image, save_config, save_image, GeneratorConfig},
+    config::{load_config, save_config, GeneratorConfig},
+    event::EventStruct,
     map::ViewedMapLayer,
     ui::general::MainPanelGeneral,
 };
@@ -37,16 +36,9 @@ pub enum FileDialogMode {
     /// Load generator configuration to TOML file.
     LoadConfig,
     /// Save generation layer output to PNG file.
-    SaveImage(ImageLayer),
+    SaveImage(ViewedMapLayer),
     /// Load generation layer output from PNG file.
-    LoadImage(ImageLayer),
-}
-
-#[derive(Clone, Copy)]
-pub enum ImageLayer {
-    Continental,
-    Topographical,
-    Climate,
+    LoadImage(ViewedMapLayer),
 }
 
 /// Camera tag.
@@ -59,9 +51,6 @@ pub struct UiState {
     pub viewport_size: bevy::prelude::Vec2,
     pub file_dialog: Option<egui_file::FileDialog>,
     pub file_dialog_mode: FileDialogMode,
-    pub just_loaded_layer: bool,
-    pub just_changed_size: bool,
-    pub just_changed_model: bool,
     pub current_layer: ViewedMapLayer,
 }
 
@@ -86,7 +75,13 @@ pub trait MainPanel {
     fn get_heading(&self) -> &'static str;
 
     /// Create UI for this panel.
-    fn show(&mut self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState);
+    fn show(
+        &mut self,
+        ui: &mut Ui,
+        config: &mut ResMut<GeneratorConfig>,
+        ui_state: &mut UiState,
+        events: &mut EventStruct,
+    );
 
     /// Handle transitioning to the previous or next panel.
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send>;
@@ -104,6 +99,7 @@ pub fn create_ui(
     mut config: ResMut<GeneratorConfig>,
     mut ui_state: ResMut<UiState>,
     mut ui_panel: ResMut<UiStatePanel>,
+    mut events: ResMut<EventStruct>,
 ) {
     // The UI is a resizeable sidebar fixed to the right window border.
     // __________________
@@ -119,13 +115,13 @@ pub fn create_ui(
         .min_width(SIDEBAR_MIN_WIDTH)
         .default_width(SIDEBAR_WIDTH)
         .show(ctx, |ui| {
-            create_sidebar_head(ui, &mut config, &mut ui_state, &mut ui_panel);
-            create_layer_view_settings(ui, &mut config, &mut ui_state);
-            create_current_panel(ui, &mut config, &mut ui_state, &mut ui_panel);
+            create_sidebar_head(ui, &mut config, &mut ui_state, &mut ui_panel, &mut events);
+            create_layer_view_settings(ui, &mut ui_state, &mut events);
+            create_current_panel(ui, &mut config, &mut ui_state, &mut ui_panel, &mut events);
             adjust_viewport(ui, &mut ui_state);
         });
 
-    handle_file_dialog(ctx, &mut config, &mut ui_state, &mut ui_panel);
+    handle_file_dialog(ctx, &mut config, &mut ui_state, &mut ui_panel, &mut events);
 }
 
 /// Handle camera movement/zoom inputs.
@@ -159,6 +155,7 @@ fn create_sidebar_head(
     config: &mut ResMut<GeneratorConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
+    events: &mut EventStruct,
 ) {
     ui.vertical(|ui| {
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
@@ -187,6 +184,7 @@ fn create_sidebar_head(
             {
                 **config = GeneratorConfig::default();
                 ui_panel.current_panel = default();
+                events.world_model_changed = Some(config.general.world_model.clone());
             }
         });
     });
@@ -196,8 +194,8 @@ fn create_sidebar_head(
 // Create sidebar settings for the layer display.
 fn create_layer_view_settings(
     ui: &mut Ui,
-    _config: &mut ResMut<GeneratorConfig>,
     ui_state: &mut UiState,
+    events: &mut ResMut<EventStruct>,
 ) {
     ui.horizontal(|ui| {
         let old = ui_state.current_layer;
@@ -205,7 +203,7 @@ fn create_layer_view_settings(
             UiEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
         update_enum!(ui_state.current_layer, selection);
         if old != ui_state.current_layer {
-            // request visuals change?
+            events.viewed_layer_changed = Some(ui_state.current_layer);
         }
     });
     ui.separator();
@@ -217,9 +215,12 @@ fn create_current_panel(
     config: &mut ResMut<GeneratorConfig>,
     ui_state: &mut ResMut<UiState>,
     ui_panel: &mut ResMut<UiStatePanel>,
+    events: &mut ResMut<EventStruct>,
 ) {
     ui.heading(ui_panel.current_panel.get_heading());
-    egui::ScrollArea::both().show(ui, |ui| ui_panel.current_panel.show(ui, config, ui_state));
+    egui::ScrollArea::both().show(ui, |ui| {
+        ui_panel.current_panel.show(ui, config, ui_state, events)
+    });
     ui.separator();
     ui.horizontal(|ui| {
         let transition = match (ui.button("Previous").clicked(), ui.button("Next").clicked()) {
@@ -247,6 +248,7 @@ fn handle_file_dialog(
     config: &mut ResMut<GeneratorConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
+    events: &mut ResMut<EventStruct>,
 ) {
     let mode = ui_state.file_dialog_mode;
     if let Some(file_dialog) = &mut ui_state.file_dialog {
@@ -254,18 +256,18 @@ fn handle_file_dialog(
             if let Some(file) = file_dialog.path() {
                 match mode {
                     FileDialogMode::LoadConfig => {
-                        **config = {
+                        if let Ok(res) = load_config(file) {
+                            **config = res;
+                            events.world_model_changed = Some(config.general.world_model.clone());
                             ui_panel.current_panel = default();
-                            load_config(file).unwrap()
                         }
                     } // TODO error handling
                     FileDialogMode::SaveConfig => save_config(config, file).unwrap(), // TODO error handling
                     FileDialogMode::LoadImage(layer) => {
-                        handle_load_file(config, file, layer).unwrap(); // TODO error handling
-                        ui_state.just_loaded_layer = true;
+                        events.load_layer_request = Some((layer, file.into()));
                     }
                     FileDialogMode::SaveImage(layer) => {
-                        handle_save_file(config, file, layer).unwrap(); // TODO error handling
+                        events.save_layer_request = Some((layer, file.into()));
                     }
                 };
             }
@@ -274,37 +276,7 @@ fn handle_file_dialog(
     }
 }
 
-fn handle_load_file(
-    config: &mut ResMut<GeneratorConfig>,
-    file: &Path,
-    layer: ImageLayer,
-) -> Result<(), config::Error> {
-    let (width, height) = config.general.world_model.get_dimensions();
-    let data = load_image(file, width, height)?;
-    match layer {
-        //ImageLayer::Continental => config.continents.data = data,
-        _ => {}
-    };
-    Ok(())
-}
-
-fn handle_save_file(
-    config: &mut ResMut<GeneratorConfig>,
-    file: &Path,
-    layer: ImageLayer,
-) -> Result<(), config::Error> {
-    let (width, height) = config.general.world_model.get_dimensions();
-    let empty = vec![];
-    let data = match layer {
-        //ImageLayer::Continental => &config.continents.data,
-        _ => &empty,
-    };
-    save_image(file, data, width, height)?;
-    Ok(())
-}
-
-// TODO change ImageLayewr to ViewedMapLayer
-pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ImageLayer) {
+pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ViewedMapLayer) {
     ui.horizontal(|ui| {
         if ui
             .add(egui::Button::new(RichText::new("Load Layer").size(24.0)))

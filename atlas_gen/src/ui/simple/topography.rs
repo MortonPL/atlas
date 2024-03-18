@@ -3,9 +3,11 @@ use bevy_egui::egui::Ui;
 
 use crate::{
     config::GeneratorConfig,
+    event::EventStruct,
+    map::ViewedMapLayer,
     ui::{
         general::MainPanelGeneral,
-        internal::{make_layer_save_load, ImageLayer, MainPanel, MainPanelTransition, UiState},
+        internal::{make_layer_save_load, MainPanel, MainPanelTransition, UiState},
         simple::MainPanelClimate,
     },
 };
@@ -14,8 +16,14 @@ use crate::{
 pub struct MainPanelTopography;
 
 impl MainPanel for MainPanelTopography {
-    fn show(&mut self, ui: &mut Ui, _config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
-        make_layer_save_load(ui, ui_state, ImageLayer::Topographical);
+    fn show(
+        &mut self,
+        ui: &mut Ui,
+        _config: &mut ResMut<GeneratorConfig>,
+        ui_state: &mut UiState,
+        _events: &mut EventStruct,
+    ) {
+        make_layer_save_load(ui, ui_state, ViewedMapLayer::Topography);
         // TODO
     }
 

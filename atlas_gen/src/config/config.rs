@@ -43,7 +43,7 @@ impl Default for GeneralConfig {
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
@@ -65,7 +65,7 @@ impl Default for WorldModel {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, MakeUi)]
+#[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
 pub struct FlatWorldModel {
     #[name("World Size")]
     #[control(UiSliderN)]
@@ -81,7 +81,7 @@ impl Default for FlatWorldModel {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
 
 #[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
@@ -140,8 +140,6 @@ pub struct ContinentsConfig {
     #[control(UiSlider)]
     #[add(clamp_range(1..=10))]
     pub num_oceans: u8,
-    // Internal - no UI
-    pub data: Vec<u8>,
 }
 
 impl Default for ContinentsConfig {
@@ -149,7 +147,6 @@ impl Default for ContinentsConfig {
         Self {
             num_continents: 2,
             num_oceans: 1,
-            data: Default::default(),
         }
     }
 }

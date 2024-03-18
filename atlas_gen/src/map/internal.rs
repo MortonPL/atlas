@@ -1,19 +1,18 @@
-use std::f32::consts::FRAC_PI_2;
+use bevy::{prelude::*, utils::HashMap};
 
-use bevy::{
-    prelude::*,
-    render::render_resource::{Extent3d, TextureFormat}, utils::HashMap,
-};
+use crate::map::ViewedMapLayer;
 
-use atlas_lib::UiConfigurableEnum;
-
-use crate::{config::{GeneratorConfig, WorldModel}, map::ViewedMapLayer};
+#[derive(Default, Resource)]
+pub struct MapLogicData {
+    pub layers: HashMap<ViewedMapLayer, Vec<u8>>,
+}
 
 #[derive(Default, Resource)]
 pub struct MapGraphicsData {
     pub current: ViewedMapLayer,
     pub previous: ViewedMapLayer,
     pub layers: HashMap<ViewedMapLayer, MapGraphicsLayer>,
+    pub empty_material: Handle<StandardMaterial>,
 }
 
 #[derive(Default)]
@@ -42,3 +41,7 @@ pub struct WorldMapMesh;
 // World globe model tag.
 #[derive(Component)]
 pub struct WorldGlobeMesh;
+
+// Currently visible world model.
+#[derive(Component)]
+pub struct CurrentWorldModel;

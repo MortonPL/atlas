@@ -9,6 +9,7 @@ use bevy_egui::{EguiContexts, EguiPlugin};
 
 use crate::{
     config::GeneratorConfig,
+    event::EventStruct,
     ui::internal::{create_ui, handle_camera, MainCamera, UiState, UiStatePanel},
 };
 
@@ -44,8 +45,9 @@ pub fn update_ui(
     mut contexts: EguiContexts,
     ui_state: ResMut<UiState>,
     ui_panel: ResMut<UiStatePanel>,
+    events: ResMut<EventStruct>,
 ) {
-    create_ui(contexts.ctx_mut(), config, ui_state, ui_panel);
+    create_ui(contexts.ctx_mut(), config, ui_state, ui_panel, events);
 }
 
 /// Update system
