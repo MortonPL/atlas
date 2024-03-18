@@ -6,12 +6,16 @@ use bevy::{
 };
 use bevy_egui::egui::{self, Context, RichText, Ui};
 
+use atlas_lib::{
+    ui::{UiConfigurableEnum, UiControl, UiEnumDropdown},
+    update_enum,
+};
+
 use crate::{
     config::{self, load_config, load_image, save_config, save_image, GeneratorConfig},
     map::ViewedMapLayer,
+    ui::general::MainPanelGeneral,
 };
-
-use super::panel_general::MainPanelGeneral;
 
 /// Default sidebar width in points. Should be greater or equal to [SIDEBAR_MIN_WIDTH].
 const SIDEBAR_WIDTH: f32 = 400.0;
@@ -56,16 +60,21 @@ pub struct UiState {
     pub file_dialog: Option<egui_file::FileDialog>,
     pub file_dialog_mode: FileDialogMode,
     pub just_loaded_layer: bool,
-    pub just_changed_dimensions: bool,
+    pub just_changed_size: bool,
+    pub just_changed_model: bool,
+    pub current_layer: ViewedMapLayer,
 }
 
+/// Currently viewed sidebar panel.
 #[derive(Default, Resource)]
 pub struct UiStatePanel {
     pub current_panel: Box<dyn MainPanel + Sync + Send>,
 }
 
-/// Transition between sidebar panels
+/// Transition between sidebar panels.
+#[derive(Default, Clone, Copy)]
 pub enum MainPanelTransition {
+    #[default]
     None,
     Previous,
     Next,
@@ -77,13 +86,10 @@ pub trait MainPanel {
     fn get_heading(&self) -> &'static str;
 
     /// Create UI for this panel.
-    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState);
+    fn show(&mut self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState);
 
     /// Handle transitioning to the previous or next panel.
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send>;
-
-    /// Map self to [ViewedMapLayer].
-    fn get_map_layer(&self) -> ViewedMapLayer;
 }
 
 impl Default for Box<dyn MainPanel + Sync + Send> {
@@ -103,6 +109,8 @@ pub fn create_ui(
     // __________________
     // | Sidebar Head   |  <-- Title, "Save"/"Load"/"Reset" buttons.
     // |----------------|
+    // | Layer View     |  <-- Layer dropdown and other visibility settings.
+    // |----------------|
     // | Panel-specific |  <-- Panel displaying current stage settings
     // |                |      and "Previous"/"Next" buttons.
     // |  Prev || Next  |
@@ -111,12 +119,13 @@ pub fn create_ui(
         .min_width(SIDEBAR_MIN_WIDTH)
         .default_width(SIDEBAR_WIDTH)
         .show(ctx, |ui| {
-            create_sidebar_head(ui, &mut config, &mut ui_state);
+            create_sidebar_head(ui, &mut config, &mut ui_state, &mut ui_panel);
+            create_layer_view_settings(ui, &mut config, &mut ui_state);
             create_current_panel(ui, &mut config, &mut ui_state, &mut ui_panel);
             adjust_viewport(ui, &mut ui_state);
         });
 
-    handle_file_dialog(ctx, &mut config, &mut ui_state);
+    handle_file_dialog(ctx, &mut config, &mut ui_state, &mut ui_panel);
 }
 
 /// Handle camera movement/zoom inputs.
@@ -145,7 +154,12 @@ pub fn handle_camera(
 }
 
 /// Add a top bar with configuration S/L.
-fn create_sidebar_head(ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
+fn create_sidebar_head(
+    ui: &mut Ui,
+    config: &mut ResMut<GeneratorConfig>,
+    ui_state: &mut UiState,
+    ui_panel: &mut UiStatePanel,
+) {
     ui.vertical(|ui| {
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
         ui.horizontal(|ui| {
@@ -172,10 +186,29 @@ fn create_sidebar_head(ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_sta
                 .clicked()
             {
                 **config = GeneratorConfig::default();
+                ui_panel.current_panel = default();
             }
         });
     });
     ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
+}
+
+// Create sidebar settings for the layer display.
+fn create_layer_view_settings(
+    ui: &mut Ui,
+    _config: &mut ResMut<GeneratorConfig>,
+    ui_state: &mut UiState,
+) {
+    ui.horizontal(|ui| {
+        let old = ui_state.current_layer;
+        let selection =
+            UiEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
+        update_enum!(ui_state.current_layer, selection);
+        if old != ui_state.current_layer {
+            // request visuals change?
+        }
+    });
+    ui.separator();
 }
 
 /// Create the current panel.
@@ -194,9 +227,7 @@ fn create_current_panel(
             (false, true) => MainPanelTransition::Next,
             _ => MainPanelTransition::None,
         };
-        ui_panel.current_panel = ui_panel
-            .current_panel
-            .transition(transition);
+        ui_panel.current_panel = ui_panel.current_panel.transition(transition);
     });
 }
 
@@ -211,13 +242,23 @@ fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
 }
 
 /// Handle the file dialog window if it is open. Perform configuration S/L if the user selected a file.
-fn handle_file_dialog(ctx: &Context, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
+fn handle_file_dialog(
+    ctx: &Context,
+    config: &mut ResMut<GeneratorConfig>,
+    ui_state: &mut UiState,
+    ui_panel: &mut UiStatePanel,
+) {
     let mode = ui_state.file_dialog_mode;
     if let Some(file_dialog) = &mut ui_state.file_dialog {
         if file_dialog.show(ctx).selected() {
             if let Some(file) = file_dialog.path() {
                 match mode {
-                    FileDialogMode::LoadConfig => **config = load_config(file).unwrap(), // TODO error handling
+                    FileDialogMode::LoadConfig => {
+                        **config = {
+                            ui_panel.current_panel = default();
+                            load_config(file).unwrap()
+                        }
+                    } // TODO error handling
                     FileDialogMode::SaveConfig => save_config(config, file).unwrap(), // TODO error handling
                     FileDialogMode::LoadImage(layer) => {
                         handle_load_file(config, file, layer).unwrap(); // TODO error handling
@@ -262,13 +303,11 @@ fn handle_save_file(
     Ok(())
 }
 
-pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ImageLayer)
-{
+// TODO change ImageLayewr to ViewedMapLayer
+pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ImageLayer) {
     ui.horizontal(|ui| {
         if ui
-            .add(egui::Button::new(
-                RichText::new("Load Layer").size(24.0),
-            ))
+            .add(egui::Button::new(RichText::new("Load Layer").size(24.0)))
             .clicked()
         {
             let mut file_picker = egui_file::FileDialog::open_file(None);
@@ -277,9 +316,7 @@ pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ImageLay
             ui_state.file_dialog_mode = FileDialogMode::LoadImage(layer);
         }
         if ui
-            .add(egui::Button::new(
-                RichText::new("Save Layer").size(24.0),
-            ))
+            .add(egui::Button::new(RichText::new("Save Layer").size(24.0)))
             .clicked()
         {
             let mut file_picker = egui_file::FileDialog::save_file(None);

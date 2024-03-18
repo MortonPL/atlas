@@ -1,6 +1,7 @@
-use atlas_lib::{ui::UiControl, MakeUi, UiConfigurableEnum};
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
+
+use atlas_lib::{ui::UiControl, MakeUi, UiConfigurableEnumWithFields};
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -42,7 +43,7 @@ impl Default for GeneralConfig {
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnum)]
+#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
@@ -83,7 +84,7 @@ impl Default for FlatWorldModel {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
 
-#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnum)]
+#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum GeneratorType {
     Simple(SimpleGenerator),
@@ -102,15 +103,19 @@ impl Default for GeneratorType {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct SimpleGenerator {
-    pub topology: SimpleTopographyConfig,
+    pub topography: SimpleTopographyConfig,
     pub climate: SimpleClimateConfig,
+    pub resources: SimpleResourcesConfig,
 }
+
+#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+pub struct SimpleTopographyConfig {}
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct SimpleClimateConfig {}
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct SimpleTopographyConfig {}
+pub struct SimpleResourcesConfig {}
 
 // ******************************************************** //
 // *************** ADVANCED GENERATOR CONFIG ************** //
@@ -121,6 +126,7 @@ pub struct AdvancedGenerator {
     pub continents: ContinentsConfig,
     pub topography: TopographyConfig,
     pub climate: ClimateConfig,
+    pub resources: ResourcesConfig,
 }
 
 /// Config for layout of continets and oceans.
@@ -153,3 +159,6 @@ pub struct TopographyConfig {}
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct ClimateConfig {}
+
+#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+pub struct ResourcesConfig {}

@@ -109,6 +109,53 @@ pub fn ui_configurable_enum_derive(input: TokenStream) -> TokenStream {
 
             fn self_as_index(&self) -> usize {
                 match self {
+                    #(Self::#idents => #indices,)*
+                }
+            }
+
+            fn index_as_self(&self, idx: usize) -> Self {
+                match idx {
+                    #(#indices => Self::#idents,)*
+                    _ => panic!(),
+                }
+            }
+
+            fn index_to_str(idx: usize) -> &'static str {
+                match idx {
+                    #(#indices => stringify!(#idents),)*
+                    _ => panic!(),
+                }
+            }
+        }
+    })
+}
+
+#[proc_macro_derive(UiConfigurableEnumWithFields)]
+pub fn ui_configurable_enum_with_fields_derive(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let enum_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    let variants = match ast.data {
+        syn::Data::Enum(e) => e.variants,
+        syn::Data::Struct(_) => unimplemented!(),
+        syn::Data::Union(_) => unimplemented!(),
+    };
+
+    let len = variants.len();
+    let mut idents = vec![];
+    let indices: Vec<_> = (0..len).collect();
+    for variant in variants.into_iter() {
+        idents.push(variant.ident);
+    }
+
+    TokenStream::from(quote! {
+        impl #impl_generics atlas_lib::ui::UiConfigurableEnum for #enum_name #type_generics #where_clause {
+            const LEN: usize = #len;
+
+            fn self_as_index(&self) -> usize {
+                match self {
                     #(Self::#idents(_) => #indices,)*
                 }
             }

@@ -1,25 +1,29 @@
-use atlas_lib::ui::MakeUi;
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
-use crate::{config::GeneratorConfig, map::ViewedMapLayer};
+use atlas_lib::ui::MakeUi;
 
-use super::{
-    internal::{make_layer_save_load, ImageLayer, MainPanel, MainPanelTransition, UiState},
-    panel_general::MainPanelGeneral,
-    panel_topography::MainPanelTopography,
-    utils::add_section,
+use crate::{
+    config::{GeneratorConfig, GeneratorType},
+    ui::{
+        general::MainPanelGeneral,
+        internal::{make_layer_save_load, ImageLayer, MainPanel, MainPanelTransition, UiState},
+        utils::add_section,
+    },
 };
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelContinents;
 
 impl MainPanel for MainPanelContinents {
-    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
+    fn show(&mut self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
         make_layer_save_load(ui, ui_state, ImageLayer::Continental);
-        
+
         add_section(ui, "Continents Generator", |ui| {
-            config.continents.make_ui(ui);
+            match &mut config.generator {
+                GeneratorType::Advanced(advanced) => advanced.continents.make_ui(ui),
+                _ => default(),
+            };
         });
     }
 
@@ -31,11 +35,7 @@ impl MainPanel for MainPanelContinents {
         match transition {
             MainPanelTransition::None => Box::new(*self),
             MainPanelTransition::Previous => Box::<MainPanelGeneral>::default(),
-            MainPanelTransition::Next => Box::<MainPanelTopography>::default(),
+            MainPanelTransition::Next => Box::new(*self), //Box::<MainPanelTopography>::default(), // TODO
         }
-    }
-
-    fn get_map_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Continental
     }
 }

@@ -1,24 +1,33 @@
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
-use crate::{
-    config::{FlatWorldModel, GeneratorConfig, GlobeWorldModel, WorldModel},
-    map::ViewedMapLayer,
+use atlas_lib::{
+    ui::{MakeUi, UiConfigurableEnum, UiControl, UiEnumDropdown},
+    update_enum,
 };
 
-use atlas_lib::{ui::{MakeUi, UiConfigurableEnum, UiControl, UiEnumDropdown}, update_enum};
-
-use super::{
-    internal::{MainPanel, MainPanelTransition, UiState},
-    //panel_continents::MainPanelContinents,
-    utils::add_section,
+use crate::{
+    config::{FlatWorldModel, GeneratorConfig, GeneratorType, GlobeWorldModel, WorldModel},
+    ui::{
+        advanced::MainPanelContinents,
+        internal::{MainPanel, MainPanelTransition, UiState},
+        simple::MainPanelTopography,
+        utils::add_section,
+    },
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelGeneral;
+pub struct MainPanelGeneral {
+    use_advanced: bool,
+}
 
 impl MainPanel for MainPanelGeneral {
-    fn show(&self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
+    fn show(&mut self, ui: &mut Ui, config: &mut ResMut<GeneratorConfig>, ui_state: &mut UiState) {
+        self.use_advanced = match &config.generator {
+            GeneratorType::Simple(_) => false,
+            GeneratorType::Advanced(_) => true,
+        };
+
         let mut ui_results = vec![];
         add_section(ui, "World", |ui| {
             ui_results = config.general.make_ui(ui);
@@ -27,8 +36,12 @@ impl MainPanel for MainPanelGeneral {
         if ui_results[2] == 1 {
             config.general.seed = rand::random();
         }
-        
-        update_enum!(config.general.world_model, ui_results[0]);
+
+        if config.general.world_model.self_as_index() != ui_results[0] {
+            config.general.world_model = config.general.world_model.index_as_self(ui_results[0]);
+            ui_state.just_changed_model = true;
+        }
+
         add_section(
             ui,
             format!(
@@ -55,20 +68,19 @@ impl MainPanel for MainPanelGeneral {
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
         match transition {
-            //MainPanelTransition::Next => Box::<MainPanelContinents>::default(),
+            MainPanelTransition::Next => match self.use_advanced {
+                false => Box::<MainPanelTopography>::default(),
+                true => Box::<MainPanelContinents>::default(),
+            },
             _ => Box::new(*self),
         }
-    }
-
-    fn get_map_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::None
     }
 }
 
 fn create_general_flat_settings(ui: &mut Ui, ui_state: &mut UiState, config: &mut FlatWorldModel) {
     let old = config.world_size;
     config.make_ui(ui);
-    ui_state.just_changed_dimensions = old != config.world_size;
+    ui_state.just_changed_size = old != config.world_size;
 }
 
 fn create_general_globe_settings(

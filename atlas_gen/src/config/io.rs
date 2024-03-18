@@ -1,8 +1,9 @@
-use crate::config::GeneratorConfig;
 use std::{
     fs::{self, File},
     path::Path,
 };
+
+use crate::config::GeneratorConfig;
 
 type Result<T> = std::result::Result<T, Error>;
 

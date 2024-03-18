@@ -1,9 +1,9 @@
 mod internal;
-//mod panel_climate;
-//mod panel_continents;
-mod panel_general;
-//mod panel_topography;
 mod plugin;
 mod utils;
+
+mod advanced;
+mod general;
+mod simple;
 
 pub use plugin::*;

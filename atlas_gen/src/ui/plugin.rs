@@ -1,12 +1,16 @@
-use bevy::app::{MainScheduleOrder, RunFixedUpdateLoop};
-use bevy::input::mouse::MouseWheel;
-use bevy::render::camera::Viewport;
-use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+use bevy::{
+    app::{MainScheduleOrder, RunFixedUpdateLoop},
+    ecs::schedule::ScheduleLabel,
+    input::mouse::MouseWheel,
+    prelude::*,
+    render::camera::Viewport,
+};
 use bevy_egui::{EguiContexts, EguiPlugin};
 
-use crate::config::GeneratorConfig;
-use crate::map::{MapGraphicsData, ViewedMapLayer};
-use crate::ui::internal::{create_ui, handle_camera, MainCamera, UiState, UiStatePanel};
+use crate::{
+    config::GeneratorConfig,
+    ui::internal::{create_ui, handle_camera, MainCamera, UiState, UiStatePanel},
+};
 
 /// Plugin responsible for the entire GUI and viewport rectangle.
 pub struct UiPlugin;
@@ -24,7 +28,6 @@ impl Plugin for UiPlugin {
             .add_systems(Startup, startup)
             .add_systems(UiUpdate, update_ui)
             .add_systems(UiUpdate, update_input)
-            .add_systems(UiUpdate, update_layer_change.after(update_ui))
             .add_systems(UiUpdate, update_viewport.after(update_ui));
     }
 }
@@ -56,45 +59,18 @@ pub fn update_input(
     handle_camera(kb, mouse, &mut cameras.single_mut());
 }
 
-/// Update system (after [update_ui])
-///
-/// Set visible map layer depending on the current UI panel.
-pub fn update_layer_change(
-    mut graphics: ResMut<MapGraphicsData>,
-    mut ui_state: ResMut<UiState>,
-    ui_panel: ResMut<UiStatePanel>,
-) {
-    graphics.current = ui_panel.current_panel.get_map_layer();
-    let layer = match graphics.current {
-        ViewedMapLayer::Continental => &mut graphics.layer_cont,
-        ViewedMapLayer::Topograpy => &mut graphics.layer_topo,
-        ViewedMapLayer::Climate => &mut graphics.layer_climate,
-        ViewedMapLayer::All => &mut graphics.layer_all,
-        _ => &mut graphics.layer_none,
-    };
-    layer.invalidated |= ui_state.just_loaded_layer;
-    if ui_state.just_changed_dimensions {
-        graphics.layer_cont.invalidated = true;
-        graphics.layer_topo.invalidated = true;
-        graphics.layer_climate.invalidated = true;
-        graphics.layer_all.invalidated = true;
-    }
-    ui_state.just_loaded_layer = false;
-    ui_state.just_changed_dimensions = false;
-}
-
 /// Update system (after [update_ui]).
 ///
 /// Set the viewport rectangle to whatever is not occupied by the UI sidebar.
 pub fn update_viewport(
-    egui_settings: Res<bevy_egui::EguiSettings>,
+    settings: Res<bevy_egui::EguiSettings>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
     ui_state: Res<UiState>,
 ) {
-    let mut cam = cameras.single_mut();
-    let viewport_size = ui_state.viewport_size * egui_settings.scale_factor as f32;
+    let viewport_size = ui_state.viewport_size * settings.scale_factor as f32;
     // Layout: viewport on the left, sidebar on the right. Together they take up the entire screen space.
-    cam.viewport = Some(Viewport {
+    let mut camera = cameras.single_mut();
+    camera.viewport = Some(Viewport {
         physical_position: UVec2::new(0, 0),
         physical_size: UVec2::new(viewport_size.x as u32, viewport_size.y as u32),
         ..Default::default()
