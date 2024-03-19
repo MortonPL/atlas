@@ -1,4 +1,3 @@
-use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
 use crate::{
@@ -6,35 +5,35 @@ use crate::{
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
-        internal::{make_layer_save_load, MainPanel, MainPanelTransition, UiState},
-        simple::{MainPanelResources, MainPanelTopography},
+        internal::{make_layer_save_load, UiState},
+        panel::{MainPanel, MainPanelTransition, MainPanelGeneral, simple::MainPanelClimate},
     },
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelClimate;
+pub struct MainPanelTopography;
 
-impl MainPanel for MainPanelClimate {
+impl MainPanel for MainPanelTopography {
     fn show(
         &mut self,
         ui: &mut Ui,
-        _config: &mut ResMut<GeneratorConfig>,
+        _config: &mut GeneratorConfig,
         ui_state: &mut UiState,
         _events: &mut EventStruct,
     ) {
-        make_layer_save_load(ui, ui_state, ViewedMapLayer::Climate);
+        make_layer_save_load(ui, ui_state, ViewedMapLayer::Topography);
         // TODO
     }
 
     fn get_heading(&self) -> &'static str {
-        "Climate"
+        "Topography"
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
         match transition {
-            MainPanelTransition::Previous => Box::<MainPanelTopography>::default(),
             MainPanelTransition::None => Box::new(*self),
-            MainPanelTransition::Next => Box::<MainPanelResources>::default(),
+            MainPanelTransition::Previous => Box::<MainPanelGeneral>::default(),
+            MainPanelTransition::Next => Box::<MainPanelClimate>::default(),
         }
     }
 }

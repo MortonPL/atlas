@@ -1,7 +1,7 @@
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
 
-use atlas_lib::{ui::UiControl, MakeUi, UiConfigurableEnumWithFields};
+use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnumWithFields};
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -18,15 +18,15 @@ pub struct GeneratorConfig {
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct GeneralConfig {
     #[name("World Seed")]
-    #[control(UiSliderRandom)]
+    #[control(SidebarSliderRandom)]
     #[add(speed(100.0))]
     pub seed: u32,
     #[name("Tile Resolution")]
-    #[control(UiSlider)]
+    #[control(SidebarSlider)]
     #[add(clamp_range(10.0..=200.0))]
     pub tile_resolution: f32,
     #[name("World Model")]
-    #[control(UiEnumDropdown)]
+    #[control(SidebarEnumDropdown)]
     pub world_model: WorldModel,
 }
 
@@ -43,7 +43,7 @@ impl Default for GeneralConfig {
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
@@ -68,7 +68,7 @@ impl Default for WorldModel {
 #[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
 pub struct FlatWorldModel {
     #[name("World Size")]
-    #[control(UiSliderN)]
+    #[control(SidebarSliderN)]
     #[add(clamp_range(100..=500))]
     pub world_size: [u32; 2],
 }
@@ -84,7 +84,7 @@ impl Default for FlatWorldModel {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
 
-#[derive(Debug, Deserialize, Resource, Serialize, UiConfigurableEnumWithFields)]
+#[derive(Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum GeneratorType {
     Simple(SimpleGenerator),
@@ -133,11 +133,11 @@ pub struct AdvancedGenerator {
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct ContinentsConfig {
     #[name("# of Continents")]
-    #[control(UiSlider)]
+    #[control(SidebarSlider)]
     #[add(clamp_range(1..=10))]
     pub num_continents: u8,
     #[name("# of Oceans")]
-    #[control(UiSlider)]
+    #[control(SidebarSlider)]
     #[add(clamp_range(1..=10))]
     pub num_oceans: u8,
 }

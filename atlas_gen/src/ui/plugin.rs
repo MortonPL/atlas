@@ -10,7 +10,7 @@ use bevy_egui::{EguiContexts, EguiPlugin};
 use crate::{
     config::GeneratorConfig,
     event::EventStruct,
-    ui::internal::{create_ui, handle_camera, MainCamera, UiState, UiStatePanel},
+    ui::internal::{create_ui, handle_camera, UiState, UiStatePanel},
 };
 
 /// Plugin responsible for the entire GUI and viewport rectangle.
@@ -37,23 +37,27 @@ impl Plugin for UiPlugin {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct UiUpdate;
 
+/// Camera tag.
+#[derive(Component)]
+struct MainCamera;
+
 /// Update system
 ///
 /// Redraw the immediate UI.
-pub fn update_ui(
+fn update_ui(
     config: ResMut<GeneratorConfig>,
     mut contexts: EguiContexts,
-    ui_state: ResMut<UiState>,
-    ui_panel: ResMut<UiStatePanel>,
-    events: ResMut<EventStruct>,
+    mut ui_state: ResMut<UiState>,
+    mut ui_panel: ResMut<UiStatePanel>,
+    mut events: ResMut<EventStruct>,
 ) {
-    create_ui(contexts.ctx_mut(), config, ui_state, ui_panel, events);
+    create_ui(contexts.ctx_mut(), config, &mut ui_state, &mut ui_panel, &mut events);
 }
 
 /// Update system
 ///
 /// Handle user input
-pub fn update_input(
+fn update_input(
     kb: Res<Input<KeyCode>>,
     mouse: EventReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<MainCamera>>,
@@ -64,7 +68,7 @@ pub fn update_input(
 /// Update system (after [update_ui]).
 ///
 /// Set the viewport rectangle to whatever is not occupied by the UI sidebar.
-pub fn update_viewport(
+fn update_viewport(
     settings: Res<bevy_egui::EguiSettings>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
     ui_state: Res<UiState>,
@@ -82,7 +86,7 @@ pub fn update_viewport(
 /// Startup system
 ///
 /// Spawn the main camera that the viewport will use.
-pub fn startup(mut commands: Commands) {
+fn startup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 5.0)

@@ -2,37 +2,29 @@ use std::{marker::PhantomData, ops::RangeInclusive};
 
 use bevy_egui::egui::{self, Ui};
 
+use crate::ui::generic::UiEditableEnum;
+
 const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
 
-pub trait UiControl<'u, 'v, T: ?Sized> {
+pub trait MakeUi {
+    fn make_ui(&mut self, ui: &mut Ui) -> Vec<usize>;
+}
+
+pub trait SidebarControl<'u, 'v, T: ?Sized> {
     fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self;
 
     fn show(self, hint: Option<&str>) -> usize;
 }
 
-pub trait UiConfigurableEnum {
-    const LEN: usize;
-
-    fn self_as_index(&self) -> usize;
-
-    fn index_as_self(&self, idx: usize) -> Self;
-
-    fn index_to_str(idx: usize) -> &'static str;
-
-    fn self_as_str(&self) -> &'static str {
-        Self::index_to_str(self.self_as_index())
-    }
-}
-
 /// A Slider/TextBox combo for a numerical value.
-pub struct UiSlider<'u, 'v, T> {
+pub struct SidebarSlider<'u, 'v, T> {
     ui: &'u mut Ui,
     inner: egui::DragValue<'v>,
     label: &'static str,
     __: PhantomData<T>,
 }
 
-impl<'u, 'v, Num> UiControl<'u, 'v, Num> for UiSlider<'u, 'v, Num>
+impl<'u, 'v, Num> SidebarControl<'u, 'v, Num> for SidebarSlider<'u, 'v, Num>
 where
     Num: egui::emath::Numeric,
 {
@@ -54,7 +46,7 @@ where
     }
 }
 
-impl<'u, 'v, Num> UiSlider<'u, 'v, Num>
+impl<'u, 'v, Num> SidebarSlider<'u, 'v, Num>
 where
     Num: egui::emath::Numeric,
 {
@@ -70,14 +62,14 @@ where
 }
 
 /// A Slider/TextBox combo for N numerical values.
-pub struct UiSliderN<'u, 'v, T: ?Sized> {
+pub struct SidebarSliderN<'u, 'v, T: ?Sized> {
     ui: &'u mut Ui,
     inners: Vec<egui::DragValue<'v>>,
     label: &'static str,
     __: PhantomData<T>,
 }
 
-impl<'u, 'v, Num> UiControl<'u, 'v, [Num]> for UiSliderN<'u, 'v, [Num]>
+impl<'u, 'v, Num> SidebarControl<'u, 'v, [Num]> for SidebarSliderN<'u, 'v, [Num]>
 where
     Num: egui::emath::Numeric,
 {
@@ -101,7 +93,7 @@ where
     }
 }
 
-impl<'u, 'v, Num> UiSliderN<'u, 'v, [Num]>
+impl<'u, 'v, Num> SidebarSliderN<'u, 'v, [Num]>
 where
     Num: egui::emath::Numeric,
 {
@@ -121,14 +113,14 @@ where
 }
 
 /// A Slider/TextBox combo for a numerical value with an extra button for a random value.
-pub struct UiSliderRandom<'u, 'v, T> {
+pub struct SidebarSliderRandom<'u, 'v, T> {
     ui: &'u mut Ui,
     inner: egui::DragValue<'v>,
     label: &'static str,
     __: PhantomData<T>,
 }
 
-impl<'u, 'v, Num> UiControl<'u, 'v, Num> for UiSliderRandom<'u, 'v, Num>
+impl<'u, 'v, Num> SidebarControl<'u, 'v, Num> for SidebarSliderRandom<'u, 'v, Num>
 where
     Num: egui::emath::Numeric,
 {
@@ -155,7 +147,7 @@ where
     }
 }
 
-impl<'u, 'v, Num> UiSliderRandom<'u, 'v, Num>
+impl<'u, 'v, Num> SidebarSliderRandom<'u, 'v, Num>
 where
     Num: egui::emath::Numeric,
 {
@@ -171,16 +163,16 @@ where
 }
 
 /// A dropdown for an enum.
-pub struct UiEnumDropdown<'u, 'v, T> {
+pub struct SidebarEnumDropdown<'u, 'v, T> {
     ui: &'u mut Ui,
     selection: usize,
     label: &'static str,
     __: PhantomData<&'v T>,
 }
 
-impl<'u, 'v, T> UiControl<'u, 'v, T> for UiEnumDropdown<'u, 'v, T>
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarEnumDropdown<'u, 'v, T>
 where
-    T: UiConfigurableEnum,
+    T: UiEditableEnum,
 {
     fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
         let selection = value.self_as_index();

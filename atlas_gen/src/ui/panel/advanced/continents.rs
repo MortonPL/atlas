@@ -1,16 +1,14 @@
-use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
-use atlas_lib::ui::MakeUi;
+use atlas_lib::ui::sidebar::MakeUi;
 
 use crate::{
     config::{GeneratorConfig, GeneratorType},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
-        general::MainPanelGeneral,
-        internal::{make_layer_save_load, MainPanel, MainPanelTransition, UiState},
-        utils::add_section,
+        internal::{make_layer_save_load, UiState},
+        panel::{MainPanelGeneral, MainPanel, MainPanelTransition, add_section},
     },
 };
 
@@ -21,7 +19,7 @@ impl MainPanel for MainPanelContinents {
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut ResMut<GeneratorConfig>,
+        config: &mut GeneratorConfig,
         ui_state: &mut UiState,
         _events: &mut EventStruct,
     ) {
@@ -30,7 +28,7 @@ impl MainPanel for MainPanelContinents {
         add_section(ui, "Continents Generator", |ui| {
             match &mut config.generator {
                 GeneratorType::Advanced(advanced) => advanced.continents.make_ui(ui),
-                _ => default(),
+                _ => unreachable!(),
             };
         });
     }

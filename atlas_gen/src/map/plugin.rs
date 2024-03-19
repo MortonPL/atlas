@@ -5,7 +5,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureFormat},
 };
 
-use atlas_lib::UiConfigurableEnum;
+use atlas_lib::UiEditableEnum;
 
 use crate::{
     config::{save_image, GeneratorConfig, WorldModel},
@@ -45,7 +45,7 @@ impl Plugin for MapPlugin {
 }
 
 /// Which layer is currently visible in the viewport.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiConfigurableEnum)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiEditableEnum)]
 pub enum ViewedMapLayer {
     #[default]
     Pretty,

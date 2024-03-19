@@ -1,8 +1,10 @@
-use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
 use atlas_lib::{
-    ui::{MakeUi, UiConfigurableEnum, UiControl, UiEnumDropdown},
+    ui::{
+        sidebar::{MakeUi, SidebarControl, SidebarEnumDropdown},
+        UiEditableEnum,
+    },
     update_enum,
 };
 
@@ -10,10 +12,8 @@ use crate::{
     config::{FlatWorldModel, GeneratorConfig, GeneratorType, GlobeWorldModel, WorldModel},
     event::EventStruct,
     ui::{
-        advanced::MainPanelContinents,
-        internal::{MainPanel, MainPanelTransition, UiState},
-        simple::MainPanelTopography,
-        utils::add_section,
+        internal::UiState,
+        panel::{MainPanel, MainPanelTransition, advanced::MainPanelContinents, simple::MainPanelTopography, add_section},
     },
 };
 
@@ -26,7 +26,7 @@ impl MainPanel for MainPanelGeneral {
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut ResMut<GeneratorConfig>,
+        config: &mut GeneratorConfig,
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
@@ -51,10 +51,7 @@ impl MainPanel for MainPanelGeneral {
 
         add_section(
             ui,
-            format!(
-                "{} World Settings",
-                config.general.world_model.self_as_str()
-            ),
+            format!("{} World Settings", config.general.world_model.self_as_str()),
             |ui| {
                 match &mut config.general.world_model {
                     WorldModel::Flat(x) => create_general_flat_settings(ui, events, x),
@@ -64,7 +61,7 @@ impl MainPanel for MainPanelGeneral {
         );
 
         add_section(ui, "Generator", |ui| {
-            let generator = UiEnumDropdown::new(ui, "Type", &mut config.generator).show(None);
+            let generator = SidebarEnumDropdown::new(ui, "Type", &mut config.generator).show(None);
             update_enum!(config.generator, generator);
         });
     }
@@ -84,11 +81,7 @@ impl MainPanel for MainPanelGeneral {
     }
 }
 
-fn create_general_flat_settings(
-    ui: &mut Ui,
-    events: &mut EventStruct,
-    config: &mut FlatWorldModel,
-) {
+fn create_general_flat_settings(ui: &mut Ui, events: &mut EventStruct, config: &mut FlatWorldModel) {
     let old = config.world_size;
     config.make_ui(ui);
     if old != config.world_size {
@@ -96,10 +89,6 @@ fn create_general_flat_settings(
     }
 }
 
-fn create_general_globe_settings(
-    _ui: &mut Ui,
-    _events: &mut EventStruct,
-    _config: &mut GlobeWorldModel,
-) {
+fn create_general_globe_settings(_ui: &mut Ui, _events: &mut EventStruct, _config: &mut GlobeWorldModel) {
     // TODO
 }

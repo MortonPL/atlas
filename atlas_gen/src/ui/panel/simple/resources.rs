@@ -1,4 +1,3 @@
-use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
 use crate::{
@@ -6,8 +5,8 @@ use crate::{
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
-        internal::{make_layer_save_load, MainPanel, MainPanelTransition, UiState},
-        simple::MainPanelClimate,
+        internal::{make_layer_save_load, UiState},
+        panel::{MainPanel, MainPanelTransition, simple::MainPanelClimate},
     },
 };
 
@@ -18,7 +17,7 @@ impl MainPanel for MainPanelResources {
     fn show(
         &mut self,
         ui: &mut Ui,
-        _config: &mut ResMut<GeneratorConfig>,
+        _config: &mut GeneratorConfig,
         ui_state: &mut UiState,
         _events: &mut EventStruct,
     ) {

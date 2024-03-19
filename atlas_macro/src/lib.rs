@@ -71,11 +71,11 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::MakeUi for #struct_name #type_generics #where_clause {
+        impl #impl_generics atlas_lib::ui::sidebar::MakeUi for #struct_name #type_generics #where_clause {
             fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) -> Vec<usize> {
                 let mut results = vec![];
                 #(
-                    results.push(atlas_lib::ui::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints));
+                    results.push(atlas_lib::ui::sidebar::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints));
                 )*
                 results
             }
@@ -83,8 +83,8 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(UiConfigurableEnum)]
-pub fn ui_configurable_enum_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(UiEditableEnum)]
+pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let enum_name = &ast.ident;
@@ -104,7 +104,7 @@ pub fn ui_configurable_enum_derive(input: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::UiConfigurableEnum for #enum_name #type_generics #where_clause {
+        impl #impl_generics atlas_lib::ui::UiEditableEnum for #enum_name #type_generics #where_clause {
             const LEN: usize = #len;
 
             fn self_as_index(&self) -> usize {
@@ -130,8 +130,8 @@ pub fn ui_configurable_enum_derive(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(UiConfigurableEnumWithFields)]
-pub fn ui_configurable_enum_with_fields_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(UiEditableEnumWithFields)]
+pub fn ui_editable_enum_with_fields_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let enum_name = &ast.ident;
@@ -151,7 +151,7 @@ pub fn ui_configurable_enum_with_fields_derive(input: TokenStream) -> TokenStrea
     }
 
     TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::UiConfigurableEnum for #enum_name #type_generics #where_clause {
+        impl #impl_generics atlas_lib::ui::UiEditableEnum for #enum_name #type_generics #where_clause {
             const LEN: usize = #len;
 
             fn self_as_index(&self) -> usize {
