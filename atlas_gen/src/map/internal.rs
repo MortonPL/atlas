@@ -10,7 +10,6 @@ pub struct MapLogicData {
 #[derive(Default, Resource)]
 pub struct MapGraphicsData {
     pub current: ViewedMapLayer,
-    pub previous: ViewedMapLayer,
     pub layers: HashMap<ViewedMapLayer, MapGraphicsLayer>,
     pub empty_material: Handle<StandardMaterial>,
 }
@@ -18,18 +17,14 @@ pub struct MapGraphicsData {
 #[derive(Default)]
 pub struct MapGraphicsLayer {
     pub material: Handle<StandardMaterial>,
-    pub image: Handle<Image>,
-    pub invalidated: bool,
-    pub outdated: bool,
+    pub invalid: bool,
 }
 
 impl MapGraphicsLayer {
-    pub fn new(material: Handle<StandardMaterial>, image: Handle<Image>) -> Self {
+    pub fn new(material: Handle<StandardMaterial>) -> Self {
         Self {
             material,
-            image,
-            invalidated: false,
-            outdated: false,
+            invalid: true,
         }
     }
 }

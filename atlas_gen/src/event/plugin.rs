@@ -17,6 +17,6 @@ impl Plugin for EventPlugin {
 pub struct EventStruct {
     pub world_model_changed: Option<WorldModel>,
     pub viewed_layer_changed: Option<ViewedMapLayer>,
-    pub load_layer_request: Option<(ViewedMapLayer, Box<Path>)>,
+    pub load_layer_request: Option<(ViewedMapLayer, Vec<u8>)>,
     pub save_layer_request: Option<(ViewedMapLayer, Box<Path>)>,
 }

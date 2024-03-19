@@ -8,7 +8,7 @@ use bevy::{
 use atlas_lib::UiConfigurableEnum;
 
 use crate::{
-    config::{GeneratorConfig, WorldModel},
+    config::{save_image, GeneratorConfig, WorldModel},
     event::EventStruct,
     map::internal::{
         CurrentWorldModel, MapGraphicsData, MapGraphicsLayer, MapLogicData, WorldGlobeMesh,
@@ -33,14 +33,22 @@ impl Plugin for MapPlugin {
                 Update,
                 update_event_layer_changed.run_if(check_event_layer_changed),
             )
-            .add_systems(Update, update_validate_layers);
+            .add_systems(
+                Update,
+                update_event_layer_loaded.run_if(check_event_layer_loaded),
+            )
+            .add_systems(
+                Update,
+                update_event_layer_saved.run_if(check_event_layer_saved),
+            );
     }
 }
 
 /// Which layer is currently visible in the viewport.
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Resource, UiConfigurableEnum)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiConfigurableEnum)]
 pub enum ViewedMapLayer {
     #[default]
+    Pretty,
     Continents,
     Topography,
     Temperature,
@@ -60,9 +68,7 @@ fn startup_materials(
     mut graphics: ResMut<MapGraphicsData>,
     mut logics: ResMut<MapLogicData>,
 ) {
-    use ViewedMapLayer::*;
-
-    let image = Image::new_fill(
+    let empty_texture = Image::new_fill(
         Extent3d {
             width: 1,
             height: 1,
@@ -72,14 +78,14 @@ fn startup_materials(
         &[0, 0, 0, 255],
         TextureFormat::Rgba8Unorm,
     );
-    let image = images.add(image);
-    let material_base = StandardMaterial {
-        base_color_texture: Some(image.clone()),
-        ..Default::default()
-    };
-    graphics.empty_material = materials.add(material_base.clone());
+    graphics.empty_material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(empty_texture.clone())),
+        ..default()
+    });
 
+    use ViewedMapLayer::*;
     for layer in [
+        Pretty,
         Continents,
         Topography,
         Temperature,
@@ -89,11 +95,13 @@ fn startup_materials(
         Resource,
         Richness,
     ] {
-        let material = materials.add(material_base.clone());
-        graphics.layers.insert(
-            layer,
-            MapGraphicsLayer::new(material.clone(), image.clone()),
-        );
+        let material = materials.add(StandardMaterial {
+            base_color_texture: Some(images.add(empty_texture.clone())),
+            ..default()
+        });
+        graphics
+            .layers
+            .insert(layer, MapGraphicsLayer::new(material.clone()));
         logics.layers.insert(layer, vec![]);
     }
 }
@@ -105,28 +113,24 @@ fn startup_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     graphics: ResMut<MapGraphicsData>,
+    config: Res<GeneratorConfig>,
+    mut events: ResMut<EventStruct>,
 ) {
-    let layer = graphics
-        .layers
-        .get(&ViewedMapLayer::default())
-        .expect("Uninitialized map layer materials");
-
     // Sphere / globe
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(shape::UVSphere::default().into()),
-            material: layer.material.clone(),
+            material: graphics.empty_material.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         },
         WorldGlobeMesh,
-        CurrentWorldModel,
     ));
     // Plane / map
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(shape::Plane::default().into()),
-            material: layer.material.clone(),
+            material: graphics.empty_material.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 FRAC_PI_2,
@@ -136,7 +140,10 @@ fn startup_model(
             ..Default::default()
         },
         WorldMapMesh,
+        CurrentWorldModel,
     ));
+
+    events.world_model_changed = Some(config.general.world_model.clone());
 }
 
 /// Run Condition
@@ -154,6 +161,7 @@ fn update_event_world_model(
     mut events: ResMut<EventStruct>,
     mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
     mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
+    mut graphics: ResMut<MapGraphicsData>,
 ) {
     let (map_en, mut map_vis, mut map_tran) = map.single_mut();
     let (globe_en, mut globe_vis) = globe.single_mut();
@@ -163,7 +171,7 @@ fn update_event_world_model(
             WorldModel::Flat(x) => {
                 *map_vis = Visibility::Visible;
                 *globe_vis = Visibility::Hidden;
-                map_tran.scale.x = x.world_size[0] as f32 / 100.0; // TODO invalidate material, but only if world_size changed
+                map_tran.scale.x = x.world_size[0] as f32 / 100.0;
                 map_tran.scale.z = x.world_size[1] as f32 / 100.0;
                 commands.entity(map_en).insert(CurrentWorldModel);
                 commands.entity(globe_en).remove::<CurrentWorldModel>();
@@ -175,6 +183,10 @@ fn update_event_world_model(
                 commands.entity(map_en).remove::<CurrentWorldModel>();
             }
         }
+        for layer in graphics.layers.values_mut() {
+            layer.invalid = true;
+        }
+        events.viewed_layer_changed = Some(graphics.current);
     }
 
     events.world_model_changed = None;
@@ -192,58 +204,108 @@ fn check_event_layer_changed(events: Res<EventStruct>) -> bool {
 /// Assign respective layer material to the world model.
 fn update_event_layer_changed(
     mut events: ResMut<EventStruct>,
-    graphics: Res<MapGraphicsData>,
+    mut graphics: ResMut<MapGraphicsData>,
     mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
 ) {
     let mut mat = world.single_mut();
     if let Some(layer) = events.viewed_layer_changed {
+        graphics.current = layer;
         let layer = graphics
             .layers
             .get(&layer)
-            .expect("Uninitialized map layer materials");
-        *mat = layer.material.clone();
+            .expect("MapGraphicsData should map all layers");
+        if layer.invalid {
+            *mat = graphics.empty_material.clone();
+        } else {
+            *mat = layer.material.clone();
+        }
     }
 
     events.viewed_layer_changed = None;
 }
 
+/// Run condition
+///
+/// Check if "load layer image" event needs handling.
+fn check_event_layer_loaded(events: Res<EventStruct>) -> bool {
+    events.load_layer_request.is_some()
+}
+
 /// Update system
 ///
-/// Recreate material textures if they have been invalidated.
-pub fn update_validate_layers(
-    mut graphics: ResMut<MapGraphicsData>,
+/// Load new layer data. TODO convert between logical layer data and graphical layer data.
+fn update_event_layer_loaded(
+    mut events: ResMut<EventStruct>,
     config: ResMut<GeneratorConfig>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut graphics: ResMut<MapGraphicsData>,
     mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    /*
-    if graphics.layer_cont.invalidated {
-        dbg!("Invalidating");
+    if let Some((layer, data)) = &mut events.load_layer_request {
+        let layer = graphics
+            .layers
+            .get_mut(layer)
+            .expect("MapGraphicsData should map all layers");
+        let material = materials
+            .get_mut(&layer.material)
+            .expect("Material handle should be valid");
         let (width, height) = config.general.world_model.get_dimensions();
-        let image = Image::new_fill(
+        let image = Image::new(
             Extent3d {
                 width,
                 height,
                 depth_or_array_layers: 1,
             },
             bevy::render::render_resource::TextureDimension::D2,
-            &[0, 0, 0, 255],
+            data.drain(..).collect(),
             TextureFormat::Rgba8Unorm,
         );
         let image = images.add(image);
-        graphics.layer_cont.image = image.clone();
-        let material = materials.get_mut(&graphics.layer_cont.material).unwrap();
         material.base_color_texture = Some(image);
-
-        graphics.layer_cont.invalidated = false;
-        graphics.layer_cont.outdated = true;
-    } else if graphics.layer_cont.outdated {
-        let image = images.get_mut(&graphics.layer_cont.image).unwrap();
-        //image.data = config.continents.data.clone();
-        let material = materials.get_mut(&graphics.layer_cont.material).unwrap();
-        material.base_color_texture = Some(graphics.layer_cont.image.clone());
-
-        graphics.layer_cont.outdated = false;
+        layer.invalid = false;
+        events.viewed_layer_changed = Some(graphics.current);
     }
-    */
+
+    events.load_layer_request = None;
+}
+
+/// Run condition
+///
+/// Check if "save layer image" event needs handling.
+fn check_event_layer_saved(events: Res<EventStruct>) -> bool {
+    events.save_layer_request.is_some()
+}
+
+/// Update system
+///
+/// Save new layer data.
+fn update_event_layer_saved(
+    mut events: ResMut<EventStruct>,
+    config: ResMut<GeneratorConfig>,
+    mut graphics: ResMut<MapGraphicsData>,
+    images: Res<Assets<Image>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if let Some((layer, path)) = &mut events.save_layer_request {
+        let layer = graphics
+            .layers
+            .get_mut(layer)
+            .expect("MapGraphicsData should map all layers");
+
+        if layer.invalid {
+            events.save_layer_request = None;
+            return;  // TODO handle nicely
+        }
+
+        let material = materials
+            .get_mut(&layer.material)
+            .expect("Material handle should be valid");
+        let (width, height) = config.general.world_model.get_dimensions();
+        if let Some(image) = &material.base_color_texture {
+            let data = &images.get(image).expect("").data;
+            save_image(path, data, width, height).unwrap(); // TODO error handling
+        }
+    }
+
+    events.save_layer_request = None;
 }

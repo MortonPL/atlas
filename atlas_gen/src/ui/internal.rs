@@ -10,7 +10,7 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{load_config, save_config, GeneratorConfig},
+    config::{load_config, load_image, save_config, GeneratorConfig},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::general::MainPanelGeneral,
@@ -264,7 +264,9 @@ fn handle_file_dialog(
                     } // TODO error handling
                     FileDialogMode::SaveConfig => save_config(config, file).unwrap(), // TODO error handling
                     FileDialogMode::LoadImage(layer) => {
-                        events.load_layer_request = Some((layer, file.into()));
+                        let (width, height) = config.general.world_model.get_dimensions();
+                        let data = load_image(file, width, height).unwrap(); // TODO error handling
+                        events.load_layer_request = Some((layer, data));
                     }
                     FileDialogMode::SaveImage(layer) => {
                         events.save_layer_request = Some((layer, file.into()));
