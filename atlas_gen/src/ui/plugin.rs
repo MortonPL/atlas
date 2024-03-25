@@ -51,7 +51,13 @@ fn update_ui(
     mut ui_panel: ResMut<UiStatePanel>,
     mut events: ResMut<EventStruct>,
 ) {
-    create_ui(contexts.ctx_mut(), config, &mut ui_state, &mut ui_panel, &mut events);
+    create_ui(
+        contexts.ctx_mut(),
+        config,
+        &mut ui_state,
+        &mut ui_panel,
+        &mut events,
+    );
 }
 
 /// Update system
@@ -89,8 +95,7 @@ fn update_viewport(
 fn startup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 5.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+            transform: Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
             ..Default::default()
         },
         MainCamera,

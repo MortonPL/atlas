@@ -13,7 +13,10 @@ use crate::{
     event::EventStruct,
     ui::{
         internal::UiState,
-        panel::{MainPanel, MainPanelTransition, advanced::MainPanelContinents, simple::MainPanelTopography, add_section},
+        panel::{
+            add_section, advanced::MainPanelContinents, simple::MainPanelTopography, MainPanel,
+            MainPanelTransition,
+        },
     },
 };
 

@@ -11,8 +11,8 @@ use crate::{
     config::{save_image, GeneratorConfig, WorldModel},
     event::EventStruct,
     map::internal::{
-        CurrentWorldModel, MapGraphicsData, MapGraphicsLayer, MapLogicData, WorldGlobeMesh,
-        WorldMapMesh,
+        magic_convert_data_to_png, magic_convert_png_to_data, CurrentWorldModel, MapGraphicsData,
+        MapGraphicsLayer, MapLogicData, WorldGlobeMesh, WorldMapMesh,
     },
 };
 
@@ -25,22 +25,12 @@ impl Plugin for MapPlugin {
             .init_resource::<MapLogicData>()
             .add_systems(Startup, startup_materials)
             .add_systems(Startup, startup_model.after(startup_materials))
-            .add_systems(
-                Update,
-                update_event_world_model.run_if(check_event_world_model),
-            )
-            .add_systems(
-                Update,
-                update_event_layer_changed.run_if(check_event_layer_changed),
-            )
-            .add_systems(
-                Update,
-                update_event_layer_loaded.run_if(check_event_layer_loaded),
-            )
-            .add_systems(
-                Update,
-                update_event_layer_saved.run_if(check_event_layer_saved),
-            );
+            .add_systems(Update, update_event_world_model.run_if(check_event_world_model))
+            .add_systems(Update, update_event_changed.run_if(check_event_changed))
+            .add_systems(Update, update_event_loaded.run_if(check_event_loaded))
+            .add_systems(Update, update_event_saved.run_if(check_event_saved))
+            .add_systems(Update, update_event_reset.run_if(check_event_reset))
+            .add_systems(Update, update_event_regen.run_if(check_event_regen));
     }
 }
 
@@ -195,14 +185,14 @@ fn update_event_world_model(
 /// Run Condition
 ///
 /// Check if "change viewed layer" UI event needs handling.
-fn check_event_layer_changed(events: Res<EventStruct>) -> bool {
+fn check_event_changed(events: Res<EventStruct>) -> bool {
     events.viewed_layer_changed.is_some()
 }
 
 /// Update system
 ///
 /// Assign respective layer material to the world model.
-fn update_event_layer_changed(
+fn update_event_changed(
     mut events: ResMut<EventStruct>,
     mut graphics: ResMut<MapGraphicsData>,
     mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
@@ -226,29 +216,34 @@ fn update_event_layer_changed(
 
 /// Run condition
 ///
-/// Check if "load layer image" event needs handling.
-fn check_event_layer_loaded(events: Res<EventStruct>) -> bool {
-    events.load_layer_request.is_some()
+/// Check if "regen layer image" event needs handling.
+fn check_event_regen(events: Res<EventStruct>) -> bool {
+    events.regen_layer_request.is_some()
 }
 
 /// Update system
 ///
-/// Load new layer data. TODO convert between logical layer data and graphical layer data.
-fn update_event_layer_loaded(
+/// Regenerate graphical layer based on logical layer data.
+fn update_event_regen(
     mut events: ResMut<EventStruct>,
     config: ResMut<GeneratorConfig>,
     mut graphics: ResMut<MapGraphicsData>,
+    logics: Res<MapLogicData>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if let Some((layer, data)) = &mut events.load_layer_request {
-        let layer = graphics
+    if let Some(layer) = events.regen_layer_request {
+        // Fetch handles.
+        let graphic_layer = graphics
             .layers
-            .get_mut(layer)
-            .expect("MapGraphicsData should map all layers");
+            .get_mut(&layer)
+            .expect("MapGraphicData should map all layers");
         let material = materials
-            .get_mut(&layer.material)
+            .get_mut(&graphic_layer.material)
             .expect("Material handle should be valid");
+        // Convert logical data to image data.
+        let mut data = magic_convert_data_to_png(&logics, layer);
+        // Assign new texture.
         let (width, height) = config.general.world_model.get_dimensions();
         let image = Image::new(
             Extent3d {
@@ -257,29 +252,61 @@ fn update_event_layer_loaded(
                 depth_or_array_layers: 1,
             },
             bevy::render::render_resource::TextureDimension::D2,
-            data.drain(..).collect(),
+            std::mem::take(&mut data),
             TextureFormat::Rgba8Unorm,
         );
         let image = images.add(image);
         material.base_color_texture = Some(image);
-        layer.invalid = false;
+        graphic_layer.invalid = false;
+        // Trigger material refresh.
         events.viewed_layer_changed = Some(graphics.current);
     }
+    events.regen_layer_request = None;
+}
 
+/// Run condition
+///
+/// Check if "load layer image" event needs handling.
+fn check_event_loaded(events: Res<EventStruct>) -> bool {
+    events.load_layer_request.is_some()
+}
+
+/// Update system
+///
+/// Load new layer data.
+fn update_event_loaded(
+    mut events: ResMut<EventStruct>,
+    mut logics: ResMut<MapLogicData>,
+    mut graphics: ResMut<MapGraphicsData>,
+) {
+    if let Some((layer, data)) = &mut events.load_layer_request {
+        // Fetch handles.
+        let graphic_layer = graphics
+            .layers
+            .get_mut(layer)
+            .expect("MapGraphicData should map all layers");
+        // Convert image data to logic data.
+        let data = magic_convert_png_to_data(data, *layer);
+        // Assign data.
+        logics.layers.insert(*layer, data);
+        // Trigger texture regeneration.
+        graphic_layer.invalid = true;
+        events.regen_layer_request = Some(*layer);
+    }
     events.load_layer_request = None;
 }
 
 /// Run condition
 ///
 /// Check if "save layer image" event needs handling.
-fn check_event_layer_saved(events: Res<EventStruct>) -> bool {
+fn check_event_saved(events: Res<EventStruct>) -> bool {
     events.save_layer_request.is_some()
 }
 
 /// Update system
 ///
 /// Save new layer data.
-fn update_event_layer_saved(
+fn update_event_saved(
     mut events: ResMut<EventStruct>,
     config: ResMut<GeneratorConfig>,
     mut graphics: ResMut<MapGraphicsData>,
@@ -294,7 +321,7 @@ fn update_event_layer_saved(
 
         if layer.invalid {
             events.save_layer_request = None;
-            return;  // TODO handle nicely
+            return; // TODO handle nicely
         }
 
         let material = materials
@@ -306,6 +333,27 @@ fn update_event_layer_saved(
             save_image(path, data, width, height).unwrap(); // TODO error handling
         }
     }
-
     events.save_layer_request = None;
+}
+
+/// Run condition
+///
+/// Check if "reset layer image" event needs handling.
+fn check_event_reset(events: Res<EventStruct>) -> bool {
+    events.reset_layer_request.is_some()
+}
+
+/// Update system
+///
+/// Reset/Invalidate layer data.
+fn update_event_reset(mut events: ResMut<EventStruct>, mut graphics: ResMut<MapGraphicsData>) {
+    if let Some(layer) = &mut events.reset_layer_request {
+        let layer = graphics
+            .layers
+            .get_mut(layer)
+            .expect("MapGraphicsData should map all layers");
+        layer.invalid = true;
+        events.viewed_layer_changed = Some(graphics.current);
+    }
+    events.reset_layer_request = None;
 }

@@ -3,10 +3,12 @@ use bevy_egui::egui::Ui;
 use crate::{
     config::GeneratorConfig,
     event::EventStruct,
-    map::ViewedMapLayer,
     ui::{
-        internal::{make_layer_save_load, UiState},
-        panel::{MainPanel, MainPanelTransition, simple::{MainPanelResources, MainPanelTopography},},
+        internal::UiState,
+        panel::{
+            simple::{MainPanelResources, MainPanelTopography},
+            MainPanel, MainPanelTransition,
+        },
     },
 };
 
@@ -16,12 +18,11 @@ pub struct MainPanelClimate;
 impl MainPanel for MainPanelClimate {
     fn show(
         &mut self,
-        ui: &mut Ui,
+        _ui: &mut Ui,
         _config: &mut GeneratorConfig,
-        ui_state: &mut UiState,
+        _ui_state: &mut UiState,
         _events: &mut EventStruct,
     ) {
-        make_layer_save_load(ui, ui_state, ViewedMapLayer::Climate);
         // TODO
     }
 

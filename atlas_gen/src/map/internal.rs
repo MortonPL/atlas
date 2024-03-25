@@ -40,3 +40,25 @@ pub struct WorldGlobeMesh;
 // Currently visible world model.
 #[derive(Component)]
 pub struct CurrentWorldModel;
+
+/// Convert graphical representation of a map layer to a logical representation of the map layer.
+/// The underlying conversion may differ based on layer variant.
+///
+/// This function is the inverse of [`magic_convert_data_to_png`].
+pub fn magic_convert_png_to_data(data: &mut [u8], _layer: ViewedMapLayer) -> Vec<u8> {
+    // TODO
+    data.to_vec()
+}
+
+/// Convert logical representation of a map layer to a graphical representation of the map layer.
+/// The underlying conversion may differ based on layer variant.
+///
+/// This function is the inverse of [`magic_convert_png_to_data`].
+pub fn magic_convert_data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8> {
+    // TODO
+    let data = data_layers
+        .layers
+        .get(&layer)
+        .expect("MapLogicData should map all layers");
+    data.to_vec()
+}

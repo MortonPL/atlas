@@ -3,7 +3,7 @@ use bevy_egui::egui::{self, Response, Ui};
 use crate::{
     config::GeneratorConfig,
     event::EventStruct,
-    ui::{panel::general::MainPanelGeneral, internal::UiState},
+    ui::{internal::UiState, panel::general::MainPanelGeneral},
 };
 
 /// Transition between sidebar panels.

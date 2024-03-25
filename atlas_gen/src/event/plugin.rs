@@ -19,4 +19,6 @@ pub struct EventStruct {
     pub viewed_layer_changed: Option<ViewedMapLayer>,
     pub load_layer_request: Option<(ViewedMapLayer, Vec<u8>)>,
     pub save_layer_request: Option<(ViewedMapLayer, Box<Path>)>,
+    pub reset_layer_request: Option<ViewedMapLayer>,
+    pub regen_layer_request: Option<ViewedMapLayer>,
 }

@@ -4,11 +4,11 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::egui::{self, Context, RichText, Ui};
+use bevy_egui::egui::{self, Context, Ui};
 
 use atlas_lib::{
     ui::{
-        button,
+        button, button_action,
         sidebar::{SidebarControl, SidebarEnumDropdown},
         UiEditableEnum,
     },
@@ -130,9 +130,9 @@ fn create_sidebar_head(
     ui.vertical(|ui| {
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
         ui.horizontal(|ui| {
-            button(ui, "Save Config", || save_config_clicked(ui_state));
-            button(ui, "Load Config", || load_config_clicked(ui_state));
-            button(ui, "Reset Config", || {
+            button_action(ui, "Save Config", || save_config_clicked(ui_state));
+            button_action(ui, "Load Config", || load_config_clicked(ui_state));
+            button_action(ui, "Reset Config", || {
                 reset_config_clicked(config, ui_panel, events)
             });
         });
@@ -147,6 +147,21 @@ fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut 
         update_enum!(ui_state.current_layer, selection);
         if old != ui_state.current_layer {
             events.viewed_layer_changed = Some(ui_state.current_layer);
+        }
+        if button(ui, "Load Layer") {
+            let mut file_picker = egui_file::FileDialog::open_file(None);
+            file_picker.open();
+            ui_state.file_dialog = Some(file_picker);
+            ui_state.file_dialog_mode = FileDialogMode::LoadImage(ui_state.current_layer);
+        }
+        if button(ui, "Save Layer") {
+            let mut file_picker = egui_file::FileDialog::save_file(None);
+            file_picker.open();
+            ui_state.file_dialog = Some(file_picker);
+            ui_state.file_dialog_mode = FileDialogMode::SaveImage(ui_state.current_layer);
+        }
+        if button(ui, "Reset Layer") {
+            events.reset_layer_request = Some(ui_state.current_layer);
         }
     });
 }
@@ -165,7 +180,7 @@ fn create_current_panel(
     // Previous/Next buttons and panel transitioning.
     ui.separator();
     ui.horizontal(|ui| {
-        let transition = match (button(ui, "Previous", || true), button(ui, "Next", || true)) {
+        let transition = match (button(ui, "Previous"), button(ui, "Next")) {
             (true, _) => MainPanelTransition::Previous,
             (false, true) => MainPanelTransition::Next,
             _ => MainPanelTransition::None,
@@ -207,29 +222,6 @@ fn handle_file_dialog(
         }
         ui_state.file_dialog = None;
     }
-}
-
-pub fn make_layer_save_load(ui: &mut Ui, ui_state: &mut UiState, layer: ViewedMapLayer) {
-    ui.horizontal(|ui| {
-        if ui
-            .add(egui::Button::new(RichText::new("Load Layer").size(24.0)))
-            .clicked()
-        {
-            let mut file_picker = egui_file::FileDialog::open_file(None);
-            file_picker.open();
-            ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::LoadImage(layer);
-        }
-        if ui
-            .add(egui::Button::new(RichText::new("Save Layer").size(24.0)))
-            .clicked()
-        {
-            let mut file_picker = egui_file::FileDialog::save_file(None);
-            file_picker.open();
-            ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::SaveImage(layer);
-        }
-    });
 }
 
 /// Set context for the file dialog to "saving" and show it.

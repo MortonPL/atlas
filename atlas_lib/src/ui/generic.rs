@@ -14,17 +14,21 @@ pub trait UiEditableEnum {
     }
 }
 
-pub fn button<F, T>(ui: &mut Ui, text: impl Into<WidgetText>, fun: F) -> T where F: FnOnce() -> T, T: Default {
+pub fn button(ui: &mut Ui, text: impl Into<WidgetText>) -> bool {
+    ui.button(text).clicked()
+}
+
+pub fn button_action<F, T>(ui: &mut Ui, text: impl Into<WidgetText>, fun: F) -> T
+where
+    F: FnOnce() -> T,
+    T: Default,
+{
     if ui.button(text).clicked() {
         fun()
     } else {
         T::default()
     }
 }
-
-
-
-
 
 /*
 

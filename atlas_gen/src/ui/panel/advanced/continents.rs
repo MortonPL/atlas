@@ -5,10 +5,9 @@ use atlas_lib::ui::sidebar::MakeUi;
 use crate::{
     config::{GeneratorConfig, GeneratorType},
     event::EventStruct,
-    map::ViewedMapLayer,
     ui::{
-        internal::{make_layer_save_load, UiState},
-        panel::{MainPanelGeneral, MainPanel, MainPanelTransition, add_section},
+        internal::UiState,
+        panel::{add_section, MainPanel, MainPanelGeneral, MainPanelTransition},
     },
 };
 
@@ -20,11 +19,9 @@ impl MainPanel for MainPanelContinents {
         &mut self,
         ui: &mut Ui,
         config: &mut GeneratorConfig,
-        ui_state: &mut UiState,
+        _ui_state: &mut UiState,
         _events: &mut EventStruct,
     ) {
-        make_layer_save_load(ui, ui_state, ViewedMapLayer::Continents);
-
         add_section(ui, "Continents Generator", |ui| {
             match &mut config.generator {
                 GeneratorType::Advanced(advanced) => advanced.continents.make_ui(ui),

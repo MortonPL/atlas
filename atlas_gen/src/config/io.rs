@@ -46,12 +46,7 @@ pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec
     let info = reader.info();
 
     if (info.width != width) || (info.height != height) {
-        return Err(Error::ResolutionMismatch(
-            info.width,
-            info.height,
-            width,
-            height,
-        ));
+        return Err(Error::ResolutionMismatch(info.width, info.height, width, height));
     }
     let bypp = info.bytes_per_pixel();
     if bypp != 4 {

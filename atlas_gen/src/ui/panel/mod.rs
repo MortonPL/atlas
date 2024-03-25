@@ -1,7 +1,8 @@
 pub mod advanced;
-pub mod simple;
 mod general;
+#[allow(clippy::module_inception)] // Reason: module is private anyways
 mod panel;
+pub mod simple;
 
-pub use panel::*;
 pub use general::*;
+pub use panel::*;
