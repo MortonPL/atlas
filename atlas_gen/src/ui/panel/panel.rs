@@ -3,11 +3,12 @@ use bevy_egui::egui::{self, Response, Ui};
 use crate::{
     config::GeneratorConfig,
     event::EventStruct,
+    map::ViewedMapLayer,
     ui::{internal::UiState, panel::general::MainPanelGeneral},
 };
 
 /// Transition between sidebar panels.
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq)]
 pub enum MainPanelTransition {
     #[default]
     None,
@@ -19,6 +20,9 @@ pub enum MainPanelTransition {
 pub trait MainPanel {
     /// Get panel heading.
     fn get_heading(&self) -> &'static str;
+
+    /// Get layer that should be displayed with this panel.
+    fn get_layer(&self) -> ViewedMapLayer;
 
     /// Create UI for this panel.
     fn show(

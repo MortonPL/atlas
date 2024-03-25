@@ -11,6 +11,7 @@ use atlas_lib::{
 use crate::{
     config::{FlatWorldModel, GeneratorConfig, GeneratorType, GlobeWorldModel, WorldModel},
     event::EventStruct,
+    map::ViewedMapLayer,
     ui::{
         internal::UiState,
         panel::{
@@ -71,6 +72,10 @@ impl MainPanel for MainPanelGeneral {
 
     fn get_heading(&self) -> &'static str {
         "General"
+    }
+
+    fn get_layer(&self) -> ViewedMapLayer {
+        ViewedMapLayer::Pretty
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {

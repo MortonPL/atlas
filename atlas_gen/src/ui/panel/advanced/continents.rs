@@ -5,6 +5,7 @@ use atlas_lib::ui::sidebar::MakeUi;
 use crate::{
     config::{GeneratorConfig, GeneratorType},
     event::EventStruct,
+    map::ViewedMapLayer,
     ui::{
         internal::UiState,
         panel::{add_section, MainPanel, MainPanelGeneral, MainPanelTransition},
@@ -32,6 +33,10 @@ impl MainPanel for MainPanelContinents {
 
     fn get_heading(&self) -> &'static str {
         "Continents"
+    }
+
+    fn get_layer(&self) -> ViewedMapLayer {
+        ViewedMapLayer::Continents
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {

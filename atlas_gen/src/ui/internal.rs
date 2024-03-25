@@ -23,9 +23,9 @@ use crate::{
 };
 
 /// Default sidebar width in points. Should be greater or equal to [SIDEBAR_MIN_WIDTH].
-const SIDEBAR_WIDTH: f32 = 400.0;
+const SIDEBAR_WIDTH: f32 = 420.0;
 /// Minimal sidebar width in points.
-const SIDEBAR_MIN_WIDTH: f32 = 300.0;
+const SIDEBAR_MIN_WIDTH: f32 = 420.0;
 
 /// Minimal camera zoom as Z in world space (bad idea?).
 const MIN_CAMERA_ZOOM: f32 = 2.0;
@@ -186,6 +186,11 @@ fn create_current_panel(
             _ => MainPanelTransition::None,
         };
         ui_panel.current_panel = ui_panel.current_panel.transition(transition);
+        if transition != MainPanelTransition::None {
+            let layer = ui_panel.current_panel.get_layer();
+            events.viewed_layer_changed = Some(layer);
+            ui_state.current_layer = layer;
+        }
     });
 }
 

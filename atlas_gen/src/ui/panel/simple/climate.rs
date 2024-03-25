@@ -3,6 +3,7 @@ use bevy_egui::egui::Ui;
 use crate::{
     config::GeneratorConfig,
     event::EventStruct,
+    map::ViewedMapLayer,
     ui::{
         internal::UiState,
         panel::{
@@ -28,6 +29,10 @@ impl MainPanel for MainPanelClimate {
 
     fn get_heading(&self) -> &'static str {
         "Climate"
+    }
+
+    fn get_layer(&self) -> ViewedMapLayer {
+        ViewedMapLayer::Climate
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
