@@ -108,8 +108,58 @@ pub struct SimpleGenerator {
     pub resources: SimpleResourcesConfig,
 }
 
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct SimpleTopographyConfig {}
+#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+pub struct SimpleTopographyConfig {
+    #[name("Algorithm")]
+    #[control(SidebarEnumDropdown)]
+    pub algorithm: SimpleAlgorithm,
+    #[name("Ocean Level")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub ocean_level: u8,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)] // TODO
+pub enum SimpleAlgorithm {
+    Perlin(PerlinConfig),
+    PerlinFractal(u8),
+    Simplex(SimplexConfig),
+    SimplexFractal(u8),
+    DiamondSquare(u8),
+}
+
+impl Default for SimpleAlgorithm {
+    fn default() -> Self {
+        Self::Perlin(Default::default())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+pub struct PerlinConfig {
+    #[name("Seed")]
+    #[control(SidebarSliderRandom)]
+    #[add(speed(100.0))]
+    pub seed: u32,
+    #[name("Scale")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.01..=0.99))]
+    #[add(speed(0.1))]
+    pub scale: f64,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+pub struct SimplexConfig {
+    #[name("Seed")]
+    #[control(SidebarSliderRandom)]
+    #[add(speed(100.0))]
+    pub seed: u32,
+    #[name("Scale")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.01..=0.99))]
+    #[add(speed(0.1))]
+    pub scale: f64,
+}
+
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct SimpleClimateConfig {}

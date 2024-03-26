@@ -92,12 +92,14 @@ fn update_viewport(
 /// Startup system
 ///
 /// Spawn the main camera that the viewport will use.
-fn startup(mut commands: Commands) {
+fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
-            ..Default::default()
+            ..default()
         },
         MainCamera,
     ));
+    // More ambient light than default
+    light.brightness = 0.25
 }

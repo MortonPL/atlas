@@ -116,29 +116,59 @@ pub fn get_material_mut<'a>(
         .expect("Material handle should be valid")
 }
 
-/// Create the default empty material / texture.
-pub fn make_default_material(
-    materials: &mut Assets<StandardMaterial>,
-    images: &mut Assets<Image>,
-) -> (Image, Handle<StandardMaterial>) {
-    let empty_texture = make_image(1, 1, vec![0, 0, 0, 255]);
-
-    (
-        empty_texture.clone(),
-        materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(empty_texture)),
-            ..default()
-        }),
-    )
+/// Channels of an RGBA image.
+enum RgbaChannel {
+    Red,
+    Green,
+    Blue,
+    #[allow(dead_code)]
+    Alpha
 }
 
 /// Convert graphical representation of a map layer to a logical representation of the map layer.
 /// The underlying conversion may differ based on layer variant.
 ///
 /// This function is the inverse of [`magic_convert_data_to_png`].
-pub fn magic_convert_png_to_data(data: &[u8], _layer: ViewedMapLayer) -> Vec<u8> {
-    // TODO
-    data.to_vec()
+pub fn magic_convert_png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8> {
+    match layer {
+        ViewedMapLayer::Pretty => data,
+        ViewedMapLayer::Continents => continents_from_png(data),
+        ViewedMapLayer::Topography => extract_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Temperature => extract_rgba_channel(data, RgbaChannel::Red),
+        ViewedMapLayer::Humidity => extract_rgba_channel(data, RgbaChannel::Blue),
+        ViewedMapLayer::Climate => todo!(), // TODO
+        ViewedMapLayer::Fertility => extract_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Resource => todo!(), // TODO
+        ViewedMapLayer::Richness => extract_rgba_channel(data, RgbaChannel::Blue),
+    }
+}
+
+/// Convert an RGBA image to continents/ocean data.
+/// Data: Value <= 127 is continent, value > 127 is ocean.
+/// Image: Every ocean only has blue channel, every continent only green.
+/// When both channels are set, continents take priority.
+fn continents_from_png(data: Vec<u8>) -> Vec<u8> {
+    let fun = |x: &[u8]| {
+        if x[1] > 0 {
+            x[1] / 2
+        } else if x[2] > 0 {
+            x[2] / 2
+        } else {
+            0
+        }
+    };
+    data.chunks_exact(4).map(fun).collect()
+}
+
+/// Extract one channel from an RGBA image.
+fn extract_rgba_channel(data: Vec<u8>, channel: RgbaChannel) -> Vec<u8> {
+    let offset = match channel {
+        RgbaChannel::Red => 0,
+        RgbaChannel::Green => 1,
+        RgbaChannel::Blue => 2,
+        RgbaChannel::Alpha => 3,
+    };
+    data.into_iter().skip(offset).step_by(4).collect()
 }
 
 /// Convert logical representation of a map layer to a graphical representation of the map layer.
@@ -146,10 +176,44 @@ pub fn magic_convert_png_to_data(data: &[u8], _layer: ViewedMapLayer) -> Vec<u8>
 ///
 /// This function is the inverse of [`magic_convert_png_to_data`].
 pub fn magic_convert_data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8> {
-    // TODO
     let data = data_layers
         .layers
         .get(&layer)
         .expect("MapLogicData should map all layers");
-    data.to_vec()
+    match layer {
+        ViewedMapLayer::Pretty => data.to_vec(),
+        ViewedMapLayer::Continents => continents_to_png(data),
+        ViewedMapLayer::Topography => expand_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Temperature => expand_rgba_channel(data, RgbaChannel::Red),
+        ViewedMapLayer::Humidity => expand_rgba_channel(data, RgbaChannel::Blue),
+        ViewedMapLayer::Climate => todo!(), // TODO
+        ViewedMapLayer::Fertility => expand_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Resource => todo!(), // TODO
+        ViewedMapLayer::Richness => expand_rgba_channel(data, RgbaChannel::Blue),
+    }
+}
+
+/// Expand one channel to an RGBA image.
+fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
+    let fun = match channel {
+        RgbaChannel::Red => |x: &u8| [*x, 0, 0, 0],
+        RgbaChannel::Green => |x: &u8| [0, *x, 0, 0],
+        RgbaChannel::Blue => |x: &u8| [0, 0, *x, 0],
+        RgbaChannel::Alpha => |x: &u8| [0, 0, 0, *x],
+    };
+    data.iter().map(fun).flatten().collect()
+}
+
+/// Convert continents/ocean data to an RGBA image.
+/// Data: Value <= 127 is continent, value > 127 is ocean.
+/// Image: Every ocean only has blue channel, every continent only green.
+fn continents_to_png(data: &[u8]) -> Vec<u8> {
+    let fun = |x: &u8| {
+        if *x <= 127 {
+            [0, x * 2, 0, 0]
+        } else {
+            [0, 0, (x - 128) * 2, 0]
+        }
+    };
+    data.iter().map(fun).flatten().collect()
 }
