@@ -1,7 +1,7 @@
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
 
-use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnumWithFields};
+use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnum, UiEditableEnumWithFields};
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -113,26 +113,30 @@ pub struct SimpleTopographyConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub algorithm: SimpleAlgorithm,
-    #[name("Ocean Level")]
+    #[name("Sea Level")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
-    pub ocean_level: u8,
+    pub sea_level: u8,
+    #[name("Force Island")]
+    #[control(SidebarCheckbox)]
+    pub force_island: bool,
+    pub config: FbmConfig,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)] // TODO
+#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnum)] // TODO
 pub enum SimpleAlgorithm {
-    Perlin(FbmConfig),
-    Simplex(FbmConfig),
-    DiamondSquare(u8),
+    Perlin,
+    OpenSimplex,
+    SuperSimplex,
 }
 
 impl Default for SimpleAlgorithm {
     fn default() -> Self {
-        Self::Perlin(Default::default())
+        Self::Perlin
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct FbmConfig {
     #[name("Seed")]
     #[control(SidebarSliderRandom)]
@@ -140,27 +144,40 @@ pub struct FbmConfig {
     pub seed: u32,
     #[name("Detail")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(4..=7))]
+    #[add(clamp_range(1..=12))]
     #[add(speed(0.5))]
     pub detail: usize,
-    #[name("Frequency")]
+    #[name("Scale (Frequency)")]
     #[control(SidebarSlider)]
-    //#[add(clamp_range(0.1..=10.0))]
+    #[add(clamp_range(0.1..=10.0))]
     #[add(speed(0.1))]
     pub frequency: f64,
-    #[name("Scale")]
+    #[name("Neatness (Lacunarity)")]
     #[control(SidebarSlider)]
-    //#[add(clamp_range(0.1..=10.0))]
+    #[add(clamp_range(1.0..=10.0))]
     #[add(speed(0.1))]
-    pub scale: f64,
-    #[name("Smoothness")]
+    pub neatness: f64,
+    #[name("Roughness (Persistance)")]
     #[control(SidebarSlider)]
-    //#[add(clamp_range(1.0..=10.0))]
+    #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
-    pub smoothness: f64,
+    pub roughness: f64,
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [f64; 2],
+}
+
+impl Default for FbmConfig {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            detail: 6,
+            frequency: 3.0,
+            neatness: 2.0,
+            roughness: 0.5,
+            offset: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]

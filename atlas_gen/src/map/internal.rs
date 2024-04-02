@@ -133,7 +133,7 @@ pub fn magic_convert_png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8
     match layer {
         ViewedMapLayer::Pretty => data,
         ViewedMapLayer::Continents => continents_from_png(data),
-        ViewedMapLayer::Topography => extract_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Topography => extract_monochrome(data), //extract_rgba_channel(data, RgbaChannel::Green), // DEBUG
         ViewedMapLayer::Temperature => extract_rgba_channel(data, RgbaChannel::Red),
         ViewedMapLayer::Humidity => extract_rgba_channel(data, RgbaChannel::Blue),
         ViewedMapLayer::Climate => todo!(), // TODO
@@ -171,6 +171,11 @@ fn extract_rgba_channel(data: Vec<u8>, channel: RgbaChannel) -> Vec<u8> {
     data.into_iter().skip(offset).step_by(4).collect()
 }
 
+/// Extract one channel from an RGBA image.
+fn extract_monochrome(data: Vec<u8>) -> Vec<u8> {
+    data.into_iter().step_by(4).collect()
+}
+
 /// Convert logical representation of a map layer to a graphical representation of the map layer.
 /// The underlying conversion may differ based on layer variant.
 ///
@@ -183,7 +188,7 @@ pub fn magic_convert_data_to_png(data_layers: &MapLogicData, layer: ViewedMapLay
     match layer {
         ViewedMapLayer::Pretty => data.to_vec(),
         ViewedMapLayer::Continents => continents_to_png(data),
-        ViewedMapLayer::Topography => expand_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Topography => expand_monochrome(data), //expand_rgba_channel(data, RgbaChannel::Green), DEBUG
         ViewedMapLayer::Temperature => expand_rgba_channel(data, RgbaChannel::Red),
         ViewedMapLayer::Humidity => expand_rgba_channel(data, RgbaChannel::Blue),
         ViewedMapLayer::Climate => todo!(), // TODO
@@ -202,6 +207,11 @@ fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
         RgbaChannel::Alpha => |x: &u8| [0, 0, 0, *x],
     };
     data.iter().map(fun).flatten().collect()
+}
+
+/// Expand one channel to an RGBA image.
+fn expand_monochrome(data: &[u8]) -> Vec<u8> {
+    data.iter().map(|x: &u8| [*x, *x, *x, 0]).flatten().collect()
 }
 
 /// Convert continents/ocean data to an RGBA image.

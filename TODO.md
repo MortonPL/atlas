@@ -1,11 +1,16 @@
 # TO-DO List
 
-- Simple/Advanced generator config data
-- Advanced generator panel files
 - Visual event log (?)
 - Lotsa error handling
 
-- Map gen
+- Finish simple topo generator
+  - add influence helper layers logic
+  - topo influence map
+- Make simple climate generator
+- Make simple province generator
+  - with resources
+
+- Advanced generator ?
 
 ## TO-DO List 2
 

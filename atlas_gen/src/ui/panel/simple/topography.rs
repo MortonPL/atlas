@@ -6,7 +6,7 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{GeneratorConfig, GeneratorType, SimpleAlgorithm},
+    config::{FbmConfig, GeneratorConfig, GeneratorType, SimpleAlgorithm},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
@@ -30,7 +30,7 @@ impl MainPanel for MainPanelTopography {
             GeneratorType::Simple(simple) => {
                 let ui_results = simple.topography.make_ui(ui);
                 update_enum!(simple.topography.algorithm, ui_results[0]);
-                make_algorithm_ui(ui, &mut simple.topography.algorithm);
+                make_algorithm_ui(ui, &mut simple.topography.config);
             }
             GeneratorType::Advanced(_) => unreachable!(),
         };
@@ -56,22 +56,12 @@ impl MainPanel for MainPanelTopography {
     }
 }
 
-fn make_algorithm_ui(ui: &mut Ui, config: &mut SimpleAlgorithm) {
-    match config {
-        SimpleAlgorithm::Perlin(config) => add_section(ui, "Perlin Settings", |ui| {
-            let ui_results = config.make_ui(ui);
-            // TODO Same hack/problem as in crate::ui::panel::general
-            if ui_results[0] == 1 {
-                config.seed = rand::random();
-            }
-        }),
-        SimpleAlgorithm::Simplex(config) => add_section(ui, "Simplex Settings", |ui| {
-            let ui_results = config.make_ui(ui);
-            // TODO Same hack/problem as in crate::ui::panel::general
-            if ui_results[0] == 1 {
-                config.seed = rand::random();
-            }
-        }),
-        SimpleAlgorithm::DiamondSquare(_) => todo!(),
-    };
+fn make_algorithm_ui(ui: &mut Ui, config: &mut FbmConfig) {
+    add_section(ui, "Algorithm Settings", |ui| {
+        let ui_results = config.make_ui(ui);
+        // TODO Same hack/problem as in crate::ui::panel::general
+        if ui_results[0] == 1 {
+            config.seed = rand::random();
+        }
+    });
 }

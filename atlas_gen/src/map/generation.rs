@@ -1,4 +1,4 @@
-use noise::{Fbm, MultiFractal, NoiseFn, Perlin, Simplex};
+use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::{
     config::{AdvancedGenerator, FbmConfig, SimpleAlgorithm, SimpleGenerator, WorldModel},
@@ -26,13 +26,15 @@ pub fn generate_simple(
 
 /// Choose relevant "advanced" generation procedure based on layer.
 pub fn generate_advanced(
-    _layer: ViewedMapLayer,
+    layer: ViewedMapLayer,
     _logics: &mut MapLogicData,
     _config: &AdvancedGenerator,
     _model: &WorldModel,
 ) -> Vec<ViewedMapLayer> {
     // TODO
-    todo!()
+    match layer {
+        _ => todo!(),
+    }
 }
 
 /// Generate simple topography and continental data.
@@ -51,25 +53,32 @@ fn generate_simple_topography(
         .remove(&ViewedMapLayer::Continents)
         .expect("MapLogicData should map all layers");
     // Get relevant config info.
-    let ocean_level = config.topography.ocean_level;
+    let sea_level = config.topography.sea_level;
     let algorithm = config.topography.algorithm;
+    let fbm_config = config.topography.config;
+    let force_island = config.topography.force_island;
     // Run the noise algorithm for map topography (height data).
     match algorithm {
-        SimpleAlgorithm::Perlin(x) => fbm_noise::<Perlin>(&mut topo_data, x, model),
-        SimpleAlgorithm::Simplex(x) => fbm_noise::<Simplex>(&mut topo_data, x, model),
-        SimpleAlgorithm::DiamondSquare(_) => todo!(), // TODO
+        SimpleAlgorithm::Perlin => fbm_noise::<Perlin>(&mut topo_data, fbm_config, model, force_island),
+        SimpleAlgorithm::OpenSimplex => {
+            fbm_noise::<OpenSimplex>(&mut topo_data, fbm_config, model, force_island)
+        }
+        SimpleAlgorithm::SuperSimplex => {
+            fbm_noise::<SuperSimplex>(&mut topo_data, fbm_config, model, force_island)
+        }
     }
     // Globally set the ocean tiles with no flooding.
     for i in 0..cont_data.len() {
-        cont_data[i] = if topo_data[i] > ocean_level { 127 } else { 255 }; // TODO
+        cont_data[i] = if topo_data[i] > sea_level { 127 } else { 255 }; // TODO
     }
     // Set new layer data.
     logics.layers.insert(ViewedMapLayer::Topography, topo_data);
     logics.layers.insert(ViewedMapLayer::Continents, cont_data);
-    return vec![ViewedMapLayer::Continents, ViewedMapLayer::Topography];
+
+    vec![ViewedMapLayer::Continents, ViewedMapLayer::Topography]
 }
 
-fn fbm_noise<T>(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel)
+fn fbm_noise<T>(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel, force_island: bool)
 where
     T: noise::Seedable,
     T: std::default::Default,
@@ -78,18 +87,32 @@ where
     let noise = Fbm::<T>::new(config.seed)
         .set_octaves(config.detail)
         .set_frequency(config.frequency)
-        .set_lacunarity(config.scale)
-        .set_persistence(config.smoothness);
-    any_noise(data, model, noise, config.offset)
+        .set_lacunarity(config.neatness)
+        .set_persistence(config.roughness);
+    sample_noise(data, model, noise, config.offset, force_island);
 }
 
-fn any_noise(data: &mut Vec<u8>, model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2]) {
+fn sample_noise(
+    data: &mut Vec<u8>,
+    model: &WorldModel,
+    noise: impl NoiseFn<f64, 2>,
+    offset: [f64; 2],
+    force_island: bool,
+) {
     match model {
         WorldModel::Flat(flat) => {
+            let width = flat.world_size[0];
+            let height = flat.world_size[1];
+            let scale = f64::sqrt((width * height) as f64);
             for y in 0..flat.world_size[1] {
-                for x in 0..flat.world_size[0] {
-                    let i = (y * flat.world_size[0] + x) as usize;
-                    let val = noise.get([x as f64 + offset[0], y as f64 + offset[1]]) + 1.0;
+                for x in 0..width {
+                    let i = (y * width + x) as usize;
+                    let mut val = noise.get([x as f64 / scale + offset[0], y as f64 / scale + offset[1]]) + 1.0;
+                    // TODO: change with a helper layer that influences the heightmap
+                    if force_island {
+                        let distance = f64::sqrt((width as f64 / 2.0 - x as f64).powi(2) + (height as f64 / 2.0 - y as f64).powi(2));
+                        val *= (scale / (distance * 10.0)).clamp(0.0, 1.0);
+                    }
                     data[i] = (val * 128f64) as u8;
                 }
             }
