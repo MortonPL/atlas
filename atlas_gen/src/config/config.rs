@@ -121,10 +121,8 @@ pub struct SimpleTopographyConfig {
 
 #[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)] // TODO
 pub enum SimpleAlgorithm {
-    Perlin(PerlinConfig),
-    PerlinFractal(u8),
-    Simplex(SimplexConfig),
-    SimplexFractal(u8),
+    Perlin(FbmConfig),
+    Simplex(FbmConfig),
     DiamondSquare(u8),
 }
 
@@ -135,31 +133,35 @@ impl Default for SimpleAlgorithm {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
-pub struct PerlinConfig {
+pub struct FbmConfig {
     #[name("Seed")]
     #[control(SidebarSliderRandom)]
     #[add(speed(100.0))]
     pub seed: u32,
+    #[name("Detail")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(4..=7))]
+    #[add(speed(0.5))]
+    pub detail: usize,
+    #[name("Frequency")]
+    #[control(SidebarSlider)]
+    //#[add(clamp_range(0.1..=10.0))]
+    #[add(speed(0.1))]
+    pub frequency: f64,
     #[name("Scale")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0.01..=0.99))]
+    //#[add(clamp_range(0.1..=10.0))]
     #[add(speed(0.1))]
     pub scale: f64,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
-pub struct SimplexConfig {
-    #[name("Seed")]
-    #[control(SidebarSliderRandom)]
-    #[add(speed(100.0))]
-    pub seed: u32,
-    #[name("Scale")]
+    #[name("Smoothness")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0.01..=0.99))]
+    //#[add(clamp_range(1.0..=10.0))]
     #[add(speed(0.1))]
-    pub scale: f64,
+    pub smoothness: f64,
+    #[name("Offset")]
+    #[control(SidebarSliderN)]
+    pub offset: [f64; 2],
 }
-
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct SimpleClimateConfig {}

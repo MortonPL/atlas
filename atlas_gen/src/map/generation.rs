@@ -1,7 +1,7 @@
-use noise::NoiseFn;
+use noise::{Fbm, MultiFractal, NoiseFn, Perlin, Simplex};
 
 use crate::{
-    config::{AdvancedGenerator, PerlinConfig, SimpleGenerator, SimplexConfig, WorldModel},
+    config::{AdvancedGenerator, FbmConfig, SimpleAlgorithm, SimpleGenerator, WorldModel},
     map::ViewedMapLayer,
 };
 
@@ -55,11 +55,9 @@ fn generate_simple_topography(
     let algorithm = config.topography.algorithm;
     // Run the noise algorithm for map topography (height data).
     match algorithm {
-        crate::config::SimpleAlgorithm::Perlin(x) => perlin_noise(&mut topo_data, x, model),
-        crate::config::SimpleAlgorithm::PerlinFractal(_) => todo!(), // TODO
-        crate::config::SimpleAlgorithm::Simplex(x) => simplex_noise(&mut topo_data, x, model),
-        crate::config::SimpleAlgorithm::SimplexFractal(_) => todo!(), // TODO
-        crate::config::SimpleAlgorithm::DiamondSquare(_) => todo!(), // TODO
+        SimpleAlgorithm::Perlin(x) => fbm_noise::<Perlin>(&mut topo_data, x, model),
+        SimpleAlgorithm::Simplex(x) => fbm_noise::<Simplex>(&mut topo_data, x, model),
+        SimpleAlgorithm::DiamondSquare(_) => todo!(), // TODO
     }
     // Globally set the ocean tiles with no flooding.
     for i in 0..cont_data.len() {
@@ -71,28 +69,28 @@ fn generate_simple_topography(
     return vec![ViewedMapLayer::Continents, ViewedMapLayer::Topography];
 }
 
-/// Fill a vector with perlin noise. The world model describes how to interpret linear vector
-/// as higher-dimension space.
-fn perlin_noise(data: &mut Vec<u8>, config: PerlinConfig, model: &WorldModel) {
-    let noise = noise::Perlin::new(config.seed);
-    any_noise(data, model, noise, config.scale);
+fn fbm_noise<T>(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel)
+where
+    T: noise::Seedable,
+    T: std::default::Default,
+    T: NoiseFn<f64, 2>,
+{
+    let noise = Fbm::<T>::new(config.seed)
+        .set_octaves(config.detail)
+        .set_frequency(config.frequency)
+        .set_lacunarity(config.scale)
+        .set_persistence(config.smoothness);
+    any_noise(data, model, noise, config.offset)
 }
 
-/// Fill a vector with perlin noise. The world model describes how to interpret linear vector
-/// as higher-dimension space.
-fn simplex_noise(data: &mut Vec<u8>, config: SimplexConfig, model: &WorldModel) {
-    let noise = noise::Simplex::new(config.seed);
-    any_noise(data, model, noise, config.scale);
-}
-
-fn any_noise(data: &mut Vec<u8>, model: &WorldModel, noise: impl NoiseFn<f64, 2>, scale: f64) {
+fn any_noise(data: &mut Vec<u8>, model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2]) {
     match model {
         WorldModel::Flat(flat) => {
             for y in 0..flat.world_size[1] {
                 for x in 0..flat.world_size[0] {
                     let i = (y * flat.world_size[0] + x) as usize;
-                    let val = noise.get([x as f64 * scale, y as f64 * scale]) + 1.0f64;
-                    data[i] = (val * 128f64 - 1f64) as u8;
+                    let val = noise.get([x as f64 + offset[0], y as f64 + offset[1]]) + 1.0;
+                    data[i] = (val * 128f64) as u8;
                 }
             }
         }

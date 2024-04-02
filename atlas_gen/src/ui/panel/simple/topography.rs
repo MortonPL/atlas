@@ -65,7 +65,6 @@ fn make_algorithm_ui(ui: &mut Ui, config: &mut SimpleAlgorithm) {
                 config.seed = rand::random();
             }
         }),
-        SimpleAlgorithm::PerlinFractal(_) => todo!(),
         SimpleAlgorithm::Simplex(config) => add_section(ui, "Simplex Settings", |ui| {
             let ui_results = config.make_ui(ui);
             // TODO Same hack/problem as in crate::ui::panel::general
@@ -73,7 +72,6 @@ fn make_algorithm_ui(ui: &mut Ui, config: &mut SimpleAlgorithm) {
                 config.seed = rand::random();
             }
         }),
-        SimpleAlgorithm::SimplexFractal(_) => todo!(),
         SimpleAlgorithm::DiamondSquare(_) => todo!(),
     };
 }

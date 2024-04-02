@@ -85,9 +85,11 @@ where
     fn show(self, hint: Option<&str>) -> usize {
         let hint = hint.unwrap_or(NO_HINT_MESSAGE);
         self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        for inner in self.inners {
-            self.ui.add(inner).on_hover_text_at_pointer(hint);
-        }
+        self.ui.horizontal(|ui| {
+            for inner in self.inners {
+                ui.add(inner).on_hover_text_at_pointer(hint);
+            }
+        });
         self.ui.end_row();
         0
     }
