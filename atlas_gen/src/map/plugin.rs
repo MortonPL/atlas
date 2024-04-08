@@ -45,6 +45,7 @@ pub enum ViewedMapLayer {
     Pretty,
     Continents,
     Topography,
+    TopographyInfluence,
     Temperature,
     Humidity,
     Climate,
@@ -54,10 +55,11 @@ pub enum ViewedMapLayer {
 }
 
 /// Array of all [`ViewedMapLayer`] variants.
-const VIEWED_MAP_LAYERS: [ViewedMapLayer; 9] = [
+const VIEWED_MAP_LAYERS: [ViewedMapLayer; 10] = [
     ViewedMapLayer::Pretty,
     ViewedMapLayer::Continents,
     ViewedMapLayer::Topography,
+    ViewedMapLayer::TopographyInfluence,
     ViewedMapLayer::Temperature,
     ViewedMapLayer::Humidity,
     ViewedMapLayer::Climate,

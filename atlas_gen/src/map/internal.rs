@@ -133,7 +133,8 @@ pub fn magic_convert_png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8
     match layer {
         ViewedMapLayer::Pretty => data,
         ViewedMapLayer::Continents => continents_from_png(data),
-        ViewedMapLayer::Topography => extract_monochrome(data), //extract_rgba_channel(data, RgbaChannel::Green), // DEBUG
+        ViewedMapLayer::Topography => extract_monochrome(data),
+        ViewedMapLayer::TopographyInfluence => extract_monochrome(data),
         ViewedMapLayer::Temperature => extract_rgba_channel(data, RgbaChannel::Red),
         ViewedMapLayer::Humidity => extract_rgba_channel(data, RgbaChannel::Blue),
         ViewedMapLayer::Climate => todo!(), // TODO
@@ -188,7 +189,8 @@ pub fn magic_convert_data_to_png(data_layers: &MapLogicData, layer: ViewedMapLay
     match layer {
         ViewedMapLayer::Pretty => data.to_vec(),
         ViewedMapLayer::Continents => continents_to_png(data),
-        ViewedMapLayer::Topography => expand_monochrome(data), //expand_rgba_channel(data, RgbaChannel::Green), DEBUG
+        ViewedMapLayer::Topography => expand_monochrome(data),
+        ViewedMapLayer::TopographyInfluence => expand_monochrome(data),
         ViewedMapLayer::Temperature => expand_rgba_channel(data, RgbaChannel::Red),
         ViewedMapLayer::Humidity => expand_rgba_channel(data, RgbaChannel::Blue),
         ViewedMapLayer::Climate => todo!(), // TODO

@@ -1,5 +1,6 @@
 #[allow(clippy::module_inception)] // Reason: module is private anyways
 mod config;
+mod config_enums;
 mod io;
 mod plugin;
 

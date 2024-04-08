@@ -1,7 +1,9 @@
 use bevy::prelude::Resource;
 use serde_derive::{Deserialize, Serialize};
 
-use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnum, UiEditableEnumWithFields};
+use atlas_lib::{ui::sidebar::*, MakeUi};
+
+pub use crate::config::config_enums::*;
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -40,63 +42,6 @@ impl Default for GeneralConfig {
     }
 }
 
-/// World model describes the geometric model of the world which
-/// impacts the coordinate system, map visualisation and map border
-/// behavior.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
-#[serde(rename_all = "lowercase")]
-pub enum WorldModel {
-    Flat(FlatWorldModel),
-    Globe(GlobeWorldModel),
-}
-
-impl WorldModel {
-    pub fn get_dimensions(&self) -> (u32, u32) {
-        match self {
-            Self::Flat(x) => (x.world_size[0], x.world_size[1]),
-            Self::Globe(_) => (100, 100),
-        }
-    }
-}
-
-impl Default for WorldModel {
-    fn default() -> Self {
-        WorldModel::Flat(FlatWorldModel::default())
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
-pub struct FlatWorldModel {
-    #[name("World Size")]
-    #[control(SidebarSliderN)]
-    #[add(clamp_range(100..=500))]
-    pub world_size: [u32; 2],
-}
-
-impl Default for FlatWorldModel {
-    fn default() -> Self {
-        Self {
-            world_size: [300, 200],
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct GlobeWorldModel;
-
-#[derive(Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
-#[serde(rename_all = "lowercase")]
-pub enum GeneratorType {
-    Simple(SimpleGenerator),
-    Advanced(AdvancedGenerator),
-}
-
-impl Default for GeneratorType {
-    fn default() -> Self {
-        GeneratorType::Simple(SimpleGenerator::default())
-    }
-}
-
 // ******************************************************** //
 // **************** SIMPLE GENERATOR CONFIG *************** //
 // ******************************************************** //
@@ -108,7 +53,7 @@ pub struct SimpleGenerator {
     pub resources: SimpleResourcesConfig,
 }
 
-#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct SimpleTopographyConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
@@ -117,22 +62,26 @@ pub struct SimpleTopographyConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub sea_level: u8,
-    #[name("Force Island")]
-    #[control(SidebarCheckbox)]
-    pub force_island: bool,
+    #[name("Influence Map Type")]
+    #[control(SidebarEnumDropdown)]
+    pub influence_map_type: InfluenceMapType,
+    #[name("Influence Map Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub influence_map_strength: f32,
     pub config: FbmConfig,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnum)] // TODO
-pub enum SimpleAlgorithm {
-    Perlin,
-    OpenSimplex,
-    SuperSimplex,
-}
-
-impl Default for SimpleAlgorithm {
+impl Default for SimpleTopographyConfig {
     fn default() -> Self {
-        Self::Perlin
+        Self {
+            algorithm: Default::default(),
+            sea_level: 100,
+            influence_map_type: Default::default(),
+            influence_map_strength: 1.0,
+            config: Default::default(),
+        }
     }
 }
 
