@@ -147,16 +147,13 @@ fn generate_strip(data: &mut Vec<u8>, config: &InfluenceStripConfig, model: &Wor
             let width = flat.world_size[0];
             let height = flat.world_size[1];
             let p0 = Vec2::new((width / 2 + offset[0]) as f32, (height / 2 + offset[1]) as f32);
-            let (p1, p2, pc, side1, side2, a, b) = precalculate_strip(p0, length, thickness, angle, flip);
-            let (thickness2, length2) = (thickness.powi(2), length.powi(2));
+            let (p1, p2, a, b) = precalculate_strip(p0, length, angle, flip);
+            let l2 = length / 2.0;
             for y in 0..height {
                 for x in 0..width {
                     let i = (y * width + x) as usize;
                     let p = Vec2::new(x as f32, y as f32);
-                    let val = get_strip_value(
-                        p, p1, p2, pc, thickness, thickness2, length, length2, side1, side2, a, b, midpoint,
-                        value,
-                    );
+                    let val = get_strip_value(p, p0, p1, p2, thickness, l2, a, b, midpoint, value);
                     data[i] = (val * 255f32) as u8;
                 }
             }
@@ -178,48 +175,35 @@ fn get_circle_value(p: Vec2, p0: Vec2, r: f32, midpoint: f32, value: f32) -> f32
     }
 }
 
-fn precalculate_strip(p0: Vec2, l: f32, r: f32, a: f32, flip: bool) -> (Vec2, Vec2, Vec2, Vec2, Vec2, f32, f32) {
+fn precalculate_strip(p0: Vec2, l: f32, a: f32, flip: bool) -> (Vec2, Vec2, f32, f32) {
     // Tan(alpha)
     let mut tana = a.tan();
+    if flip {
+        tana = -tana;
+    }
     // Cos(alpha), sin(alpha)
     let triga = Vec2::from_angle(a);
-    // Sin(90 - alpha), cos(90 - alpha)
-    let trigb = Vec2::new(triga.y, triga.x);
-    // Half of height side
-    let c = trigb * r / 2.0;
     // Half of width side
     let d = triga * l / 2.0;
     // Line formula b
     let b = p0.y - tana * p0.x;
     // Return values
-    let mut p1 = Vec2::new(p0.x + d.x, p0.y - d.y);
-    let mut p2 = Vec2::new(p0.x - d.x, p0.y + d.y);
-    let mut pc = p1 + c;
-    let mut side1 = c * 2.0;
-    let mut side2 = d * 2.0;
+    let mut p1 = p0 - d;
+    let mut p2 = p0 + d;
     if flip {
-        p1 = p0 - d;
-        p2 = p0 + d;
-        pc = p1 + c;
-        side1 = c * 2.0;
-        side2 = d * 2.0;
-        tana = -tana;
+        p1 = Vec2::new(p0.x + d.x, p0.y - d.y);
+        p2 = Vec2::new(p0.x - d.x, p0.y + d.y);
     }
-    dbg!(p0, p1, p2, pc, side1, side2);
-    (p1, p2, pc, side1, side2, tana, b)
+    (p1, p2, tana, b)
 }
 
 fn get_strip_value(
     p: Vec2,
+    p0: Vec2,
     p1: Vec2,
     p2: Vec2,
-    pc: Vec2,
     r: f32,
-    r2: f32,
-    l: f32,
     l2: f32,
-    side1: Vec2,
-    side2: Vec2,
     a: f32,
     b: f32,
     midpoint: f32,
@@ -227,8 +211,9 @@ fn get_strip_value(
 ) -> f32 {
     let mut norm = 1f32;
     // Project point on strip line and see if it's close enough.
-    if inside_rect(pc - p, side1, side2, l2, r2) {
-        norm = 0.0;
+    let (pp, len) = project_to_line(p, a, b);
+    if p0.distance(pp) <= l2 {
+        norm = (len / r).min(1.0);
     } else {
         // See if the point is within one end circle.
         let mut len = p.distance(p1);
@@ -248,11 +233,21 @@ fn get_strip_value(
     }
 }
 
-fn inside_rect(x: Vec2, side1: Vec2, side2: Vec2, width2: f32, height2: f32) -> bool {
-    // https://math.stackexchange.com/a/190373
-    let side1p = x.dot(side1);
-    let side2p = x.dot(side2);
-    (0.0 < side1p) && (side1p < width2) && (0.0 < side2p) && (side2p < height2)
+fn project_to_line(p: Vec2, a: f32, b: f32) -> (Vec2, f32) {
+    let x;
+    let y;
+    if a == 0.0 {
+        x = p.x;
+        y = b;
+    } else {
+        let a2 = -a.recip();
+        let b2 = p.y - a2 * p.x;
+        let a_a2 = a - a2;
+        x = (b2 - b) / a_a2;
+        y = (a * b2 - b * a2) / a_a2;
+    }
+    let pp = Vec2::new(x, y);
+    (pp, pp.distance(p))
 }
 
 fn generate_noise(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel, algorithm: SimpleAlgorithm) {
