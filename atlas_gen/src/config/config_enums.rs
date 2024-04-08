@@ -127,11 +127,51 @@ impl Default for InfluenceCircleConfig {
 }
 
 #[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct InfluenceStripConfig {}
+pub struct InfluenceStripConfig {
+    #[name("Thickness")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=500))]
+    #[add(speed(10.0))]
+    pub thickness: u32,
+    #[name("Length")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=500))]
+    #[add(speed(10.0))]
+    pub length: u32,
+    #[name("Angle")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=89))]
+    #[add(speed(10.0))]
+    pub angle: i32,
+    #[name("Flip Horizontally")]
+    #[control(SidebarCheckbox)]
+    pub flip: bool,
+    #[name("Offset")]
+    #[control(SidebarSliderN)]
+    pub offset: [u32; 2],
+    #[name("Midpoint")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.1..=1.0))]
+    #[add(speed(0.1))]
+    pub midpoint: f32,
+    #[name("Midpoint Value")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub midpoint_value: f32,
+}
 
 impl Default for InfluenceStripConfig {
     fn default() -> Self {
-        Self {  }
+        Self {
+            thickness: 50,
+            length: 100,
+            angle: 0,
+            flip: false,
+            offset: Default::default(),
+            midpoint: 0.5,
+            midpoint_value: 0.5,
+        }
     }
 }
 
@@ -145,9 +185,7 @@ pub struct InfluenceArchipelagoConfig {
 
 impl Default for InfluenceArchipelagoConfig {
     fn default() -> Self {
-        Self {
-            seed: 0,
-        }
+        Self { seed: 0 }
     }
 }
 
