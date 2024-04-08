@@ -122,7 +122,7 @@ enum RgbaChannel {
     Green,
     Blue,
     #[allow(dead_code)]
-    Alpha
+    Alpha,
 }
 
 /// Convert graphical representation of a map layer to a logical representation of the map layer.
@@ -152,7 +152,7 @@ fn continents_from_png(data: Vec<u8>) -> Vec<u8> {
         if x[1] > 0 {
             x[1] / 2
         } else if x[2] > 0 {
-            x[2] / 2
+            x[2] / 2 + 128
         } else {
             0
         }
@@ -201,9 +201,9 @@ pub fn magic_convert_data_to_png(data_layers: &MapLogicData, layer: ViewedMapLay
 /// Expand one channel to an RGBA image.
 fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
     let fun = match channel {
-        RgbaChannel::Red => |x: &u8| [*x, 0, 0, 0],
-        RgbaChannel::Green => |x: &u8| [0, *x, 0, 0],
-        RgbaChannel::Blue => |x: &u8| [0, 0, *x, 0],
+        RgbaChannel::Red => |x: &u8| [*x, 0, 0, 255],
+        RgbaChannel::Green => |x: &u8| [0, *x, 0, 255],
+        RgbaChannel::Blue => |x: &u8| [0, 0, *x, 255],
         RgbaChannel::Alpha => |x: &u8| [0, 0, 0, *x],
     };
     data.iter().map(fun).flatten().collect()
@@ -211,7 +211,7 @@ fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
 
 /// Expand one channel to an RGBA image.
 fn expand_monochrome(data: &[u8]) -> Vec<u8> {
-    data.iter().map(|x: &u8| [*x, *x, *x, 0]).flatten().collect()
+    data.iter().map(|x: &u8| [*x, *x, *x, 255]).flatten().collect()
 }
 
 /// Convert continents/ocean data to an RGBA image.
@@ -220,9 +220,9 @@ fn expand_monochrome(data: &[u8]) -> Vec<u8> {
 fn continents_to_png(data: &[u8]) -> Vec<u8> {
     let fun = |x: &u8| {
         if *x <= 127 {
-            [0, x * 2, 0, 0]
+            [0, x * 2, 0, 255]
         } else {
-            [0, 0, (x - 128) * 2, 0]
+            [0, 0, (x - 128) * 2, 255]
         }
     };
     data.iter().map(fun).flatten().collect()
