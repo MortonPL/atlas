@@ -38,7 +38,7 @@ impl MainPanel for MainPanelTopography {
                 add_section(ui, "Common", |ui| {
                     let ui_results = simple.topography.make_ui(ui);
                     update_enum!(simple.topography.algorithm, ui_results[0]);
-                    update_enum!(simple.topography.influence_map_type, ui_results[1]);
+                    update_enum!(simple.topography.influence_map_type, ui_results[2]);
                 });
                 make_algorithm_ui(ui, &mut simple.topography.config);
                 let generate_influence = make_influence_map_ui(ui, &mut simple.topography.influence_map_type);

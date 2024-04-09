@@ -60,9 +60,9 @@ fn generate_simple_preview(
         .layers
         .remove(&ViewedMapLayer::Preview)
         .expect("MapLogicData should map all layers");
-    let topo_data = logics
+    let real_data = logics
         .layers
-        .get(&ViewedMapLayer::Topography)
+        .get(&ViewedMapLayer::RealTopography)
         .expect("MapLogicData should map all layers");
     let cont_data = logics
         .layers
@@ -73,14 +73,16 @@ fn generate_simple_preview(
         .get(&ViewedMapLayer::Climate)
         .expect("MapLogicData should map all layers");
 
-    for i in 0..topo_data.len() {
+    let max = *real_data.iter().max().expect("RealTopography must not be empty");
+    let highest = max as f32; // or 255.0
+    for i in 0..real_data.len() {
         let (mut r, mut g, mut b) = (0, 0, 0);
         if is_sea(cont_data[i]) {
             (r, g, b) = (0, 160, 255);
         } else {
-            let height = topo_data[i] as f32 / 300.0;//255.0;
+            let height = real_data[i] as f32 / (highest * 1.2);
             let (h, s, v) = climate_to_hsv(climate_data[i]);
-            let v = v * (((1.0 - height) * 10.0).round() / 10.0);
+            let v = v * (((1.0 - height.clamp(0.2, 0.8)) * 10.0).round() / 10.0);
             let rgb = rgb_from_hsv((h, s, v));
             (r, g, b) = (
                 (rgb[0] * 255.0) as u8,
@@ -113,7 +115,6 @@ fn generate_simple_continents(
         .remove(&ViewedMapLayer::Continents)
         .expect("MapLogicData should map all layers");
     // Get relevant config info.
-    let sea_level = config.continents.sea_level;
     let algorithm = config.continents.algorithm;
     let fbm_config = config.continents.config;
     let use_influence = !matches!(config.continents.influence_map_type, InfluenceMapType::None(_));
@@ -128,16 +129,22 @@ fn generate_simple_continents(
         apply_influence(&mut cont_data, map_data, config.continents.influence_map_strength);
     }
     // Globally set the ocean tiles with no flooding.
+    let sea_level = (255.0 * config.continents.sea_level) as u8;
     for i in 0..cont_data.len() {
         cont_data[i] = if cont_data[i] > sea_level { 255 } else { 127 };
     }
     // Set new layer data.
     logics.layers.insert(ViewedMapLayer::Continents, cont_data);
-    generate_simple_topo_filter(logics, config, model);
+
     // Regenerate real topography.
+    generate_simple_topo_filter(logics, config, model);
     generate_simple_real_topo(logics, config, model);
 
-    vec![ViewedMapLayer::Continents]
+    vec![
+        ViewedMapLayer::Continents,
+        ViewedMapLayer::RealTopography,
+        ViewedMapLayer::TopographyFilter,
+    ] // DEBUG
 }
 
 /// Generate simple topography data.
@@ -167,10 +174,16 @@ fn generate_simple_topography(
     }
     // Set new layer data.
     logics.layers.insert(ViewedMapLayer::Topography, topo_data);
+
     // Regenerate real topography.
+    generate_simple_topo_filter(logics, config, model);
     generate_simple_real_topo(logics, config, model);
 
-    vec![ViewedMapLayer::Topography, ViewedMapLayer::TopographyFilter] // DEBUG
+    vec![
+        ViewedMapLayer::Topography,
+        ViewedMapLayer::RealTopography,
+        ViewedMapLayer::TopographyFilter,
+    ] // DEBUG
 }
 
 /// Generate simple FINAL topography data.
@@ -212,39 +225,36 @@ fn generate_simple_topo_filter(
         .layers
         .remove(&ViewedMapLayer::TopographyFilter)
         .expect("MapLogicData should map all layers");
+
+    filter_data.fill(0);
+
+    let kernel: i32 = config.topography.coastal_erosion as i32;
+    if kernel == 0 {
+        logics
+            .layers
+            .insert(ViewedMapLayer::TopographyFilter, filter_data);
+        return vec![];
+    }
+
     let cont_data = logics
         .layers
         .get(&ViewedMapLayer::Continents)
         .expect("MapLogicData should map all layers");
 
-    filter_data.fill(0);
     match model {
         WorldModel::Flat(x) => {
-            let width = x.world_size[0];
-            let height = x.world_size[1];
-            let kernel: u32 = 4;
-            let multiplier = (255 / ((kernel.pow(2) - 1) * 2)) as u8;
+            let width = x.world_size[0] as i32;
+            let height = x.world_size[1] as i32;
+            let multiplier = (255 / ((kernel * 2 + 1).pow(2) - 1)) as u16;
             for y in 0..height {
                 for x in 0..width {
                     let i = (y * width + x) as usize;
-                    // Case water: add smoothing *to* nearby tiles.
-                    if is_sea(cont_data[i]) {
-                        for v in 0..kernel {
-                            for u in 0..kernel {
-                                if ((y + v) >= height) || ((x + u) >= width) {
-                                    continue;
-                                }
-                                let j = ((y + v) * width + (x + u)) as usize;
-                                filter_data[j] += 1;
-                            }
-                        }
-                        filter_data[i] = 0;
-                    // Case land: add smoothing *from* nearby tiles.
-                    } else {
+                    if !is_sea(cont_data[i]) {
                         let mut value = 0;
-                        for v in 0..kernel {
-                            for u in 0..kernel {
-                                if ((y + v) >= height) || ((x + u) >= width) {
+                        for v in -kernel..=kernel {
+                            for u in -kernel..=kernel {
+                                if ((y + v) >= height) || ((x + u) >= width) || ((y + v) < 0) || ((x + u) < 0)
+                                {
                                     continue;
                                 }
                                 let j = ((y + v) * width + (x + u)) as usize;
@@ -253,8 +263,7 @@ fn generate_simple_topo_filter(
                                 }
                             }
                         }
-                        value = (filter_data[i] + value) * multiplier;
-                        filter_data[i] = if value > 0 { value.max(multiplier) } else { 0 };
+                        filter_data[i] = (value * multiplier * 2).min(255) as u8;
                     };
                 }
             }
@@ -453,7 +462,14 @@ where
     sample_noise(data, model, noise, config.offset, config.bias, config.range);
 }
 
-fn sample_noise(data: &mut [u8], model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2], bias: i16, range: f64) {
+fn sample_noise(
+    data: &mut [u8],
+    model: &WorldModel,
+    noise: impl NoiseFn<f64, 2>,
+    offset: [f64; 2],
+    bias: f64,
+    range: f64,
+) {
     match model {
         WorldModel::Flat(flat) => {
             let width = flat.world_size[0];
@@ -462,8 +478,9 @@ fn sample_noise(data: &mut [u8], model: &WorldModel, noise: impl NoiseFn<f64, 2>
             for y in 0..height {
                 for x in 0..width {
                     let i = (y * width + x) as usize;
-                    let val = (noise.get([x as f64 / scale + offset[0], y as f64 / scale + offset[1]]) + 1.0) * range;
-                    data[i] = (val * 128f64 + bias as f64).clamp(0.0, 255.0) as u8;
+                    let xy = [x as f64 / scale + offset[0], y as f64 / scale + offset[1]];
+                    let val = (((noise.get(xy) + 1.0) / 2.0) + bias).clamp(0.0, 1.0) * range;
+                    data[i] = (val.clamp(0.0, 1.0) * 255.0) as u8;
                 }
             }
         }

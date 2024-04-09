@@ -61,8 +61,8 @@ pub struct SimpleContinentsConfig {
     pub algorithm: SimpleAlgorithm,
     #[name("Sea Level")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0..=255))]
-    pub sea_level: u8,
+    #[add(clamp_range(0.0..=1.0))]
+    pub sea_level: f32,
     #[name("Influence Map Type")]
     #[control(SidebarEnumDropdown)]
     pub influence_map_type: InfluenceMapType,
@@ -78,7 +78,7 @@ impl Default for SimpleContinentsConfig {
     fn default() -> Self {
         Self {
             algorithm: Default::default(),
-            sea_level: 100,
+            sea_level: 0.4,
             influence_map_type: Default::default(),
             influence_map_strength: 1.0,
             config: Default::default(),
@@ -91,6 +91,11 @@ pub struct SimpleTopographyConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub algorithm: SimpleAlgorithm,
+    #[name("Coastal Erosion Range")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=7))]
+    #[add(speed(0.5))]
+    pub coastal_erosion: u8,
     #[name("Influence Map Type")]
     #[control(SidebarEnumDropdown)]
     pub influence_map_type: InfluenceMapType,
@@ -106,6 +111,7 @@ impl Default for SimpleTopographyConfig {
     fn default() -> Self {
         Self {
             algorithm: Default::default(),
+            coastal_erosion: 1,
             influence_map_type: Default::default(),
             influence_map_strength: 1.0,
             config: Default::default(),
@@ -141,12 +147,12 @@ pub struct FbmConfig {
     pub roughness: f64,
     #[name("Bias")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(-255..=255))]
+    #[add(clamp_range(-1.0..=1.0))]
     #[add(speed(10.0))]
-    pub bias: i16,
+    pub bias: f64,
     #[name("Range")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0.01..=1.0))]
+    #[add(clamp_range(0.1..=10.0))]
     #[add(speed(0.1))]
     pub range: f64,
     #[name("Offset")]
@@ -162,7 +168,7 @@ impl Default for FbmConfig {
             frequency: 3.0,
             neatness: 2.0,
             roughness: 0.5,
-            bias: 0,
+            bias: 0.0,
             range: 1.0,
             offset: Default::default(),
         }
