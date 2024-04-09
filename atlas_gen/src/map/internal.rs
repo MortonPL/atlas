@@ -221,7 +221,7 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
 }
 
 pub fn climate_to_hsv(data: u8) -> (f32, f32, f32) {
-    (0.35, 1.0, 1.0)
+    (0.3, 0.9, 0.9)
 }
 
 /// Expand one channel to an RGBA image.

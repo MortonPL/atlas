@@ -1,9 +1,5 @@
 use bevy::{
-    app::{MainScheduleOrder, RunFixedUpdateLoop},
-    ecs::schedule::ScheduleLabel,
-    input::mouse::MouseWheel,
-    prelude::*,
-    render::camera::Viewport,
+    app::{MainScheduleOrder, RunFixedUpdateLoop}, core_pipeline::tonemapping::{DebandDither, Tonemapping}, ecs::schedule::ScheduleLabel, input::mouse::MouseWheel, prelude::*, render::camera::Viewport
 };
 use bevy_egui::{EguiContexts, EguiPlugin};
 
@@ -96,10 +92,12 @@ fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+            tonemapping: Tonemapping::None,
+            dither: DebandDither::Disabled,
             ..default()
         },
         MainCamera,
     ));
     // More ambient light than default
-    light.brightness = 0.5
+    light.brightness = 1.0;
 }

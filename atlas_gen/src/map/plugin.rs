@@ -89,6 +89,7 @@ fn startup_layers(
     let empty_texture = make_image(1, 1, vec![0, 0, 0, 255]);
     let empty_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(empty_texture.clone())),
+        unlit: true,
         ..default()
     });
     graphics.empty_material = empty_material;
@@ -96,6 +97,7 @@ fn startup_layers(
     for layer in VIEWED_MAP_LAYERS {
         let material = materials.add(StandardMaterial {
             base_color_texture: Some(images.add(empty_texture.clone())),
+            unlit: true,
             ..default()
         });
         graphics

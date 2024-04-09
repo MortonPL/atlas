@@ -76,11 +76,11 @@ fn generate_simple_preview(
     for i in 0..topo_data.len() {
         let (mut r, mut g, mut b) = (0, 0, 0);
         if is_sea(cont_data[i]) {
-            (r, g, b) = (0, 0, 255);
+            (r, g, b) = (0, 160, 255);
         } else {
-            let height = topo_data[i] as f32 / 255.0;
+            let height = topo_data[i] as f32 / 300.0;//255.0;
             let (h, s, v) = climate_to_hsv(climate_data[i]);
-            let v = v * (1.0 - height);
+            let v = v * (((1.0 - height) * 10.0).round() / 10.0);
             let rgb = rgb_from_hsv((h, s, v));
             (r, g, b) = (
                 (rgb[0] * 255.0) as u8,
@@ -450,10 +450,10 @@ where
         .set_frequency(config.frequency)
         .set_lacunarity(config.neatness)
         .set_persistence(config.roughness);
-    sample_noise(data, model, noise, config.offset);
+    sample_noise(data, model, noise, config.offset, config.bias, config.range);
 }
 
-fn sample_noise(data: &mut [u8], model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2]) {
+fn sample_noise(data: &mut [u8], model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2], bias: i16, range: f64) {
     match model {
         WorldModel::Flat(flat) => {
             let width = flat.world_size[0];
@@ -462,8 +462,8 @@ fn sample_noise(data: &mut [u8], model: &WorldModel, noise: impl NoiseFn<f64, 2>
             for y in 0..height {
                 for x in 0..width {
                     let i = (y * width + x) as usize;
-                    let val = noise.get([x as f64 / scale + offset[0], y as f64 / scale + offset[1]]) + 1.0;
-                    data[i] = (val * 128f64) as u8;
+                    let val = (noise.get([x as f64 / scale + offset[0], y as f64 / scale + offset[1]]) + 1.0) * range;
+                    data[i] = (val * 128f64 + bias as f64).clamp(0.0, 255.0) as u8;
                 }
             }
         }

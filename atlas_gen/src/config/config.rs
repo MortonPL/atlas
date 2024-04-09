@@ -139,6 +139,16 @@ pub struct FbmConfig {
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
     pub roughness: f64,
+    #[name("Bias")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(-255..=255))]
+    #[add(speed(10.0))]
+    pub bias: i16,
+    #[name("Range")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.01..=1.0))]
+    #[add(speed(0.1))]
+    pub range: f64,
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [f64; 2],
@@ -152,6 +162,8 @@ impl Default for FbmConfig {
             frequency: 3.0,
             neatness: 2.0,
             roughness: 0.5,
+            bias: 0,
+            range: 1.0,
             offset: Default::default(),
         }
     }

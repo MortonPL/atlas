@@ -3,14 +3,18 @@
 - Visual event log (?)
 - Lotsa error handling
 
-- Finish simple topo generator
-  - add influence helper layers logic
-  - topo influence map
+- Clean up ui code
+- Clean up mapgen code
+- Split things into files better
+- Loading continental or topo layers from file should trigger real topo recalc
+  - Maybe loading should be moved back to each panel?
+- Reset current panel button
+
 - Make simple climate generator
 - Make simple province generator
   - with resources
 
-- Advanced generator ?
+- Remove advanced generator completely, simple is good enough
 
 ## TO-DO List 2
 
