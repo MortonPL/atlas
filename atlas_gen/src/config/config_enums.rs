@@ -69,6 +69,7 @@ pub enum SimpleAlgorithm {
     Perlin,
     OpenSimplex,
     SuperSimplex,
+    FromImage,
 }
 
 impl Default for SimpleAlgorithm {
@@ -84,7 +85,7 @@ pub enum InfluenceMapType {
     Circle(InfluenceCircleConfig),
     Strip(InfluenceStripConfig),
     Fbm(InfluenceFbmConfig),
-    Custom(()),
+    FromImage(()),
 }
 
 impl Default for InfluenceMapType {
@@ -105,7 +106,7 @@ pub struct InfluenceCircleConfig {
     pub offset: [u32; 2],
     #[name("Midpoint")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0.1..=1.0))]
+    #[add(clamp_range(0.01..=0.99))]
     #[add(speed(0.1))]
     pub midpoint: f32,
     #[name("Midpoint Value")]
@@ -151,7 +152,7 @@ pub struct InfluenceStripConfig {
     pub offset: [u32; 2],
     #[name("Midpoint")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0.1..=1.0))]
+    #[add(clamp_range(0.01..=0.99))]
     #[add(speed(0.1))]
     pub midpoint: f32,
     #[name("Midpoint Value")]

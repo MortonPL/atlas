@@ -83,7 +83,7 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(UiEditableEnum)]
+#[proc_macro_derive(UiEditableEnum, attributes(invisible))]
 pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -96,11 +96,25 @@ pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
         syn::Data::Union(_) => unimplemented!(),
     };
 
-    let len = variants.len();
+    let mut len = variants.len();
     let mut idents = vec![];
-    let indices: Vec<_> = (0..len).collect();
+    let mut indices = vec![];
+    let mut index: usize = 0;
     for variant in variants.into_iter() {
+        let mut is_invisible = false;
+        for attr in variant.attrs {
+            if attr.path().is_ident("invisible") {
+                is_invisible = true;
+                break;
+            }
+        }
         idents.push(variant.ident);
+        indices.push(if is_invisible { 9999 } else { index });
+        if is_invisible {
+            len -= 1;
+        } else {
+            index += 1;
+        }
     }
 
     TokenStream::from(quote! {
@@ -143,11 +157,25 @@ pub fn ui_editable_enum_with_fields_derive(input: TokenStream) -> TokenStream {
         syn::Data::Union(_) => unimplemented!(),
     };
 
-    let len = variants.len();
+    let mut len = variants.len();
     let mut idents = vec![];
-    let indices: Vec<_> = (0..len).collect();
+    let mut indices = vec![];
+    let mut index: usize = 0;
     for variant in variants.into_iter() {
+        let mut is_invisible = false;
+        for attr in variant.attrs {
+            if attr.path().is_ident("invisible") {
+                is_invisible = true;
+                break;
+            }
+        }
         idents.push(variant.ident);
+        indices.push(if is_invisible { 9999 } else { index });
+        if is_invisible {
+            len -= 1;
+        } else {
+            index += 1;
+        }
     }
 
     TokenStream::from(quote! {

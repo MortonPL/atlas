@@ -124,14 +124,17 @@ pub fn png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8> {
     match layer {
         ViewedMapLayer::Preview => data,
         ViewedMapLayer::Continents => continents_from_png(data),
+        ViewedMapLayer::ContinentsInfluence => extract_monochrome(data),
         ViewedMapLayer::Topography => extract_monochrome(data),
         ViewedMapLayer::TopographyInfluence => extract_monochrome(data),
-        ViewedMapLayer::Temperature => extract_rgba_channel(data, RgbaChannel::Red),
-        ViewedMapLayer::Humidity => extract_rgba_channel(data, RgbaChannel::Blue),
-        ViewedMapLayer::Climate => todo!(), // TODO
-        ViewedMapLayer::Fertility => extract_rgba_channel(data, RgbaChannel::Green),
-        ViewedMapLayer::Resource => todo!(), // TODO
-        ViewedMapLayer::Richness => extract_rgba_channel(data, RgbaChannel::Blue),
+        ViewedMapLayer::Temperature => todo!(), // TODO
+        ViewedMapLayer::Humidity => todo!(),    // TODO
+        ViewedMapLayer::Climate => todo!(),     // TODO
+        ViewedMapLayer::Fertility => todo!(),   // TODO
+        ViewedMapLayer::Resource => todo!(),    // TODO
+        ViewedMapLayer::Richness => todo!(),    // TODO
+        ViewedMapLayer::RealTopography => extract_monochrome(data),
+        ViewedMapLayer::TopographyFilter => extract_monochrome(data),
     }
 }
 
@@ -147,14 +150,17 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8>
     match layer {
         ViewedMapLayer::Preview => data.to_vec(),
         ViewedMapLayer::Continents => continents_to_png(data),
+        ViewedMapLayer::ContinentsInfluence => expand_monochrome(data),
         ViewedMapLayer::Topography => expand_monochrome(data),
         ViewedMapLayer::TopographyInfluence => expand_monochrome(data),
-        ViewedMapLayer::Temperature => expand_rgba_channel(data, RgbaChannel::Red),
-        ViewedMapLayer::Humidity => expand_rgba_channel(data, RgbaChannel::Blue),
-        ViewedMapLayer::Climate => todo!(), // TODO
-        ViewedMapLayer::Fertility => expand_rgba_channel(data, RgbaChannel::Green),
-        ViewedMapLayer::Resource => todo!(), // TODO
-        ViewedMapLayer::Richness => expand_rgba_channel(data, RgbaChannel::Blue),
+        ViewedMapLayer::Temperature => todo!(), // TODO
+        ViewedMapLayer::Humidity => todo!(),    // TODO
+        ViewedMapLayer::Climate => todo!(),     // TODO
+        ViewedMapLayer::Fertility => todo!(),   // TODO
+        ViewedMapLayer::Resource => todo!(),    // TODO
+        ViewedMapLayer::Richness => todo!(),    // TODO
+        ViewedMapLayer::RealTopography => expand_monochrome(data),
+        ViewedMapLayer::TopographyFilter => expand_monochrome(data),
     }
 }
 
@@ -168,17 +174,17 @@ enum RgbaChannel {
 }
 
 /// Convert an RGBA image to continents/ocean data.
-/// Data: Value <= 127 is continent, value > 127 is ocean.
+/// Data: Value <= 127 is ocean, value > 127 is continent.
 /// Image: Every ocean only has blue channel, every continent only green.
 /// When both channels are set, continents take priority.
 fn continents_from_png(data: Vec<u8>) -> Vec<u8> {
     let fun = |x: &[u8]| {
         if x[1] > 0 {
-            x[1] / 2
+            x[1] / 2 + 128
         } else if x[2] > 0 {
-            x[2] / 2 + 128
+            x[2] / 2
         } else {
-            0
+            255
         }
     };
     data.chunks_exact(4).map(fun).collect()
@@ -201,17 +207,21 @@ fn extract_monochrome(data: Vec<u8>) -> Vec<u8> {
 }
 
 /// Convert continents/ocean data to an RGBA image.
-/// Data: Value <= 127 is continent, value > 127 is ocean.
+/// Data: Value <= 127 is ocean, value > 127 is continent.
 /// Image: Every ocean only has blue channel, every continent only green.
 fn continents_to_png(data: &[u8]) -> Vec<u8> {
     let fun = |x: &u8| {
         if *x <= 127 {
-            [0, x * 2, 0, 255]
+            [0, 0, 1 + x * 2, 255]
         } else {
-            [0, 0, (x - 128) * 2, 255]
+            [0, (x - 128) * 2 + 1, 0, 255]
         }
     };
     data.iter().flat_map(fun).collect()
+}
+
+pub fn climate_to_hsv(data: u8) -> (f32, f32, f32) {
+    (0.35, 1.0, 1.0)
 }
 
 /// Expand one channel to an RGBA image.

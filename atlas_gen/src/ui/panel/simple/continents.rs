@@ -14,18 +14,14 @@ use crate::{
     map::ViewedMapLayer,
     ui::{
         internal::UiState,
-        panel::{
-            add_section,
-            simple::{MainPanelClimate, MainPanelContinents},
-            MainPanel, MainPanelTransition,
-        },
+        panel::{add_section, simple::MainPanelTopography, MainPanel, MainPanelGeneral, MainPanelTransition},
     },
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelTopography;
+pub struct MainPanelContinents;
 
-impl MainPanel for MainPanelTopography {
+impl MainPanel for MainPanelContinents {
     fn show(
         &mut self,
         ui: &mut Ui,
@@ -36,14 +32,14 @@ impl MainPanel for MainPanelTopography {
         match &mut config.generator {
             GeneratorType::Simple(simple) => {
                 add_section(ui, "Common", |ui| {
-                    let ui_results = simple.topography.make_ui(ui);
-                    update_enum!(simple.topography.algorithm, ui_results[0]);
-                    update_enum!(simple.topography.influence_map_type, ui_results[1]);
+                    let ui_results = simple.continents.make_ui(ui);
+                    update_enum!(simple.continents.algorithm, ui_results[0]);
+                    update_enum!(simple.continents.influence_map_type, ui_results[2]);
                 });
-                make_algorithm_ui(ui, &mut simple.topography.config);
-                let generate_influence = make_influence_map_ui(ui, &mut simple.topography.influence_map_type);
+                make_algorithm_ui(ui, &mut simple.continents.config);
+                let generate_influence = make_influence_map_ui(ui, &mut simple.continents.influence_map_type);
                 if generate_influence {
-                    events.generate_request = Some(ViewedMapLayer::TopographyInfluence);
+                    events.generate_request = Some(ViewedMapLayer::ContinentsInfluence);
                 }
             }
             GeneratorType::Advanced(_) => unreachable!(),
@@ -54,18 +50,18 @@ impl MainPanel for MainPanelTopography {
     }
 
     fn get_heading(&self) -> &'static str {
-        "Topography"
+        "Continents"
     }
 
     fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Topography
+        ViewedMapLayer::Continents
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
         match transition {
             MainPanelTransition::None => Box::new(*self),
-            MainPanelTransition::Previous => Box::<MainPanelContinents>::default(),
-            MainPanelTransition::Next => Box::<MainPanelClimate>::default(),
+            MainPanelTransition::Previous => Box::<MainPanelGeneral>::default(),
+            MainPanelTransition::Next => Box::<MainPanelTopography>::default(),
         }
     }
 }

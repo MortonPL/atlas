@@ -14,10 +14,7 @@ use crate::{
     map::ViewedMapLayer,
     ui::{
         internal::UiState,
-        panel::{
-            add_section, advanced::MainPanelContinents, simple::MainPanelTopography, MainPanel,
-            MainPanelTransition,
-        },
+        panel::{add_section, advanced, simple, MainPanel, MainPanelTransition},
     },
 };
 
@@ -42,16 +39,15 @@ impl MainPanel for MainPanelGeneral {
         let mut ui_results = vec![];
         add_section(ui, "World", |ui| {
             ui_results = config.general.make_ui(ui);
+            // TODO: Bit hacky with raw indices, oh well
+            if ui_results[0] == 1 {
+                config.general.seed = rand::random();
+            }
+            if config.general.world_model.self_as_index() != ui_results[2] {
+                config.general.world_model = config.general.world_model.index_as_self(ui_results[2]);
+                events.world_model_changed = Some(config.general.world_model.clone());
+            }
         });
-        // TODO: Bit hacky with raw indices, oh well
-        if ui_results[0] == 1 {
-            config.general.seed = rand::random();
-        }
-
-        if config.general.world_model.self_as_index() != ui_results[2] {
-            config.general.world_model = config.general.world_model.index_as_self(ui_results[2]);
-            events.world_model_changed = Some(config.general.world_model.clone());
-        }
 
         add_section(
             ui,
@@ -81,8 +77,8 @@ impl MainPanel for MainPanelGeneral {
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
         match transition {
             MainPanelTransition::Next => match self.use_advanced {
-                false => Box::<MainPanelTopography>::default(),
-                true => Box::<MainPanelContinents>::default(),
+                false => Box::<simple::MainPanelContinents>::default(),
+                true => Box::<advanced::MainPanelContinents>::default(),
             },
             _ => Box::new(*self),
         }

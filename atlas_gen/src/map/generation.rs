@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy_egui::egui::{ecolor::{hsv_from_rgb, rgb_from_hsv}, lerp};
+use bevy_egui::egui::{ecolor::rgb_from_hsv, lerp};
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
         AdvancedGenerator, FbmConfig, InfluenceCircleConfig, InfluenceMapType, InfluenceStripConfig,
         SimpleAlgorithm, SimpleGenerator, WorldModel,
     },
-    map::ViewedMapLayer,
+    map::{internal::climate_to_hsv, ViewedMapLayer},
 };
 
 use super::internal::MapLogicData;
@@ -22,8 +22,14 @@ pub fn generate_simple(
     // TODO
     match layer {
         ViewedMapLayer::Preview => generate_simple_preview(logics, config, model),
+        ViewedMapLayer::Continents => generate_simple_continents(logics, config, model),
+        ViewedMapLayer::ContinentsInfluence => {
+            generate_simple_influence(logics, &config.continents.influence_map_type, model, layer)
+        }
         ViewedMapLayer::Topography => generate_simple_topography(logics, config, model),
-        ViewedMapLayer::TopographyInfluence => generate_simple_topography_influence(logics, config, model),
+        ViewedMapLayer::TopographyInfluence => {
+            generate_simple_influence(logics, &config.topography.influence_map_type, model, layer)
+        }
         ViewedMapLayer::Climate => todo!(),
         ViewedMapLayer::Resource => todo!(),
         _ => unreachable!(),
@@ -67,25 +73,26 @@ fn generate_simple_preview(
         .get(&ViewedMapLayer::Climate)
         .expect("MapLogicData should map all layers");
 
-    let sea_level = config.topography.sea_level;
-    let max_height = (255 - sea_level) as f32;
     for i in 0..topo_data.len() {
         let (mut r, mut g, mut b) = (0, 0, 0);
-        let is_sea = cont_data[i] > 127;
-        if is_sea {
-            let depth = sea_level - topo_data[i];
-            (r, g, b) = (0, 0, 255 - depth);
+        if is_sea(cont_data[i]) {
+            (r, g, b) = (0, 0, 255);
         } else {
-            let height = (topo_data[i] - sea_level) as f32 / max_height;
-            let (mut h, mut s, mut v) = (0.3, (1.0 - height), 0.5 + height / 2.0);
+            let height = topo_data[i] as f32 / 255.0;
+            let (h, s, v) = climate_to_hsv(climate_data[i]);
+            let v = v * (1.0 - height);
             let rgb = rgb_from_hsv((h, s, v));
-            (r, g, b) = ((rgb[0] * 255.0) as u8, (rgb[1] * 255.0) as u8, (rgb[2] * 255.0) as u8);
+            (r, g, b) = (
+                (rgb[0] * 255.0) as u8,
+                (rgb[1] * 255.0) as u8,
+                (rgb[2] * 255.0) as u8,
+            );
         }
         let j = i * 4;
         preview_data[j] = r;
-        preview_data[j+1] = g;
-        preview_data[j+2] = b;
-        preview_data[j+3] = 255;
+        preview_data[j + 1] = g;
+        preview_data[j + 2] = b;
+        preview_data[j + 3] = 255;
     }
 
     // Set new layer data.
@@ -94,7 +101,46 @@ fn generate_simple_preview(
     vec![ViewedMapLayer::Preview]
 }
 
-/// Generate simple topography and continental data.
+/// Generate simple continental data.
+fn generate_simple_continents(
+    logics: &mut MapLogicData,
+    config: &SimpleGenerator,
+    model: &WorldModel,
+) -> Vec<ViewedMapLayer> {
+    // Move out layer data.
+    let mut cont_data = logics
+        .layers
+        .remove(&ViewedMapLayer::Continents)
+        .expect("MapLogicData should map all layers");
+    // Get relevant config info.
+    let sea_level = config.continents.sea_level;
+    let algorithm = config.continents.algorithm;
+    let fbm_config = config.continents.config;
+    let use_influence = !matches!(config.continents.influence_map_type, InfluenceMapType::None(_));
+    // Run the noise algorithm to obtain height data for continental discrimination.
+    generate_noise(&mut cont_data, fbm_config, model, algorithm);
+    // Apply the influence map if requested.
+    if use_influence {
+        let map_data = logics
+            .layers
+            .get(&ViewedMapLayer::ContinentsInfluence)
+            .expect("MapLogicData should map all layers");
+        apply_influence(&mut cont_data, map_data, config.continents.influence_map_strength);
+    }
+    // Globally set the ocean tiles with no flooding.
+    for i in 0..cont_data.len() {
+        cont_data[i] = if cont_data[i] > sea_level { 255 } else { 127 };
+    }
+    // Set new layer data.
+    logics.layers.insert(ViewedMapLayer::Continents, cont_data);
+    generate_simple_topo_filter(logics, config, model);
+    // Regenerate real topography.
+    generate_simple_real_topo(logics, config, model);
+
+    vec![ViewedMapLayer::Continents]
+}
+
+/// Generate simple topography data.
 fn generate_simple_topography(
     logics: &mut MapLogicData,
     config: &SimpleGenerator,
@@ -105,18 +151,13 @@ fn generate_simple_topography(
         .layers
         .remove(&ViewedMapLayer::Topography)
         .expect("MapLogicData should map all layers");
-    let mut cont_data = logics
-        .layers
-        .remove(&ViewedMapLayer::Continents)
-        .expect("MapLogicData should map all layers");
     // Get relevant config info.
-    let sea_level = config.topography.sea_level;
     let algorithm = config.topography.algorithm;
     let fbm_config = config.topography.config;
     let use_influence = !matches!(config.topography.influence_map_type, InfluenceMapType::None(_));
     // Run the noise algorithm for map topography (height data).
     generate_noise(&mut topo_data, fbm_config, model, algorithm);
-    // Apply the influence map is requested.
+    // Apply the influence map if requested.
     if use_influence {
         let map_data = logics
             .layers
@@ -124,42 +165,134 @@ fn generate_simple_topography(
             .expect("MapLogicData should map all layers");
         apply_influence(&mut topo_data, map_data, config.topography.influence_map_strength);
     }
-    // Globally set the ocean tiles with no flooding.
-    for i in 0..cont_data.len() {
-        cont_data[i] = if topo_data[i] > sea_level { 127 } else { 255 }; // TODO
-    }
     // Set new layer data.
     logics.layers.insert(ViewedMapLayer::Topography, topo_data);
-    logics.layers.insert(ViewedMapLayer::Continents, cont_data);
+    // Regenerate real topography.
+    generate_simple_real_topo(logics, config, model);
 
-    vec![ViewedMapLayer::Continents, ViewedMapLayer::Topography]
+    vec![ViewedMapLayer::Topography, ViewedMapLayer::TopographyFilter] // DEBUG
 }
 
-/// Generate influence map for simple topography.
-fn generate_simple_topography_influence(
+/// Generate simple FINAL topography data.
+fn generate_simple_real_topo(
     logics: &mut MapLogicData,
     config: &SimpleGenerator,
     model: &WorldModel,
 ) -> Vec<ViewedMapLayer> {
     // Move out layer data.
+    let mut real_data = logics
+        .layers
+        .remove(&ViewedMapLayer::RealTopography)
+        .expect("MapLogicData should map all layers");
+    let topo_data = logics
+        .layers
+        .get(&ViewedMapLayer::Topography)
+        .expect("MapLogicData should map all layers");
+    let filter_data = logics
+        .layers
+        .get(&ViewedMapLayer::TopographyFilter)
+        .expect("MapLogicData should map all layers");
+
+    for i in 0..real_data.len() {
+        real_data[i] = (topo_data[i] as f32 * ((255 - filter_data[i]) as f32 / 255.0)) as u8;
+    }
+
+    // Set new layer data.
+    logics.layers.insert(ViewedMapLayer::RealTopography, real_data);
+
+    vec![ViewedMapLayer::RealTopography]
+}
+
+fn generate_simple_topo_filter(
+    logics: &mut MapLogicData,
+    config: &SimpleGenerator,
+    model: &WorldModel,
+) -> Vec<ViewedMapLayer> {
+    let mut filter_data = logics
+        .layers
+        .remove(&ViewedMapLayer::TopographyFilter)
+        .expect("MapLogicData should map all layers");
+    let cont_data = logics
+        .layers
+        .get(&ViewedMapLayer::Continents)
+        .expect("MapLogicData should map all layers");
+
+    filter_data.fill(0);
+    match model {
+        WorldModel::Flat(x) => {
+            let width = x.world_size[0];
+            let height = x.world_size[1];
+            let kernel: u32 = 4;
+            let multiplier = (255 / ((kernel.pow(2) - 1) * 2)) as u8;
+            for y in 0..height {
+                for x in 0..width {
+                    let i = (y * width + x) as usize;
+                    // Case water: add smoothing *to* nearby tiles.
+                    if is_sea(cont_data[i]) {
+                        for v in 0..kernel {
+                            for u in 0..kernel {
+                                if ((y + v) >= height) || ((x + u) >= width) {
+                                    continue;
+                                }
+                                let j = ((y + v) * width + (x + u)) as usize;
+                                filter_data[j] += 1;
+                            }
+                        }
+                        filter_data[i] = 0;
+                    // Case land: add smoothing *from* nearby tiles.
+                    } else {
+                        let mut value = 0;
+                        for v in 0..kernel {
+                            for u in 0..kernel {
+                                if ((y + v) >= height) || ((x + u) >= width) {
+                                    continue;
+                                }
+                                let j = ((y + v) * width + (x + u)) as usize;
+                                if is_sea(cont_data[j]) {
+                                    value += 1;
+                                }
+                            }
+                        }
+                        value = (filter_data[i] + value) * multiplier;
+                        filter_data[i] = if value > 0 { value.max(multiplier) } else { 0 };
+                    };
+                }
+            }
+        }
+        WorldModel::Globe(_) => todo!(),
+    }
+
+    // Set new layer data.
+    logics
+        .layers
+        .insert(ViewedMapLayer::TopographyFilter, filter_data);
+
+    vec![ViewedMapLayer::TopographyFilter]
+}
+
+/// Generate influence map for a layer.
+fn generate_simple_influence(
+    logics: &mut MapLogicData,
+    map_type: &InfluenceMapType,
+    model: &WorldModel,
+    layer: ViewedMapLayer,
+) -> Vec<ViewedMapLayer> {
+    // Move out layer data.
     let mut map_data = logics
         .layers
-        .remove(&ViewedMapLayer::TopographyInfluence)
+        .remove(&layer)
         .expect("MapLogicData should map all layers");
     // Get relevant config info.
-    let map_type = &config.topography.influence_map_type;
     match map_type {
         InfluenceMapType::None(_) => unreachable!(),
-        InfluenceMapType::Custom(_) => unreachable!(),
+        InfluenceMapType::FromImage(_) => unreachable!(),
         InfluenceMapType::Circle(x) => generate_circle(&mut map_data, x, model),
         InfluenceMapType::Strip(x) => generate_strip(&mut map_data, x, model),
         InfluenceMapType::Fbm(x) => generate_noise(&mut map_data, x.config, model, x.algorithm),
     }
     // Set new layer data.
-    logics
-        .layers
-        .insert(ViewedMapLayer::TopographyInfluence, map_data);
-    vec![ViewedMapLayer::TopographyInfluence]
+    logics.layers.insert(layer, map_data);
+    vec![layer]
 }
 
 fn generate_circle(data: &mut [u8], config: &InfluenceCircleConfig, model: &WorldModel) {
@@ -265,13 +398,9 @@ fn get_strip_value(
     let (pp, len) = project_to_line(p, a, b);
     if p0.distance(pp) <= l2 {
         norm = (len / r).min(1.0);
+    // See if the point is within first or second end circle.
     } else {
-        // See if the point is within one end circle.
-        let mut len = p.distance(p1);
-        if len > r {
-            // See if the point is within the other end circle.
-            len = p.distance(p2);
-        }
+        let len = p.distance(p1).min(p.distance(p2));
         if len <= r {
             norm = len / r;
         }
@@ -306,6 +435,7 @@ fn generate_noise(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel, alg
         SimpleAlgorithm::Perlin => read_fbm_config_and_run::<Perlin>(data, config, model),
         SimpleAlgorithm::OpenSimplex => read_fbm_config_and_run::<OpenSimplex>(data, config, model),
         SimpleAlgorithm::SuperSimplex => read_fbm_config_and_run::<SuperSimplex>(data, config, model),
+        SimpleAlgorithm::FromImage => {}
     }
 }
 
@@ -346,4 +476,8 @@ fn apply_influence(data: &mut [u8], influence: &[u8], strength: f32) {
         let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
         data[i] = (data[i] as f32 * inf) as u8;
     }
+}
+
+fn is_sea(value: u8) -> bool {
+    value <= 127
 }

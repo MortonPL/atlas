@@ -101,5 +101,5 @@ fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
         MainCamera,
     ));
     // More ambient light than default
-    light.brightness = 0.25
+    light.brightness = 0.5
 }

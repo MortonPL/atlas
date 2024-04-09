@@ -44,6 +44,7 @@ pub enum ViewedMapLayer {
     #[default]
     Preview,
     Continents,
+    ContinentsInfluence,
     Topography,
     TopographyInfluence,
     Temperature,
@@ -52,12 +53,17 @@ pub enum ViewedMapLayer {
     Fertility,
     Resource,
     Richness,
+    //#[invisible] // DEBUG
+    RealTopography,
+    //#[invisible] // DEBUG
+    TopographyFilter,
 }
 
 /// Array of all [`ViewedMapLayer`] variants.
-const VIEWED_MAP_LAYERS: [ViewedMapLayer; 10] = [
+const VIEWED_MAP_LAYERS: [ViewedMapLayer; 13] = [
     ViewedMapLayer::Preview,
     ViewedMapLayer::Continents,
+    ViewedMapLayer::ContinentsInfluence,
     ViewedMapLayer::Topography,
     ViewedMapLayer::TopographyInfluence,
     ViewedMapLayer::Temperature,
@@ -66,6 +72,8 @@ const VIEWED_MAP_LAYERS: [ViewedMapLayer; 10] = [
     ViewedMapLayer::Fertility,
     ViewedMapLayer::Resource,
     ViewedMapLayer::Richness,
+    ViewedMapLayer::RealTopography,
+    ViewedMapLayer::TopographyFilter,
 ];
 
 /// Startup system
