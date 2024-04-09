@@ -208,12 +208,12 @@ fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
         RgbaChannel::Blue => |x: &u8| [0, 0, *x, 255],
         RgbaChannel::Alpha => |x: &u8| [0, 0, 0, *x],
     };
-    data.iter().map(fun).flatten().collect()
+    data.iter().flat_map(fun).collect()
 }
 
 /// Expand one channel to an RGBA image.
 fn expand_monochrome(data: &[u8]) -> Vec<u8> {
-    data.iter().map(|x: &u8| [*x, *x, *x, 255]).flatten().collect()
+    data.iter().flat_map(|x: &u8| [*x, *x, *x, 255]).collect()
 }
 
 /// Convert continents/ocean data to an RGBA image.
@@ -227,5 +227,5 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
             [0, 0, (x - 128) * 2, 255]
         }
     };
-    data.iter().map(fun).flatten().collect()
+    data.iter().flat_map(fun).collect()
 }

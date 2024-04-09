@@ -6,7 +6,10 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{FbmConfig, GeneratorConfig, GeneratorType, InfluenceArchipelagoConfig, InfluenceCircleConfig, InfluenceFbmConfig, InfluenceMapType, InfluenceStripConfig},
+    config::{
+        FbmConfig, GeneratorConfig, GeneratorType, InfluenceArchipelagoConfig, InfluenceCircleConfig,
+        InfluenceFbmConfig, InfluenceMapType, InfluenceStripConfig,
+    },
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
@@ -73,7 +76,9 @@ fn make_algorithm_ui(ui: &mut Ui, config: &mut FbmConfig) {
 
 fn make_influence_map_ui(ui: &mut Ui, config: &mut InfluenceMapType) -> bool {
     match config {
-        InfluenceMapType::None(_) => {return false;},
+        InfluenceMapType::None(_) => {
+            return false;
+        }
         InfluenceMapType::Circle(x) => make_influence_circle_ui(ui, x),
         InfluenceMapType::Strip(x) => make_influence_strip_ui(ui, x),
         InfluenceMapType::Archipelago(x) => make_influence_archipelago_ui(ui, x),

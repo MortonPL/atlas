@@ -89,7 +89,7 @@ pub enum InfluenceMapType {
 
 impl Default for InfluenceMapType {
     fn default() -> Self {
-        Self::None(Default::default())
+        Self::None(())
     }
 }
 

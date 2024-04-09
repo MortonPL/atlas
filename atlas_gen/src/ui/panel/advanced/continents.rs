@@ -26,7 +26,7 @@ impl MainPanel for MainPanelContinents {
         match &mut config.generator {
             GeneratorType::Advanced(advanced) => {
                 advanced.continents.make_ui(ui);
-            },
+            }
             _ => unreachable!(),
         };
         if button(ui, "Generate Layer") {

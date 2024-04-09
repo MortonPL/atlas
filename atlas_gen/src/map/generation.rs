@@ -111,7 +111,7 @@ fn generate_simple_topography_influence(
     vec![ViewedMapLayer::TopographyInfluence]
 }
 
-fn generate_circle(data: &mut Vec<u8>, config: &InfluenceCircleConfig, model: &WorldModel) {
+fn generate_circle(data: &mut [u8], config: &InfluenceCircleConfig, model: &WorldModel) {
     let offset = config.offset;
     let radius = config.radius as f32;
     let midpoint = config.midpoint;
@@ -134,7 +134,7 @@ fn generate_circle(data: &mut Vec<u8>, config: &InfluenceCircleConfig, model: &W
     }
 }
 
-fn generate_strip(data: &mut Vec<u8>, config: &InfluenceStripConfig, model: &WorldModel) {
+fn generate_strip(data: &mut [u8], config: &InfluenceStripConfig, model: &WorldModel) {
     let offset = config.offset;
     let thickness = config.thickness as f32;
     let length = config.length as f32;
@@ -258,7 +258,7 @@ fn generate_noise(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel, alg
     }
 }
 
-fn read_fbm_config_and_run<T>(data: &mut Vec<u8>, config: FbmConfig, model: &WorldModel)
+fn read_fbm_config_and_run<T>(data: &mut [u8], config: FbmConfig, model: &WorldModel)
 where
     T: noise::Seedable,
     T: std::default::Default,
@@ -272,7 +272,7 @@ where
     sample_noise(data, model, noise, config.offset);
 }
 
-fn sample_noise(data: &mut Vec<u8>, model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2]) {
+fn sample_noise(data: &mut [u8], model: &WorldModel, noise: impl NoiseFn<f64, 2>, offset: [f64; 2]) {
     match model {
         WorldModel::Flat(flat) => {
             let width = flat.world_size[0];
@@ -290,7 +290,7 @@ fn sample_noise(data: &mut Vec<u8>, model: &WorldModel, noise: impl NoiseFn<f64,
     }
 }
 
-fn apply_influence(data: &mut Vec<u8>, influence: &Vec<u8>, strength: f32) {
+fn apply_influence(data: &mut [u8], influence: &[u8], strength: f32) {
     for i in 0..data.len() {
         let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
         data[i] = (data[i] as f32 * inf) as u8;

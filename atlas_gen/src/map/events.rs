@@ -227,8 +227,12 @@ pub fn update_event_generate(
     let layer = events.generate_request.take().expect("Always Some");
     // Run generation procedure based on generator type and layer.
     let regen_layers = match &config.generator {
-        GeneratorType::Simple(generator) => generate_simple(layer, &mut logics, generator, &config.general.world_model),
-        GeneratorType::Advanced(generator) => generate_advanced(layer, &mut logics, generator, &config.general.world_model),
+        GeneratorType::Simple(generator) => {
+            generate_simple(layer, &mut logics, generator, &config.general.world_model)
+        }
+        GeneratorType::Advanced(generator) => {
+            generate_advanced(layer, &mut logics, generator, &config.general.world_model)
+        }
     };
     // Trigger texture regeneration.
     events.regen_layer_request = Some(regen_layers);
