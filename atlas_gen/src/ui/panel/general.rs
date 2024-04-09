@@ -75,7 +75,7 @@ impl MainPanel for MainPanelGeneral {
     }
 
     fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Pretty
+        ViewedMapLayer::Preview
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {

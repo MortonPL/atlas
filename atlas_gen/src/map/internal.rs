@@ -116,22 +116,13 @@ pub fn get_material_mut<'a>(
         .expect("Material handle should be valid")
 }
 
-/// Channels of an RGBA image.
-enum RgbaChannel {
-    Red,
-    Green,
-    Blue,
-    #[allow(dead_code)]
-    Alpha,
-}
-
 /// Convert graphical representation of a map layer to a logical representation of the map layer.
 /// The underlying conversion may differ based on layer variant.
 ///
-/// This function is the inverse of [`magic_convert_data_to_png`].
-pub fn magic_convert_png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8> {
+/// This function is the inverse of [`data_to_png`].
+pub fn png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8> {
     match layer {
-        ViewedMapLayer::Pretty => data,
+        ViewedMapLayer::Preview => data,
         ViewedMapLayer::Continents => continents_from_png(data),
         ViewedMapLayer::Topography => extract_monochrome(data),
         ViewedMapLayer::TopographyInfluence => extract_monochrome(data),
@@ -142,6 +133,38 @@ pub fn magic_convert_png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8
         ViewedMapLayer::Resource => todo!(), // TODO
         ViewedMapLayer::Richness => extract_rgba_channel(data, RgbaChannel::Blue),
     }
+}
+
+/// Convert logical representation of a map layer to a graphical representation of the map layer.
+/// The underlying conversion may differ based on layer variant.
+///
+/// This function is the inverse of [`png_to_data`].
+pub fn data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8> {
+    let data = data_layers
+        .layers
+        .get(&layer)
+        .expect("MapLogicData should map all layers");
+    match layer {
+        ViewedMapLayer::Preview => data.to_vec(),
+        ViewedMapLayer::Continents => continents_to_png(data),
+        ViewedMapLayer::Topography => expand_monochrome(data),
+        ViewedMapLayer::TopographyInfluence => expand_monochrome(data),
+        ViewedMapLayer::Temperature => expand_rgba_channel(data, RgbaChannel::Red),
+        ViewedMapLayer::Humidity => expand_rgba_channel(data, RgbaChannel::Blue),
+        ViewedMapLayer::Climate => todo!(), // TODO
+        ViewedMapLayer::Fertility => expand_rgba_channel(data, RgbaChannel::Green),
+        ViewedMapLayer::Resource => todo!(), // TODO
+        ViewedMapLayer::Richness => expand_rgba_channel(data, RgbaChannel::Blue),
+    }
+}
+
+/// Channels of an RGBA image.
+enum RgbaChannel {
+    Red,
+    Green,
+    Blue,
+    #[allow(dead_code)]
+    Alpha,
 }
 
 /// Convert an RGBA image to continents/ocean data.
@@ -177,27 +200,18 @@ fn extract_monochrome(data: Vec<u8>) -> Vec<u8> {
     data.into_iter().step_by(4).collect()
 }
 
-/// Convert logical representation of a map layer to a graphical representation of the map layer.
-/// The underlying conversion may differ based on layer variant.
-///
-/// This function is the inverse of [`magic_convert_png_to_data`].
-pub fn magic_convert_data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8> {
-    let data = data_layers
-        .layers
-        .get(&layer)
-        .expect("MapLogicData should map all layers");
-    match layer {
-        ViewedMapLayer::Pretty => data.to_vec(),
-        ViewedMapLayer::Continents => continents_to_png(data),
-        ViewedMapLayer::Topography => expand_monochrome(data),
-        ViewedMapLayer::TopographyInfluence => expand_monochrome(data),
-        ViewedMapLayer::Temperature => expand_rgba_channel(data, RgbaChannel::Red),
-        ViewedMapLayer::Humidity => expand_rgba_channel(data, RgbaChannel::Blue),
-        ViewedMapLayer::Climate => todo!(), // TODO
-        ViewedMapLayer::Fertility => expand_rgba_channel(data, RgbaChannel::Green),
-        ViewedMapLayer::Resource => todo!(), // TODO
-        ViewedMapLayer::Richness => expand_rgba_channel(data, RgbaChannel::Blue),
-    }
+/// Convert continents/ocean data to an RGBA image.
+/// Data: Value <= 127 is continent, value > 127 is ocean.
+/// Image: Every ocean only has blue channel, every continent only green.
+fn continents_to_png(data: &[u8]) -> Vec<u8> {
+    let fun = |x: &u8| {
+        if *x <= 127 {
+            [0, x * 2, 0, 255]
+        } else {
+            [0, 0, (x - 128) * 2, 255]
+        }
+    };
+    data.iter().flat_map(fun).collect()
 }
 
 /// Expand one channel to an RGBA image.
@@ -214,18 +228,4 @@ fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
 /// Expand one channel to an RGBA image.
 fn expand_monochrome(data: &[u8]) -> Vec<u8> {
     data.iter().flat_map(|x: &u8| [*x, *x, *x, 255]).collect()
-}
-
-/// Convert continents/ocean data to an RGBA image.
-/// Data: Value <= 127 is continent, value > 127 is ocean.
-/// Image: Every ocean only has blue channel, every continent only green.
-fn continents_to_png(data: &[u8]) -> Vec<u8> {
-    let fun = |x: &u8| {
-        if *x <= 127 {
-            [0, x * 2, 0, 255]
-        } else {
-            [0, 0, (x - 128) * 2, 255]
-        }
-    };
-    data.iter().flat_map(fun).collect()
 }

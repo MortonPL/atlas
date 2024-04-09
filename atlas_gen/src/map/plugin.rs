@@ -42,7 +42,7 @@ impl Plugin for MapPlugin {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiEditableEnum)]
 pub enum ViewedMapLayer {
     #[default]
-    Pretty,
+    Preview,
     Continents,
     Topography,
     TopographyInfluence,
@@ -56,7 +56,7 @@ pub enum ViewedMapLayer {
 
 /// Array of all [`ViewedMapLayer`] variants.
 const VIEWED_MAP_LAYERS: [ViewedMapLayer; 10] = [
-    ViewedMapLayer::Pretty,
+    ViewedMapLayer::Preview,
     ViewedMapLayer::Continents,
     ViewedMapLayer::Topography,
     ViewedMapLayer::TopographyInfluence,

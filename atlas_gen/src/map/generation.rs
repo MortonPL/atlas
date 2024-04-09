@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy_egui::egui::lerp;
+use bevy_egui::egui::{ecolor::{hsv_from_rgb, rgb_from_hsv}, lerp};
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn generate_simple(
 ) -> Vec<ViewedMapLayer> {
     // TODO
     match layer {
-        ViewedMapLayer::Pretty => todo!(),
+        ViewedMapLayer::Preview => generate_simple_preview(logics, config, model),
         ViewedMapLayer::Topography => generate_simple_topography(logics, config, model),
         ViewedMapLayer::TopographyInfluence => generate_simple_topography_influence(logics, config, model),
         ViewedMapLayer::Climate => todo!(),
@@ -41,6 +41,57 @@ pub fn generate_advanced(
     match layer {
         _ => todo!(),
     }
+}
+
+/// Generate pretty map preview.
+fn generate_simple_preview(
+    logics: &mut MapLogicData,
+    config: &SimpleGenerator,
+    model: &WorldModel,
+) -> Vec<ViewedMapLayer> {
+    // Move out layer data.
+    let mut preview_data = logics
+        .layers
+        .remove(&ViewedMapLayer::Preview)
+        .expect("MapLogicData should map all layers");
+    let topo_data = logics
+        .layers
+        .get(&ViewedMapLayer::Topography)
+        .expect("MapLogicData should map all layers");
+    let cont_data = logics
+        .layers
+        .get(&ViewedMapLayer::Continents)
+        .expect("MapLogicData should map all layers");
+    let climate_data = logics
+        .layers
+        .get(&ViewedMapLayer::Climate)
+        .expect("MapLogicData should map all layers");
+
+    let sea_level = config.topography.sea_level;
+    let max_height = (255 - sea_level) as f32;
+    for i in 0..topo_data.len() {
+        let (mut r, mut g, mut b) = (0, 0, 0);
+        let is_sea = cont_data[i] > 127;
+        if is_sea {
+            let depth = sea_level - topo_data[i];
+            (r, g, b) = (0, 0, 255 - depth);
+        } else {
+            let height = (topo_data[i] - sea_level) as f32 / max_height;
+            let (mut h, mut s, mut v) = (0.3, (1.0 - height), 0.5 + height / 2.0);
+            let rgb = rgb_from_hsv((h, s, v));
+            (r, g, b) = ((rgb[0] * 255.0) as u8, (rgb[1] * 255.0) as u8, (rgb[2] * 255.0) as u8);
+        }
+        let j = i * 4;
+        preview_data[j] = r;
+        preview_data[j+1] = g;
+        preview_data[j+2] = b;
+        preview_data[j+3] = 255;
+    }
+
+    // Set new layer data.
+    logics.layers.insert(ViewedMapLayer::Preview, preview_data);
+
+    vec![ViewedMapLayer::Preview]
 }
 
 /// Generate simple topography and continental data.
@@ -99,9 +150,9 @@ fn generate_simple_topography_influence(
     let map_type = &config.topography.influence_map_type;
     match map_type {
         InfluenceMapType::None(_) => unreachable!(),
+        InfluenceMapType::Custom(_) => unreachable!(),
         InfluenceMapType::Circle(x) => generate_circle(&mut map_data, x, model),
         InfluenceMapType::Strip(x) => generate_strip(&mut map_data, x, model),
-        InfluenceMapType::Archipelago(x) => todo!(),
         InfluenceMapType::Fbm(x) => generate_noise(&mut map_data, x.config, model, x.algorithm),
     }
     // Set new layer data.

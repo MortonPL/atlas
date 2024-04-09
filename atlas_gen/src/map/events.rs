@@ -6,11 +6,13 @@ use crate::{
     map::{
         generation::{generate_advanced, generate_simple},
         internal::{
-            get_material, get_material_mut, magic_convert_data_to_png, magic_convert_png_to_data, make_image,
-            CurrentWorldModel, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
+            data_to_png, get_material, get_material_mut, make_image, png_to_data, CurrentWorldModel,
+            MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
         },
     },
 };
+
+use super::ViewedMapLayer;
 
 /// Run Condition
 ///
@@ -43,8 +45,12 @@ pub fn update_event_world_model(
             map_tran.scale.z = x.world_size[1] as f32 / 100.0;
             commands.entity(map_en).insert(CurrentWorldModel);
             commands.entity(globe_en).remove::<CurrentWorldModel>();
-            for layer in logics.layers.values_mut() {
-                layer.resize((x.world_size[0] * x.world_size[1]) as usize, 0u8);
+            for (layer, data) in logics.layers.iter_mut() {
+                let bpp = match layer {
+                    ViewedMapLayer::Preview => 4,
+                    _ => 1,
+                };
+                data.resize((x.world_size[0] * x.world_size[1] * bpp) as usize, 0u8);
             }
         }
         WorldModel::Globe(_) => {
@@ -114,7 +120,7 @@ pub fn update_event_regen(
     let layers = events.regen_layer_request.take().expect("Always Some");
     for layer in layers {
         // Convert logical data to image data.
-        let mut data = magic_convert_data_to_png(&logics, layer);
+        let mut data = data_to_png(&logics, layer);
         // Fetch handles.
         let layer = graphics.get_layer_mut(layer);
         let material = get_material_mut(&mut materials, &layer.material);
@@ -147,7 +153,7 @@ pub fn update_event_loaded(
     let (layer, data) = events.load_layer_request.take().expect("Always Some");
     let graphic_layer = graphics.get_layer_mut(layer);
     // Convert image data to logic data.
-    let data = magic_convert_png_to_data(data, layer);
+    let data = png_to_data(data, layer);
     // Assign data.
     logics.layers.insert(layer, data);
     // Trigger texture regeneration.
@@ -234,6 +240,10 @@ pub fn update_event_generate(
             generate_advanced(layer, &mut logics, generator, &config.general.world_model)
         }
     };
+    // Update the preview too.
+    if !matches!(layer, ViewedMapLayer::Preview) {
+        events.generate_request = Some(ViewedMapLayer::Preview);
+    }
     // Trigger texture regeneration.
     events.regen_layer_request = Some(regen_layers);
 }

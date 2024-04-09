@@ -7,7 +7,7 @@ use atlas_lib::{
 
 use crate::{
     config::{
-        FbmConfig, GeneratorConfig, GeneratorType, InfluenceArchipelagoConfig, InfluenceCircleConfig,
+        FbmConfig, GeneratorConfig, GeneratorType, InfluenceCircleConfig,
         InfluenceFbmConfig, InfluenceMapType, InfluenceStripConfig,
     },
     event::EventStruct,
@@ -79,9 +79,11 @@ fn make_influence_map_ui(ui: &mut Ui, config: &mut InfluenceMapType) -> bool {
         InfluenceMapType::None(_) => {
             return false;
         }
+        InfluenceMapType::Custom(_) => {
+            return false;
+        }
         InfluenceMapType::Circle(x) => make_influence_circle_ui(ui, x),
         InfluenceMapType::Strip(x) => make_influence_strip_ui(ui, x),
-        InfluenceMapType::Archipelago(x) => make_influence_archipelago_ui(ui, x),
         InfluenceMapType::Fbm(x) => make_influence_fbm_ui(ui, x),
     }
     button(ui, "Generate Influence Map")
@@ -96,16 +98,6 @@ fn make_influence_circle_ui(ui: &mut Ui, config: &mut InfluenceCircleConfig) {
 fn make_influence_strip_ui(ui: &mut Ui, config: &mut InfluenceStripConfig) {
     add_section(ui, "Influence Map Settings", |ui| {
         config.make_ui(ui);
-    });
-}
-
-fn make_influence_archipelago_ui(ui: &mut Ui, config: &mut InfluenceArchipelagoConfig) {
-    add_section(ui, "Influence Map Settings", |ui| {
-        let ui_results = config.make_ui(ui);
-        // TODO Same hack/problem as in crate::ui::panel::general
-        if ui_results[0] == 1 {
-            config.seed = rand::random();
-        }
     });
 }
 

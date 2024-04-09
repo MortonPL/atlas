@@ -83,8 +83,8 @@ pub enum InfluenceMapType {
     None(()),
     Circle(InfluenceCircleConfig),
     Strip(InfluenceStripConfig),
-    Archipelago(InfluenceArchipelagoConfig),
     Fbm(InfluenceFbmConfig),
+    Custom(()),
 }
 
 impl Default for InfluenceMapType {
@@ -172,20 +172,6 @@ impl Default for InfluenceStripConfig {
             midpoint: 0.5,
             midpoint_value: 0.5,
         }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct InfluenceArchipelagoConfig {
-    #[name("Seed")]
-    #[control(SidebarSliderRandom)]
-    #[add(speed(100.0))]
-    pub seed: u32,
-}
-
-impl Default for InfluenceArchipelagoConfig {
-    fn default() -> Self {
-        Self { seed: 0 }
     }
 }
 
