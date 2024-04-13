@@ -29,6 +29,9 @@ pub struct GeneralConfig {
     #[name("World Model")]
     #[control(SidebarEnumDropdown)]
     pub world_model: WorldModel,
+    #[name("Topography Display Mode")]
+    #[control(SidebarEnumDropdown)]
+    pub topo_display: TopographyDisplayMode,
 }
 
 impl Default for GeneralConfig {
@@ -37,6 +40,7 @@ impl Default for GeneralConfig {
             seed: rand::random(),
             tile_resolution: 100.0,
             world_model: Default::default(),
+            topo_display: Default::default(),
         }
     }
 }

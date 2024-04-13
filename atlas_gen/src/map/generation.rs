@@ -1,7 +1,8 @@
+use bevy::utils::petgraph::matrix_graph::Zero;
 use bevy_egui::egui::ecolor::rgb_from_hsv;
 
 use crate::{
-    config::{InfluenceShape, SessionConfig, WorldModel},
+    config::{InfluenceShape, SessionConfig, TopographyDisplayMode, WorldModel},
     map::{
         internal::{climate_to_hsv, MapLogicData},
         samplers::{apply_influence, fill_influence, fill_noise},
@@ -17,7 +18,7 @@ pub fn generate(
 ) -> Vec<ViewedMapLayer> {
     let model = &config.general.world_model;
     match layer {
-        ViewedMapLayer::Preview => generate_preview(logics),
+        ViewedMapLayer::Preview => generate_preview(logics, config),
         ViewedMapLayer::Continents => generate_continents(logics, config),
         ViewedMapLayer::ContinentsInfluence => {
             generate_influence(logics, &config.continents.influence_map_type, model, layer)
@@ -33,27 +34,19 @@ pub fn generate(
 }
 
 /// Generate pretty map preview.
-fn generate_preview(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
+fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     // Move out layer data.
-    let mut preview_data = logics
-        .layers
-        .remove(&ViewedMapLayer::Preview)
-        .expect("MapLogicData should map all layers");
-    let real_data = logics
-        .layers
-        .get(&ViewedMapLayer::RealTopography)
-        .expect("MapLogicData should map all layers");
-    let cont_data = logics
-        .layers
-        .get(&ViewedMapLayer::Continents)
-        .expect("MapLogicData should map all layers");
-    let climate_data = logics
-        .layers
-        .get(&ViewedMapLayer::Climate)
-        .expect("MapLogicData should map all layers");
+    let mut preview_data = logics.pop_layer(ViewedMapLayer::Preview);
+    let real_data = logics.get_layer(ViewedMapLayer::RealTopography);
+    let cont_data = logics.get_layer(ViewedMapLayer::Continents);
+    let climate_data = logics.get_layer(ViewedMapLayer::Climate);
 
-    let max = *real_data.iter().max().expect("RealTopography must not be empty");
-    let highest = max as f32; // or 255.0
+    let highest = match config.general.topo_display {
+        TopographyDisplayMode::Absolute => 255.0,
+        TopographyDisplayMode::Highest => {
+            *real_data.iter().max().expect("RealTopography must not be empty") as f32
+        }
+    };
     for i in 0..real_data.len() {
         let (r, g, b);
         if is_sea(cont_data[i]) {
@@ -77,7 +70,7 @@ fn generate_preview(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
     }
 
     // Set new layer data.
-    logics.layers.insert(ViewedMapLayer::Preview, preview_data);
+    logics.put_layer(ViewedMapLayer::Preview, preview_data);
 
     vec![ViewedMapLayer::Preview]
 }
@@ -85,32 +78,38 @@ fn generate_preview(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
 /// Generate continental data.
 fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     // Move out layer data.
-    let mut cont_data = logics
-        .layers
-        .remove(&ViewedMapLayer::Continents)
-        .expect("MapLogicData should map all layers");
+    let mut cont_data = logics.pop_layer(ViewedMapLayer::Continents);
     // Get relevant config info.
     let algorithm = config.continents.algorithm;
     let fbm_config = &config.continents.config;
     let model = &config.general.world_model;
     let use_influence = !matches!(config.continents.influence_map_type, InfluenceShape::None(_));
+
     // Run the noise algorithm to obtain height data for continental discrimination.
     fill_noise(&mut cont_data, fbm_config, model, algorithm);
     // Apply the influence map if requested.
     if use_influence {
-        let map_data = logics
-            .layers
-            .get(&ViewedMapLayer::ContinentsInfluence)
-            .expect("MapLogicData should map all layers");
+        let map_data = logics.get_layer(ViewedMapLayer::ContinentsInfluence);
         apply_influence(&mut cont_data, map_data, config.continents.influence_map_strength);
     }
     // Globally set the ocean tiles with no flooding.
-    let sea_level = (255.0 * config.continents.sea_level) as u8;
-    for value in &mut cont_data {
-        *value = if *value > sea_level { 255 } else { 127 };
+    if config.continents.sea_level.is_zero() {
+        for value in &mut cont_data {
+            *value = 255;
+        }
+    } else if config.continents.sea_level == 1.0 {
+        for value in &mut cont_data {
+            *value = 127;
+        }
+    } else {
+        let sea_level = (255.0 * config.continents.sea_level) as u8;
+        for value in &mut cont_data {
+            *value = if *value > sea_level { 255 } else { 127 };
+        }
     }
+
     // Set new layer data.
-    logics.layers.insert(ViewedMapLayer::Continents, cont_data);
+    logics.put_layer(ViewedMapLayer::Continents, cont_data);
 
     // Regenerate real topography.
     generate_utility_topo_filter(logics, config);
@@ -126,27 +125,22 @@ fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
 /// Generate topography data.
 fn generate_topography(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     // Move out layer data.
-    let mut topo_data = logics
-        .layers
-        .remove(&ViewedMapLayer::Topography)
-        .expect("MapLogicData should map all layers");
+    let mut topo_data = logics.pop_layer(ViewedMapLayer::Topography);
     // Get relevant config info.
     let algorithm = config.topography.algorithm;
     let fbm_config = &config.topography.config;
     let model = &config.general.world_model;
-    let use_influence = !matches!(config.topography.influence_map_type, InfluenceShape::None(_));
+    let use_influence = !matches!(config.continents.influence_map_type, InfluenceShape::None(_));
+
     // Run the noise algorithm for map topography (height data).
     fill_noise(&mut topo_data, fbm_config, model, algorithm);
     // Apply the influence map if requested.
     if use_influence {
-        let map_data = logics
-            .layers
-            .get(&ViewedMapLayer::TopographyInfluence)
-            .expect("MapLogicData should map all layers");
-        apply_influence(&mut topo_data, map_data, config.topography.influence_map_strength);
+        let map_data = logics.get_layer(ViewedMapLayer::TopographyInfluence);
+        apply_influence(&mut topo_data, map_data, config.continents.influence_map_strength);
     }
     // Set new layer data.
-    logics.layers.insert(ViewedMapLayer::Topography, topo_data);
+    logics.put_layer(ViewedMapLayer::Topography, topo_data);
 
     // Regenerate real topography.
     generate_utility_topo_filter(logics, config);
@@ -162,50 +156,31 @@ fn generate_topography(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
 /// Generate FINAL topography data.
 fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
     // Move out layer data.
-    let mut real_data = logics
-        .layers
-        .remove(&ViewedMapLayer::RealTopography)
-        .expect("MapLogicData should map all layers");
-    let topo_data = logics
-        .layers
-        .get(&ViewedMapLayer::Topography)
-        .expect("MapLogicData should map all layers");
-    let filter_data = logics
-        .layers
-        .get(&ViewedMapLayer::TopographyFilter)
-        .expect("MapLogicData should map all layers");
+    let mut real_data = logics.pop_layer(ViewedMapLayer::RealTopography);
+    let topo_data = logics.get_layer(ViewedMapLayer::Topography);
+    let filter_data = logics.get_layer(ViewedMapLayer::TopographyFilter);
 
     for i in 0..real_data.len() {
         real_data[i] = (topo_data[i] as f32 * ((255 - filter_data[i]) as f32 / 255.0)) as u8;
     }
 
     // Set new layer data.
-    logics.layers.insert(ViewedMapLayer::RealTopography, real_data);
+    logics.put_layer(ViewedMapLayer::RealTopography, real_data);
 
     vec![ViewedMapLayer::RealTopography]
 }
 
 /// Generate beach smoothing topography filter.
 fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
-    let mut filter_data = logics
-        .layers
-        .remove(&ViewedMapLayer::TopographyFilter)
-        .expect("MapLogicData should map all layers");
-
+    let mut filter_data = logics.pop_layer(ViewedMapLayer::TopographyFilter);
     filter_data.fill(0);
 
     let kernel: i32 = config.topography.coastal_erosion as i32;
     if kernel == 0 {
-        logics
-            .layers
-            .insert(ViewedMapLayer::TopographyFilter, filter_data);
         return vec![];
     }
 
-    let cont_data = logics
-        .layers
-        .get(&ViewedMapLayer::Continents)
-        .expect("MapLogicData should map all layers");
+    let cont_data = logics.get_layer(ViewedMapLayer::Continents);
 
     match &config.general.world_model {
         WorldModel::Flat(x) => {
@@ -238,9 +213,7 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfi
     }
 
     // Set new layer data.
-    logics
-        .layers
-        .insert(ViewedMapLayer::TopographyFilter, filter_data);
+    logics.put_layer(ViewedMapLayer::TopographyFilter, filter_data);
 
     vec![ViewedMapLayer::TopographyFilter]
 }
@@ -252,17 +225,12 @@ fn generate_influence(
     model: &WorldModel,
     layer: ViewedMapLayer,
 ) -> Vec<ViewedMapLayer> {
-    // Move out layer data.
-    let mut map_data = logics
-        .layers
-        .remove(&layer)
-        .expect("MapLogicData should map all layers");
-    fill_influence(&mut map_data, shape, model);
-    // Set new layer data.
-    logics.layers.insert(layer, map_data);
+    let map_data = logics.get_layer_mut(layer);
+    fill_influence(map_data, shape, model);
     vec![layer]
 }
 
+/// Is this continent tile marked as water?
 fn is_sea(value: u8) -> bool {
     value <= 127
 }

@@ -45,22 +45,14 @@ pub fn update_event_world_model(
             map_tran.scale.z = x.world_size[1] as f32 / 100.0;
             commands.entity(map_en).insert(CurrentWorldModel);
             commands.entity(globe_en).remove::<CurrentWorldModel>();
-            for (layer, data) in logics.layers.iter_mut() {
-                let bpp = match layer {
-                    ViewedMapLayer::Preview => 4,
-                    _ => 1,
-                };
-                data.resize((x.world_size[0] * x.world_size[1] * bpp) as usize, 0u8);
-            }
+            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
         }
         WorldModel::Globe(_) => {
             *map_vis = Visibility::Hidden;
             *globe_vis = Visibility::Visible;
             commands.entity(globe_en).insert(CurrentWorldModel);
             commands.entity(map_en).remove::<CurrentWorldModel>();
-            for _layer in logics.layers.values_mut() {
-                todo!(); // TODO
-            }
+            // Resize all layers according to world size // TODO
         }
     }
     // Invalidate all layers - world models have different world size rules.
@@ -155,7 +147,7 @@ pub fn update_event_loaded(
     // Convert image data to logic data.
     let data = png_to_data(data, layer);
     // Assign data.
-    logics.layers.insert(layer, data);
+    logics.put_layer(layer, data);
     // Trigger texture regeneration.
     graphic_layer.invalid = true;
     events.regen_layer_request = Some(vec![layer]);

@@ -6,7 +6,35 @@ use crate::map::ViewedMapLayer;
 
 #[derive(Default, Resource)]
 pub struct MapLogicData {
-    pub layers: HashMap<ViewedMapLayer, Vec<u8>>,
+    layers: HashMap<ViewedMapLayer, Vec<u8>>,
+}
+
+impl MapLogicData {
+    pub fn get_layer(&self, layer: ViewedMapLayer) -> &[u8] {
+        self.layers.get(&layer).expect("MapLogicData should map all layers")
+    }
+
+    pub fn get_layer_mut(&mut self, layer: ViewedMapLayer) -> &mut [u8] {
+        self.layers.get_mut(&layer).expect("MapLogicData should map all layers")
+    }
+
+    pub fn pop_layer(&mut self, layer: ViewedMapLayer) -> Vec<u8> {
+        self.layers.remove(&layer).expect("MapLogicData should map all layers")
+    }
+
+    pub fn put_layer(&mut self, layer: ViewedMapLayer, data: Vec<u8>) {
+        self.layers.insert(layer, data);
+    }
+
+    pub fn resize_all_layers(&mut self, size: usize) {
+        for (layer, data) in self.layers.iter_mut() {
+            let bpp = match layer {
+                ViewedMapLayer::Preview => 4,
+                _ => 1,
+            };
+            data.resize(size * bpp, 0);
+        }
+    }
 }
 
 #[derive(Default, Resource)]

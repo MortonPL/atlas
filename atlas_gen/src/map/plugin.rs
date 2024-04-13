@@ -103,7 +103,7 @@ fn startup_layers(
         graphics
             .layers
             .insert(layer, MapGraphicsLayer::new(material.clone()));
-        logics.layers.insert(layer, vec![]);
+        logics.put_layer(layer, vec![]);
     }
 }
 

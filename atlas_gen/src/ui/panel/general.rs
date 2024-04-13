@@ -1,6 +1,6 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::ui::{sidebar::MakeUi, UiEditableEnum};
+use atlas_lib::{ui::{button, sidebar::MakeUi, UiEditableEnum}, update_enum};
 
 use crate::{
     config::{FlatWorldModel, GlobeWorldModel, SessionConfig, WorldModel},
@@ -34,6 +34,7 @@ impl MainPanel for MainPanelGeneral {
                 config.general.world_model = config.general.world_model.index_as_self(ui_results[2]);
                 events.world_model_changed = Some(config.general.world_model.clone());
             }
+            update_enum!(config.general.topo_display, ui_results[3]);
         });
 
         add_section(
@@ -46,6 +47,10 @@ impl MainPanel for MainPanelGeneral {
                 };
             },
         );
+
+        if button(ui, "Generate Preview") {
+            events.generate_request = Some(self.get_layer());
+        }
     }
 
     fn get_heading(&self) -> &'static str {

@@ -47,9 +47,18 @@ impl Default for FlatWorldModel {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum TopographyDisplayMode {
+    #[default]
+    Absolute,
+    Highest,
+}
+
 /// Algorithm describes the noise algorithm that should be used to generate a layer,
 /// as well as its paramateres.
 #[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
 pub enum NoiseAlgorithm {
     Perlin,
     OpenSimplex,
@@ -121,6 +130,7 @@ impl Default for FbmConfig {
 
 /// Influence map type describes what shape should be generated for the influence map.
 #[derive(Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
+#[serde(rename_all = "lowercase")]
 pub enum InfluenceShape {
     None(()),
     Circle(CircleSamplerConfig),
