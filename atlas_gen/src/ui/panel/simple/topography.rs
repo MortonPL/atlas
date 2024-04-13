@@ -7,8 +7,8 @@ use atlas_lib::{
 
 use crate::{
     config::{
-        FbmConfig, GeneratorConfig, GeneratorType, InfluenceCircleConfig, InfluenceFbmConfig,
-        InfluenceMapType, InfluenceStripConfig,
+        FbmConfig, InfluenceCircleConfig, InfluenceFbmConfig, InfluenceMapType, InfluenceStripConfig,
+        SessionConfig,
     },
     event::EventStruct,
     map::ViewedMapLayer,
@@ -29,25 +29,21 @@ impl MainPanel for MainPanelTopography {
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut GeneratorConfig,
+        config: &mut SessionConfig,
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        match &mut config.generator {
-            GeneratorType::Simple(simple) => {
-                add_section(ui, "Common", |ui| {
-                    let ui_results = simple.topography.make_ui(ui);
-                    update_enum!(simple.topography.algorithm, ui_results[0]);
-                    update_enum!(simple.topography.influence_map_type, ui_results[2]);
-                });
-                make_algorithm_ui(ui, &mut simple.topography.config);
-                let generate_influence = make_influence_map_ui(ui, &mut simple.topography.influence_map_type);
-                if generate_influence {
-                    events.generate_request = Some(ViewedMapLayer::TopographyInfluence);
-                }
-            }
-            GeneratorType::Advanced(_) => unreachable!(),
-        };
+        add_section(ui, "Common", |ui| {
+            let ui_results = config.topography.make_ui(ui);
+            update_enum!(config.topography.algorithm, ui_results[0]);
+            update_enum!(config.topography.influence_map_type, ui_results[2]);
+        });
+        make_algorithm_ui(ui, &mut config.topography.config);
+        let generate_influence =
+            make_influence_map_ui(ui, &mut config.topography.influence_map_type);
+        if generate_influence {
+            events.generate_request = Some(ViewedMapLayer::TopographyInfluence);
+        }
         if button(ui, "Generate Layer") {
             events.generate_request = Some(self.get_layer());
         }

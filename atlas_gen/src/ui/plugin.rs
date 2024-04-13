@@ -1,10 +1,15 @@
 use bevy::{
-    app::{MainScheduleOrder, RunFixedUpdateLoop}, core_pipeline::tonemapping::{DebandDither, Tonemapping}, ecs::schedule::ScheduleLabel, input::mouse::MouseWheel, prelude::*, render::camera::Viewport
+    app::{MainScheduleOrder, RunFixedUpdateLoop},
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    ecs::schedule::ScheduleLabel,
+    input::mouse::MouseWheel,
+    prelude::*,
+    render::camera::Viewport,
 };
 use bevy_egui::{EguiContexts, EguiPlugin};
 
 use crate::{
-    config::GeneratorConfig,
+    config::SessionConfig,
     event::EventStruct,
     ui::internal::{create_ui, handle_camera, UiState, UiStatePanel},
 };
@@ -41,7 +46,7 @@ struct MainCamera;
 ///
 /// Redraw the immediate UI.
 fn update_ui(
-    config: ResMut<GeneratorConfig>,
+    config: ResMut<SessionConfig>,
     mut contexts: EguiContexts,
     mut ui_state: ResMut<UiState>,
     mut ui_panel: ResMut<UiStatePanel>,

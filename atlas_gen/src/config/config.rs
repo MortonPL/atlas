@@ -7,9 +7,12 @@ pub use crate::config::config_enums::*;
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct GeneratorConfig {
+pub struct SessionConfig {
     pub general: GeneralConfig,
-    pub generator: GeneratorType,
+    pub continents: ContinentsConfig,
+    pub topography: TopographyConfig,
+    pub climate: ClimateConfig,
+    pub resources: ResourcesConfig,
 }
 
 // ******************************************************** //
@@ -42,20 +45,8 @@ impl Default for GeneralConfig {
     }
 }
 
-// ******************************************************** //
-// **************** SIMPLE GENERATOR CONFIG *************** //
-// ******************************************************** //
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct SimpleGenerator {
-    pub continents: SimpleContinentsConfig,
-    pub topography: SimpleTopographyConfig,
-    pub climate: SimpleClimateConfig,
-    pub resources: SimpleResourcesConfig,
-}
-
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct SimpleContinentsConfig {
+pub struct ContinentsConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub algorithm: SimpleAlgorithm,
@@ -74,7 +65,7 @@ pub struct SimpleContinentsConfig {
     pub config: FbmConfig,
 }
 
-impl Default for SimpleContinentsConfig {
+impl Default for ContinentsConfig {
     fn default() -> Self {
         Self {
             algorithm: Default::default(),
@@ -87,7 +78,7 @@ impl Default for SimpleContinentsConfig {
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct SimpleTopographyConfig {
+pub struct TopographyConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub algorithm: SimpleAlgorithm,
@@ -107,7 +98,7 @@ pub struct SimpleTopographyConfig {
     pub config: FbmConfig,
 }
 
-impl Default for SimpleTopographyConfig {
+impl Default for TopographyConfig {
     fn default() -> Self {
         Self {
             algorithm: Default::default(),
@@ -174,49 +165,6 @@ impl Default for FbmConfig {
         }
     }
 }
-
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct SimpleClimateConfig {}
-
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct SimpleResourcesConfig {}
-
-// ******************************************************** //
-// *************** ADVANCED GENERATOR CONFIG ************** //
-// ******************************************************** //
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct AdvancedGenerator {
-    pub continents: ContinentsConfig,
-    pub topography: TopographyConfig,
-    pub climate: ClimateConfig,
-    pub resources: ResourcesConfig,
-}
-
-/// Config for layout of continets and oceans.
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct ContinentsConfig {
-    #[name("# of Continents")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1..=10))]
-    pub num_continents: u8,
-    #[name("# of Oceans")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1..=10))]
-    pub num_oceans: u8,
-}
-
-impl Default for ContinentsConfig {
-    fn default() -> Self {
-        Self {
-            num_continents: 2,
-            num_oceans: 1,
-        }
-    }
-}
-
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct TopographyConfig {}
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct ClimateConfig {}

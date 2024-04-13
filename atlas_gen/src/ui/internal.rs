@@ -16,7 +16,7 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{load_config, load_image, save_config, GeneratorConfig},
+    config::{load_config, load_image, save_config, SessionConfig},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::panel::{MainPanel, MainPanelTransition},
@@ -65,7 +65,7 @@ pub struct UiStatePanel {
 /// Add the entire UI.
 pub fn create_ui(
     ctx: &Context,
-    mut config: ResMut<GeneratorConfig>,
+    mut config: ResMut<SessionConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -122,7 +122,7 @@ pub fn handle_camera(
 /// Add a top bar with configuration S/L.
 fn create_sidebar_head(
     ui: &mut Ui,
-    config: &mut ResMut<GeneratorConfig>,
+    config: &mut ResMut<SessionConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -169,7 +169,7 @@ fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut 
 /// Create the current panel.
 fn create_current_panel(
     ui: &mut Ui,
-    config: &mut GeneratorConfig,
+    config: &mut SessionConfig,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -207,7 +207,7 @@ fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
 /// Handle the file dialog window if it is open. Perform configuration S/L if the user selected a file.
 fn handle_file_dialog(
     ctx: &Context,
-    config: &mut ResMut<GeneratorConfig>,
+    config: &mut ResMut<SessionConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -247,11 +247,11 @@ fn load_config_clicked(ui_state: &mut UiState) {
 
 /// Reset generator config to defaults.
 fn reset_config_clicked(
-    config: &mut ResMut<GeneratorConfig>,
+    config: &mut ResMut<SessionConfig>,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
-    **config = GeneratorConfig::default();
+    **config = SessionConfig::default();
     ui_panel.current_panel = default();
     events.world_model_changed = Some(config.general.world_model.clone());
 }
@@ -259,7 +259,7 @@ fn reset_config_clicked(
 /// Load and overwrite configuration from a TOML file.
 fn file_dialog_load_config(
     path: &Path,
-    config: &mut ResMut<GeneratorConfig>,
+    config: &mut ResMut<SessionConfig>,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
@@ -271,7 +271,7 @@ fn file_dialog_load_config(
 }
 
 /// Save current configuration to a TOML file.
-fn file_dialog_save_config(path: &Path, config: &mut ResMut<GeneratorConfig>) {
+fn file_dialog_save_config(path: &Path, config: &mut ResMut<SessionConfig>) {
     save_config(config, path).unwrap()
 }
 
@@ -279,7 +279,7 @@ fn file_dialog_save_config(path: &Path, config: &mut ResMut<GeneratorConfig>) {
 fn file_dialog_load_image(
     path: &Path,
     layer: ViewedMapLayer,
-    config: &mut ResMut<GeneratorConfig>,
+    config: &mut ResMut<SessionConfig>,
     events: &mut EventStruct,
 ) {
     let (width, height) = config.general.world_model.get_dimensions();

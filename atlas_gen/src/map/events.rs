@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::{
-    config::{save_image, GeneratorConfig, GeneratorType, WorldModel},
+    config::{save_image, SessionConfig, WorldModel},
     event::EventStruct,
     map::{
-        generation::{generate_advanced, generate_simple},
+        generation::generate,
         internal::{
             data_to_png, get_material, get_material_mut, make_image, png_to_data, CurrentWorldModel,
             MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
@@ -111,7 +111,7 @@ pub fn check_event_regen(events: Res<EventStruct>) -> bool {
 /// Regenerate graphical layer based on logical layer data.
 pub fn update_event_regen(
     mut events: ResMut<EventStruct>,
-    config: ResMut<GeneratorConfig>,
+    config: ResMut<SessionConfig>,
     mut graphics: ResMut<MapGraphicsData>,
     logics: Res<MapLogicData>,
     mut images: ResMut<Assets<Image>>,
@@ -173,7 +173,7 @@ pub fn check_event_saved(events: Res<EventStruct>) -> bool {
 /// Save new layer data.
 pub fn update_event_saved(
     mut events: ResMut<EventStruct>,
-    config: Res<GeneratorConfig>,
+    config: Res<SessionConfig>,
     mut graphics: ResMut<MapGraphicsData>,
     images: Res<Assets<Image>>,
     materials: Res<Assets<StandardMaterial>>,
@@ -228,18 +228,11 @@ pub fn check_event_generate(events: Res<EventStruct>) -> bool {
 pub fn update_event_generate(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
-    config: Res<GeneratorConfig>,
+    config: Res<SessionConfig>,
 ) {
     let layer = events.generate_request.take().expect("Always Some");
     // Run generation procedure based on generator type and layer.
-    let regen_layers = match &config.generator {
-        GeneratorType::Simple(generator) => {
-            generate_simple(layer, &mut logics, generator, &config.general.world_model)
-        }
-        GeneratorType::Advanced(generator) => {
-            generate_advanced(layer, &mut logics, generator, &config.general.world_model)
-        }
-    };
+    let regen_layers = generate(layer, &mut logics, &config);
     // Update the preview too.
     if !matches!(layer, ViewedMapLayer::Preview) {
         events.generate_request = Some(ViewedMapLayer::Preview);

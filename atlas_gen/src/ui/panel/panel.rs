@@ -1,7 +1,7 @@
 use bevy_egui::egui::{self, Ui};
 
 use crate::{
-    config::GeneratorConfig,
+    config::SessionConfig,
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{internal::UiState, panel::general::MainPanelGeneral},
@@ -28,7 +28,7 @@ pub trait MainPanel {
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut GeneratorConfig,
+        config: &mut SessionConfig,
         ui_state: &mut UiState,
         events: &mut EventStruct,
     );
@@ -53,7 +53,9 @@ pub fn add_section<R>(
     egui::CollapsingHeader::new(egui::RichText::new(header.clone()).heading())
         .default_open(true)
         .show(ui, |ui| {
-            egui::Grid::new(format!("{}_section_grid", header)).show(ui, add_body).inner
+            egui::Grid::new(format!("{}_section_grid", header))
+                .show(ui, add_body)
+                .inner
         })
         .body_returned
 }

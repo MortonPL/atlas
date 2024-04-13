@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnum, UiEditableEnumWithFields};
 
-use crate::config::{AdvancedGenerator, FbmConfig, SimpleGenerator};
+use crate::config::FbmConfig;
 
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
@@ -48,19 +48,6 @@ impl Default for FlatWorldModel {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct GlobeWorldModel;
-
-#[derive(Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
-#[serde(rename_all = "lowercase")]
-pub enum GeneratorType {
-    Simple(SimpleGenerator),
-    Advanced(AdvancedGenerator),
-}
-
-impl Default for GeneratorType {
-    fn default() -> Self {
-        GeneratorType::Simple(SimpleGenerator::default())
-    }
-}
 
 /// Algorithm describes the noise algorithm that should be used to generate a layer,
 /// as well as its paramateres.

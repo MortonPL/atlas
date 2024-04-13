@@ -1,7 +1,7 @@
 use bevy_egui::egui::Ui;
 
 use crate::{
-    config::GeneratorConfig,
+    config::SessionConfig,
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
@@ -20,7 +20,7 @@ impl MainPanel for MainPanelClimate {
     fn show(
         &mut self,
         _ui: &mut Ui,
-        _config: &mut GeneratorConfig,
+        _config: &mut SessionConfig,
         _ui_state: &mut UiState,
         _events: &mut EventStruct,
     ) {

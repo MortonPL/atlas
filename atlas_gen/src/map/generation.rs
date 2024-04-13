@@ -4,57 +4,39 @@ use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::{
     config::{
-        AdvancedGenerator, FbmConfig, InfluenceCircleConfig, InfluenceMapType, InfluenceStripConfig,
-        SimpleAlgorithm, SimpleGenerator, WorldModel,
+        FbmConfig, InfluenceCircleConfig, InfluenceMapType, InfluenceStripConfig, SessionConfig,
+        SimpleAlgorithm, WorldModel,
     },
     map::{internal::climate_to_hsv, ViewedMapLayer},
 };
 
 use super::internal::MapLogicData;
 
-/// Choose relevant "simple" generation procedure based on layer.
-pub fn generate_simple(
+/// Choose relevant generation procedure based on layer.
+pub fn generate(
     layer: ViewedMapLayer,
     logics: &mut MapLogicData,
-    config: &SimpleGenerator,
-    model: &WorldModel,
+    config: &SessionConfig,
 ) -> Vec<ViewedMapLayer> {
-    // TODO
+    let model = &config.general.world_model;
     match layer {
-        ViewedMapLayer::Preview => generate_simple_preview(logics, config, model),
-        ViewedMapLayer::Continents => generate_simple_continents(logics, config, model),
+        ViewedMapLayer::Preview => generate_preview(logics),
+        ViewedMapLayer::Continents => generate_continents(logics, config),
         ViewedMapLayer::ContinentsInfluence => {
-            generate_simple_influence(logics, &config.continents.influence_map_type, model, layer)
+            generate_influence(logics, &config.continents.influence_map_type, model, layer)
         }
-        ViewedMapLayer::Topography => generate_simple_topography(logics, config, model),
+        ViewedMapLayer::Topography => generate_topography(logics, config),
         ViewedMapLayer::TopographyInfluence => {
-            generate_simple_influence(logics, &config.topography.influence_map_type, model, layer)
+            generate_influence(logics, &config.topography.influence_map_type, model, layer)
         }
-        ViewedMapLayer::Climate => todo!(),
-        ViewedMapLayer::Resource => todo!(),
+        ViewedMapLayer::Climate => todo!(),  // TODO
+        ViewedMapLayer::Resource => todo!(), // TODO
         _ => unreachable!(),
     }
 }
 
-/// Choose relevant "advanced" generation procedure based on layer.
-pub fn generate_advanced(
-    layer: ViewedMapLayer,
-    _logics: &mut MapLogicData,
-    _config: &AdvancedGenerator,
-    _model: &WorldModel,
-) -> Vec<ViewedMapLayer> {
-    // TODO
-    match layer {
-        _ => todo!(),
-    }
-}
-
 /// Generate pretty map preview.
-fn generate_simple_preview(
-    logics: &mut MapLogicData,
-    config: &SimpleGenerator,
-    model: &WorldModel,
-) -> Vec<ViewedMapLayer> {
+fn generate_preview(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
     // Move out layer data.
     let mut preview_data = logics
         .layers
@@ -76,7 +58,7 @@ fn generate_simple_preview(
     let max = *real_data.iter().max().expect("RealTopography must not be empty");
     let highest = max as f32; // or 255.0
     for i in 0..real_data.len() {
-        let (mut r, mut g, mut b) = (0, 0, 0);
+        let (r, g, b);
         if is_sea(cont_data[i]) {
             (r, g, b) = (0, 160, 255);
         } else {
@@ -103,12 +85,8 @@ fn generate_simple_preview(
     vec![ViewedMapLayer::Preview]
 }
 
-/// Generate simple continental data.
-fn generate_simple_continents(
-    logics: &mut MapLogicData,
-    config: &SimpleGenerator,
-    model: &WorldModel,
-) -> Vec<ViewedMapLayer> {
+/// Generate continental data.
+fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     // Move out layer data.
     let mut cont_data = logics
         .layers
@@ -117,6 +95,7 @@ fn generate_simple_continents(
     // Get relevant config info.
     let algorithm = config.continents.algorithm;
     let fbm_config = config.continents.config;
+    let model = &config.general.world_model;
     let use_influence = !matches!(config.continents.influence_map_type, InfluenceMapType::None(_));
     // Run the noise algorithm to obtain height data for continental discrimination.
     generate_noise(&mut cont_data, fbm_config, model, algorithm);
@@ -137,8 +116,8 @@ fn generate_simple_continents(
     logics.layers.insert(ViewedMapLayer::Continents, cont_data);
 
     // Regenerate real topography.
-    generate_simple_topo_filter(logics, config, model);
-    generate_simple_real_topo(logics, config, model);
+    generate_utility_topo_filter(logics, config);
+    generate_utility_real_topo(logics);
 
     vec![
         ViewedMapLayer::Continents,
@@ -147,12 +126,8 @@ fn generate_simple_continents(
     ] // DEBUG
 }
 
-/// Generate simple topography data.
-fn generate_simple_topography(
-    logics: &mut MapLogicData,
-    config: &SimpleGenerator,
-    model: &WorldModel,
-) -> Vec<ViewedMapLayer> {
+/// Generate topography data.
+fn generate_topography(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     // Move out layer data.
     let mut topo_data = logics
         .layers
@@ -161,6 +136,7 @@ fn generate_simple_topography(
     // Get relevant config info.
     let algorithm = config.topography.algorithm;
     let fbm_config = config.topography.config;
+    let model = &config.general.world_model;
     let use_influence = !matches!(config.topography.influence_map_type, InfluenceMapType::None(_));
     // Run the noise algorithm for map topography (height data).
     generate_noise(&mut topo_data, fbm_config, model, algorithm);
@@ -176,8 +152,8 @@ fn generate_simple_topography(
     logics.layers.insert(ViewedMapLayer::Topography, topo_data);
 
     // Regenerate real topography.
-    generate_simple_topo_filter(logics, config, model);
-    generate_simple_real_topo(logics, config, model);
+    generate_utility_topo_filter(logics, config);
+    generate_utility_real_topo(logics);
 
     vec![
         ViewedMapLayer::Topography,
@@ -186,12 +162,8 @@ fn generate_simple_topography(
     ] // DEBUG
 }
 
-/// Generate simple FINAL topography data.
-fn generate_simple_real_topo(
-    logics: &mut MapLogicData,
-    config: &SimpleGenerator,
-    model: &WorldModel,
-) -> Vec<ViewedMapLayer> {
+/// Generate FINAL topography data.
+fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
     // Move out layer data.
     let mut real_data = logics
         .layers
@@ -216,11 +188,8 @@ fn generate_simple_real_topo(
     vec![ViewedMapLayer::RealTopography]
 }
 
-fn generate_simple_topo_filter(
-    logics: &mut MapLogicData,
-    config: &SimpleGenerator,
-    model: &WorldModel,
-) -> Vec<ViewedMapLayer> {
+/// Generate beach smoothing topography filter.
+fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     let mut filter_data = logics
         .layers
         .remove(&ViewedMapLayer::TopographyFilter)
@@ -241,7 +210,7 @@ fn generate_simple_topo_filter(
         .get(&ViewedMapLayer::Continents)
         .expect("MapLogicData should map all layers");
 
-    match model {
+    match &config.general.world_model {
         WorldModel::Flat(x) => {
             let width = x.world_size[0] as i32;
             let height = x.world_size[1] as i32;
@@ -280,7 +249,7 @@ fn generate_simple_topo_filter(
 }
 
 /// Generate influence map for a layer.
-fn generate_simple_influence(
+fn generate_influence(
     logics: &mut MapLogicData,
     map_type: &InfluenceMapType,
     model: &WorldModel,

@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use crate::config::GeneratorConfig;
+use crate::config::SessionConfig;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -26,14 +26,14 @@ pub enum Error {
 }
 
 /// Load a generator config from a TOML file.
-pub fn load_config(path: impl AsRef<Path>) -> Result<GeneratorConfig> {
+pub fn load_config(path: impl AsRef<Path>) -> Result<SessionConfig> {
     let text = fs::read_to_string(path)?;
     let config = toml::from_str(&text)?;
     Ok(config)
 }
 
 /// Save a generator config to a TOML file.
-pub fn save_config(config: &GeneratorConfig, path: impl AsRef<Path>) -> Result<()> {
+pub fn save_config(config: &SessionConfig, path: impl AsRef<Path>) -> Result<()> {
     let text = toml::to_string(config)?;
     fs::write(path, text)?;
     Ok(())

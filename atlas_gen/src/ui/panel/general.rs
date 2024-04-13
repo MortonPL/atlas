@@ -1,41 +1,28 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::{
-    ui::{
-        sidebar::{MakeUi, SidebarControl, SidebarEnumDropdown},
-        UiEditableEnum,
-    },
-    update_enum,
-};
+use atlas_lib::ui::{sidebar::MakeUi, UiEditableEnum};
 
 use crate::{
-    config::{FlatWorldModel, GeneratorConfig, GeneratorType, GlobeWorldModel, WorldModel},
+    config::{FlatWorldModel, GlobeWorldModel, SessionConfig, WorldModel},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
         internal::UiState,
-        panel::{add_section, advanced, simple, MainPanel, MainPanelTransition},
+        panel::{add_section, simple::MainPanelContinents, MainPanel, MainPanelTransition},
     },
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelGeneral {
-    use_advanced: bool,
-}
+pub struct MainPanelGeneral {}
 
 impl MainPanel for MainPanelGeneral {
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut GeneratorConfig,
+        config: &mut SessionConfig,
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        self.use_advanced = match &config.generator {
-            GeneratorType::Simple(_) => false,
-            GeneratorType::Advanced(_) => true,
-        };
-
         let mut ui_results = vec![];
         add_section(ui, "World", |ui| {
             ui_results = config.general.make_ui(ui);
@@ -59,11 +46,6 @@ impl MainPanel for MainPanelGeneral {
                 };
             },
         );
-
-        add_section(ui, "Generator", |ui| {
-            let generator = SidebarEnumDropdown::new(ui, "Type", &mut config.generator).show(None);
-            update_enum!(config.generator, generator);
-        });
     }
 
     fn get_heading(&self) -> &'static str {
@@ -76,10 +58,7 @@ impl MainPanel for MainPanelGeneral {
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
         match transition {
-            MainPanelTransition::Next => match self.use_advanced {
-                false => Box::<simple::MainPanelContinents>::default(),
-                true => Box::<advanced::MainPanelContinents>::default(),
-            },
+            MainPanelTransition::Next => Box::<MainPanelContinents>::default(),
             _ => Box::new(*self),
         }
     }

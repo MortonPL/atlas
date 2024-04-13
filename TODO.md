@@ -15,8 +15,6 @@
 - Make simple province generator
   - with resources
 
-- Remove advanced generator completely, simple is good enough
-
 ## TO-DO List 2
 
 - Everything
