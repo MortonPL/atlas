@@ -3,7 +3,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use atlas_lib::{ui::sidebar::*, MakeUi};
 
-pub use crate::config::config_enums::*;
+pub use crate::config::common_structs::*;
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -14,10 +14,6 @@ pub struct SessionConfig {
     pub climate: ClimateConfig,
     pub resources: ResourcesConfig,
 }
-
-// ******************************************************** //
-// ******************** GENERAL CONFIG ******************** //
-// ******************************************************** //
 
 /// Config for the general map settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
@@ -45,18 +41,19 @@ impl Default for GeneralConfig {
     }
 }
 
+/// Config for the continents generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct ContinentsConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
-    pub algorithm: SimpleAlgorithm,
+    pub algorithm: NoiseAlgorithm,
     #[name("Sea Level")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub sea_level: f32,
     #[name("Influence Map Type")]
     #[control(SidebarEnumDropdown)]
-    pub influence_map_type: InfluenceMapType,
+    pub influence_map_type: InfluenceShape,
     #[name("Influence Map Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
@@ -77,11 +74,12 @@ impl Default for ContinentsConfig {
     }
 }
 
+/// Config for the topography (heightmap) generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct TopographyConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
-    pub algorithm: SimpleAlgorithm,
+    pub algorithm: NoiseAlgorithm,
     #[name("Coastal Erosion Range")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=7))]
@@ -89,7 +87,7 @@ pub struct TopographyConfig {
     pub coastal_erosion: u8,
     #[name("Influence Map Type")]
     #[control(SidebarEnumDropdown)]
-    pub influence_map_type: InfluenceMapType,
+    pub influence_map_type: InfluenceShape,
     #[name("Influence Map Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
@@ -110,64 +108,10 @@ impl Default for TopographyConfig {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct FbmConfig {
-    #[name("Seed")]
-    #[control(SidebarSliderRandom)]
-    #[add(speed(100.0))]
-    pub seed: u32,
-    #[name("Detail")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1..=12))]
-    #[add(speed(0.5))]
-    pub detail: usize,
-    #[name("Scale (Frequency)")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.1..=10.0))]
-    #[add(speed(0.1))]
-    pub frequency: f64,
-    #[name("Neatness (Lacunarity)")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1.0..=10.0))]
-    #[add(speed(0.1))]
-    pub neatness: f64,
-    #[name("Roughness (Persistance)")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub roughness: f64,
-    #[name("Bias")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(-1.0..=1.0))]
-    #[add(speed(10.0))]
-    pub bias: f64,
-    #[name("Range")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.1..=10.0))]
-    #[add(speed(0.1))]
-    pub range: f64,
-    #[name("Offset")]
-    #[control(SidebarSliderN)]
-    pub offset: [f64; 2],
-}
-
-impl Default for FbmConfig {
-    fn default() -> Self {
-        Self {
-            seed: 0,
-            detail: 6,
-            frequency: 3.0,
-            neatness: 2.0,
-            roughness: 0.5,
-            bias: 0.0,
-            range: 1.0,
-            offset: Default::default(),
-        }
-    }
-}
-
+/// Config for the climate generation.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct ClimateConfig {}
 
+/// Config for the resource generation.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
 pub struct ResourcesConfig {}

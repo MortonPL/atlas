@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnum, UiEditableEnumWithFields};
 
-use crate::config::FbmConfig;
-
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
@@ -52,37 +50,93 @@ pub struct GlobeWorldModel;
 /// Algorithm describes the noise algorithm that should be used to generate a layer,
 /// as well as its paramateres.
 #[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
-pub enum SimpleAlgorithm {
+pub enum NoiseAlgorithm {
     Perlin,
     OpenSimplex,
     SuperSimplex,
     FromImage,
 }
 
-impl Default for SimpleAlgorithm {
+impl Default for NoiseAlgorithm {
     fn default() -> Self {
         Self::Perlin
     }
 }
 
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct FbmConfig {
+    #[name("Seed")]
+    #[control(SidebarSliderRandom)]
+    #[add(speed(100.0))]
+    pub seed: u32,
+    #[name("Detail")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=12))]
+    #[add(speed(0.5))]
+    pub detail: u8,
+    #[name("Scale (Frequency)")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.1..=10.0))]
+    #[add(speed(0.1))]
+    pub frequency: f32,
+    #[name("Neatness (Lacunarity)")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1.0..=10.0))]
+    #[add(speed(0.1))]
+    pub neatness: f32,
+    #[name("Roughness (Persistance)")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub roughness: f32,
+    #[name("Bias")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(-1.0..=1.0))]
+    #[add(speed(0.1))]
+    pub bias: f32,
+    #[name("Range")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.1..=10.0))]
+    #[add(speed(0.1))]
+    pub range: f32,
+    #[name("Offset")]
+    #[control(SidebarSliderN)]
+    pub offset: [f32; 2],
+}
+
+impl Default for FbmConfig {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            detail: 6,
+            frequency: 3.0,
+            neatness: 2.0,
+            roughness: 0.5,
+            bias: 0.0,
+            range: 1.0,
+            offset: Default::default(),
+        }
+    }
+}
+
 /// Influence map type describes what shape should be generated for the influence map.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
-pub enum InfluenceMapType {
+#[derive(Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
+pub enum InfluenceShape {
     None(()),
-    Circle(InfluenceCircleConfig),
-    Strip(InfluenceStripConfig),
+    Circle(CircleSamplerConfig),
+    Strip(StripSamplerConfig),
     Fbm(InfluenceFbmConfig),
     FromImage(()),
 }
 
-impl Default for InfluenceMapType {
+impl Default for InfluenceShape {
     fn default() -> Self {
         Self::None(())
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct InfluenceCircleConfig {
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct CircleSamplerConfig {
     #[name("Radius")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=500))]
@@ -90,7 +144,7 @@ pub struct InfluenceCircleConfig {
     pub radius: u32,
     #[name("Offset")]
     #[control(SidebarSliderN)]
-    pub offset: [u32; 2],
+    pub offset: [i32; 2],
     #[name("Midpoint")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.01..=0.99))]
@@ -103,7 +157,7 @@ pub struct InfluenceCircleConfig {
     pub midpoint_value: f32,
 }
 
-impl Default for InfluenceCircleConfig {
+impl Default for CircleSamplerConfig {
     fn default() -> Self {
         Self {
             radius: 100,
@@ -114,8 +168,8 @@ impl Default for InfluenceCircleConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct InfluenceStripConfig {
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct StripSamplerConfig {
     #[name("Thickness")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=500))]
@@ -136,7 +190,7 @@ pub struct InfluenceStripConfig {
     pub flip: bool,
     #[name("Offset")]
     #[control(SidebarSliderN)]
-    pub offset: [u32; 2],
+    pub offset: [i32; 2],
     #[name("Midpoint")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.01..=0.99))]
@@ -149,7 +203,7 @@ pub struct InfluenceStripConfig {
     pub midpoint_value: f32,
 }
 
-impl Default for InfluenceStripConfig {
+impl Default for StripSamplerConfig {
     fn default() -> Self {
         Self {
             thickness: 50,
@@ -163,10 +217,10 @@ impl Default for InfluenceStripConfig {
     }
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceFbmConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumDropdown)]
-    pub algorithm: SimpleAlgorithm,
+    pub algorithm: NoiseAlgorithm,
     pub config: FbmConfig,
 }

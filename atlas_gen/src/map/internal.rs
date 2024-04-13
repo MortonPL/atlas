@@ -164,6 +164,11 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8>
     }
 }
 
+/// Expand climate layer data to climate's assigned color.
+pub fn climate_to_hsv(data: u8) -> (f32, f32, f32) {
+    (0.3, 0.9, 0.9) // TODO
+}
+
 /// Channels of an RGBA image.
 enum RgbaChannel {
     Red,
@@ -218,10 +223,6 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
         }
     };
     data.iter().flat_map(fun).collect()
-}
-
-pub fn climate_to_hsv(data: u8) -> (f32, f32, f32) {
-    (0.3, 0.9, 0.9)
 }
 
 /// Expand one channel to an RGBA image.

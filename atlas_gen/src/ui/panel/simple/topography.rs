@@ -7,8 +7,7 @@ use atlas_lib::{
 
 use crate::{
     config::{
-        FbmConfig, InfluenceCircleConfig, InfluenceFbmConfig, InfluenceMapType, InfluenceStripConfig,
-        SessionConfig,
+        CircleSamplerConfig, FbmConfig, InfluenceFbmConfig, InfluenceShape, SessionConfig, StripSamplerConfig,
     },
     event::EventStruct,
     map::ViewedMapLayer,
@@ -39,8 +38,7 @@ impl MainPanel for MainPanelTopography {
             update_enum!(config.topography.influence_map_type, ui_results[2]);
         });
         make_algorithm_ui(ui, &mut config.topography.config);
-        let generate_influence =
-            make_influence_map_ui(ui, &mut config.topography.influence_map_type);
+        let generate_influence = make_influence_map_ui(ui, &mut config.topography.influence_map_type);
         if generate_influence {
             events.generate_request = Some(ViewedMapLayer::TopographyInfluence);
         }
@@ -76,28 +74,28 @@ fn make_algorithm_ui(ui: &mut Ui, config: &mut FbmConfig) {
     });
 }
 
-fn make_influence_map_ui(ui: &mut Ui, config: &mut InfluenceMapType) -> bool {
+fn make_influence_map_ui(ui: &mut Ui, config: &mut InfluenceShape) -> bool {
     match config {
-        InfluenceMapType::None(_) => {
+        InfluenceShape::None(_) => {
             return false;
         }
-        InfluenceMapType::FromImage(_) => {
+        InfluenceShape::FromImage(_) => {
             return false;
         }
-        InfluenceMapType::Circle(x) => make_influence_circle_ui(ui, x),
-        InfluenceMapType::Strip(x) => make_influence_strip_ui(ui, x),
-        InfluenceMapType::Fbm(x) => make_influence_fbm_ui(ui, x),
+        InfluenceShape::Circle(x) => make_influence_circle_ui(ui, x),
+        InfluenceShape::Strip(x) => make_influence_strip_ui(ui, x),
+        InfluenceShape::Fbm(x) => make_influence_fbm_ui(ui, x),
     }
     button(ui, "Generate Influence Map")
 }
 
-fn make_influence_circle_ui(ui: &mut Ui, config: &mut InfluenceCircleConfig) {
+fn make_influence_circle_ui(ui: &mut Ui, config: &mut CircleSamplerConfig) {
     add_section(ui, "Influence Map Settings", |ui| {
         config.make_ui(ui);
     });
 }
 
-fn make_influence_strip_ui(ui: &mut Ui, config: &mut InfluenceStripConfig) {
+fn make_influence_strip_ui(ui: &mut Ui, config: &mut StripSamplerConfig) {
     add_section(ui, "Influence Map Settings", |ui| {
         config.make_ui(ui);
     });

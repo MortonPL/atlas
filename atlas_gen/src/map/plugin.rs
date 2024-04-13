@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-/// Plugin responsible for the world map graphics.
+/// Plugin responsible for the world graphics and generation.
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
