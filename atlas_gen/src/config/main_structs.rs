@@ -26,12 +26,12 @@ pub struct GeneralConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(10.0..=200.0))]
     pub tile_resolution: f32,
-    #[name("World Model")]
-    #[control(SidebarEnumDropdown)]
-    pub world_model: WorldModel,
     #[name("Topography Display Mode")]
     #[control(SidebarEnumDropdown)]
     pub topo_display: TopographyDisplayMode,
+    #[name("World Model")]
+    #[control(SidebarEnumDropdown)]
+    pub world_model: WorldModel,
 }
 
 impl Default for GeneralConfig {

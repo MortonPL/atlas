@@ -6,13 +6,9 @@ use bevy::{
 };
 use bevy_egui::egui::{self, Context, Ui};
 
-use atlas_lib::{
-    ui::{
-        button, button_action,
-        sidebar::{SidebarControl, SidebarEnumDropdown},
-        UiEditableEnum,
-    },
-    update_enum,
+use atlas_lib::ui::{
+    button, button_action,
+    sidebar::{SidebarControl, SidebarEnumDropdown},
 };
 
 use crate::{
@@ -144,7 +140,7 @@ fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut 
     ui.horizontal(|ui| {
         let old = ui_state.current_layer;
         let selection = SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
-        update_enum!(ui_state.current_layer, selection);
+        SidebarEnumDropdown::post_show(selection, &mut ui_state.current_layer);
         if old != ui_state.current_layer {
             events.viewed_layer_changed = Some(ui_state.current_layer);
         }

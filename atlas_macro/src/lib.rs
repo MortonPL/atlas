@@ -72,12 +72,11 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics atlas_lib::ui::sidebar::MakeUi for #struct_name #type_generics #where_clause {
-            fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) -> Vec<usize> {
-                let mut results = vec![];
+            fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
                 #(
-                    results.push(atlas_lib::ui::sidebar::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints));
+                    let result = atlas_lib::ui::sidebar::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints);
+                    atlas_lib::ui::sidebar::#controls::post_show(result, &mut self.#idents);
                 )*
-                results
             }
         }
     })

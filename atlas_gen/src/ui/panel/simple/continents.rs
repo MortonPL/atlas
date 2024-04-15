@@ -1,14 +1,9 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::{
-    ui::{button, sidebar::MakeUi, UiEditableEnum},
-    update_enum,
-};
+use atlas_lib::ui::{button, sidebar::MakeUi};
 
 use crate::{
-    config::{
-        CircleSamplerConfig, FbmConfig, InfluenceFbmConfig, InfluenceShape, SessionConfig, StripSamplerConfig,
-    },
+    config::{FbmConfig, InfluenceFbmConfig, InfluenceShape, SessionConfig},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
@@ -29,9 +24,7 @@ impl MainPanel for MainPanelContinents {
         events: &mut EventStruct,
     ) {
         add_section(ui, "Common", |ui| {
-            let ui_results = config.continents.make_ui(ui);
-            update_enum!(config.continents.algorithm, ui_results[0]);
-            update_enum!(config.continents.influence_map_type, ui_results[2]);
+            config.continents.make_ui(ui);
         });
         make_algorithm_ui(ui, &mut config.continents.config);
         let generate_influence = make_influence_map_ui(ui, &mut config.continents.influence_map_type);
@@ -62,11 +55,7 @@ impl MainPanel for MainPanelContinents {
 
 fn make_algorithm_ui(ui: &mut Ui, config: &mut FbmConfig) {
     add_section(ui, "Algorithm Settings", |ui| {
-        let ui_results = config.make_ui(ui);
-        // TODO Same hack/problem as in crate::ui::panel::general
-        if ui_results[0] == 1 {
-            config.seed = rand::random();
-        }
+        config.make_ui(ui);
     });
 }
 
@@ -78,20 +67,17 @@ fn make_influence_map_ui(ui: &mut Ui, config: &mut InfluenceShape) -> bool {
         InfluenceShape::FromImage(_) => {
             return false;
         }
-        InfluenceShape::Circle(x) => make_influence_circle_ui(ui, x),
-        InfluenceShape::Strip(x) => make_influence_strip_ui(ui, x),
+        InfluenceShape::Circle(x) => make_influence_shape_ui(ui, x),
+        InfluenceShape::Strip(x) => make_influence_shape_ui(ui, x),
         InfluenceShape::Fbm(x) => make_influence_fbm_ui(ui, x),
     }
     button(ui, "Generate Influence Map")
 }
 
-fn make_influence_circle_ui(ui: &mut Ui, config: &mut CircleSamplerConfig) {
-    add_section(ui, "Influence Map Settings", |ui| {
-        config.make_ui(ui);
-    });
-}
-
-fn make_influence_strip_ui(ui: &mut Ui, config: &mut StripSamplerConfig) {
+fn make_influence_shape_ui<T>(ui: &mut Ui, config: &mut T)
+where
+    T: MakeUi,
+{
     add_section(ui, "Influence Map Settings", |ui| {
         config.make_ui(ui);
     });
@@ -101,10 +87,6 @@ fn make_influence_fbm_ui(ui: &mut Ui, config: &mut InfluenceFbmConfig) {
     add_section(ui, "Influence Map Settings", |ui| {
         config.make_ui(ui);
         let config = &mut config.config;
-        let ui_results = config.make_ui(ui);
-        // TODO Same hack/problem as in crate::ui::panel::general
-        if ui_results[0] == 1 {
-            config.seed = rand::random();
-        }
+        config.make_ui(ui);
     });
 }

@@ -1,9 +1,6 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::{
-    ui::{button, sidebar::MakeUi, UiEditableEnum},
-    update_enum,
-};
+use atlas_lib::ui::{button, sidebar::MakeUi};
 
 use crate::{
     config::{
@@ -33,9 +30,7 @@ impl MainPanel for MainPanelTopography {
         events: &mut EventStruct,
     ) {
         add_section(ui, "Common", |ui| {
-            let ui_results = config.topography.make_ui(ui);
-            update_enum!(config.topography.algorithm, ui_results[0]);
-            update_enum!(config.topography.influence_map_type, ui_results[2]);
+            config.topography.make_ui(ui);
         });
         make_algorithm_ui(ui, &mut config.topography.config);
         let generate_influence = make_influence_map_ui(ui, &mut config.topography.influence_map_type);
@@ -66,11 +61,7 @@ impl MainPanel for MainPanelTopography {
 
 fn make_algorithm_ui(ui: &mut Ui, config: &mut FbmConfig) {
     add_section(ui, "Algorithm Settings", |ui| {
-        let ui_results = config.make_ui(ui);
-        // TODO Same hack/problem as in crate::ui::panel::general
-        if ui_results[0] == 1 {
-            config.seed = rand::random();
-        }
+        config.make_ui(ui);
     });
 }
 
@@ -105,10 +96,6 @@ fn make_influence_fbm_ui(ui: &mut Ui, config: &mut InfluenceFbmConfig) {
     add_section(ui, "Influence Map Settings", |ui| {
         config.make_ui(ui);
         let config = &mut config.config;
-        let ui_results = config.make_ui(ui);
-        // TODO Same hack/problem as in crate::ui::panel::general
-        if ui_results[0] == 1 {
-            config.seed = rand::random();
-        }
+        config.make_ui(ui);
     });
 }

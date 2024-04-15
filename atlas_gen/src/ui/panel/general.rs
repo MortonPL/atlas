@@ -1,6 +1,6 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::{ui::{button, sidebar::MakeUi, UiEditableEnum}, update_enum};
+use atlas_lib::ui::{button, sidebar::MakeUi, UiEditableEnum};
 
 use crate::{
     config::{FlatWorldModel, GlobeWorldModel, SessionConfig, WorldModel},
@@ -23,18 +23,12 @@ impl MainPanel for MainPanelGeneral {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        let mut ui_results = vec![];
         add_section(ui, "World", |ui| {
-            ui_results = config.general.make_ui(ui);
-            // TODO: Bit hacky with raw indices, oh well
-            if ui_results[0] == 1 {
-                config.general.seed = rand::random();
-            }
-            if config.general.world_model.self_as_index() != ui_results[2] {
-                config.general.world_model = config.general.world_model.index_as_self(ui_results[2]);
+            let old_world_model = config.general.world_model.self_as_index();
+            config.general.make_ui(ui);
+            if config.general.world_model.self_as_index() != old_world_model {
                 events.world_model_changed = Some(config.general.world_model.clone());
             }
-            update_enum!(config.general.topo_display, ui_results[3]);
         });
 
         add_section(
