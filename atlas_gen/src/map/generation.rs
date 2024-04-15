@@ -33,6 +33,32 @@ pub fn generate(
     }
 }
 
+/// Refresh other layers (if needed) after modifying this layer.
+pub fn after_generate(
+    layer: ViewedMapLayer,
+    logics: &mut MapLogicData,
+    config: &SessionConfig,
+) -> Vec<ViewedMapLayer> {
+    let mut regen_layers = match layer {
+        ViewedMapLayer::Continents => {
+            generate_utility_topo_filter(logics, config);
+            generate_utility_real_topo(logics);
+            vec![ViewedMapLayer::RealTopography, ViewedMapLayer::TopographyFilter]
+        }
+        ViewedMapLayer::Topography => {
+            generate_utility_topo_filter(logics, config);
+            generate_utility_real_topo(logics);
+            vec![ViewedMapLayer::RealTopography, ViewedMapLayer::TopographyFilter]
+        }
+        _ => vec![],
+    };
+    if !matches!(layer, ViewedMapLayer::Preview) {
+        generate_preview(logics, config);
+        regen_layers.push(ViewedMapLayer::Preview);
+    }
+    regen_layers
+}
+
 /// Generate pretty map preview.
 fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
     // Move out layer data.
@@ -111,15 +137,7 @@ fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
     // Set new layer data.
     logics.put_layer(ViewedMapLayer::Continents, cont_data);
 
-    // Regenerate real topography.
-    generate_utility_topo_filter(logics, config);
-    generate_utility_real_topo(logics);
-
-    vec![
-        ViewedMapLayer::Continents,
-        ViewedMapLayer::RealTopography,
-        ViewedMapLayer::TopographyFilter,
-    ] // DEBUG
+    vec![ViewedMapLayer::Continents]
 }
 
 /// Generate topography data.
@@ -142,15 +160,7 @@ fn generate_topography(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
     // Set new layer data.
     logics.put_layer(ViewedMapLayer::Topography, topo_data);
 
-    // Regenerate real topography.
-    generate_utility_topo_filter(logics, config);
-    generate_utility_real_topo(logics);
-
-    vec![
-        ViewedMapLayer::Topography,
-        ViewedMapLayer::RealTopography,
-        ViewedMapLayer::TopographyFilter,
-    ] // DEBUG
+    vec![ViewedMapLayer::Topography]
 }
 
 /// Generate FINAL topography data.

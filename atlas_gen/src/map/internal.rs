@@ -223,6 +223,15 @@ fn continents_from_png(data: Vec<u8>) -> Vec<u8> {
     data.chunks_exact(4).map(fun).collect()
 }
 
+fn climate_from_png(data: Vec<u8>) -> Vec<u8> {
+    let fun = |x: &[u8]| {
+        match (x[0], x[1], x[2]) {
+            _ => 0,
+        }
+    };
+    data.chunks_exact(4).map(fun).collect()
+}
+
 /// Extract one channel from an RGBA image.
 fn extract_rgba_channel(data: Vec<u8>, channel: RgbaChannel) -> Vec<u8> {
     let offset = match channel {
@@ -249,6 +258,13 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
         } else {
             [0, (x - 128) * 2 + 1, 0, 255]
         }
+    };
+    data.iter().flat_map(fun).collect()
+}
+
+fn climate_to_png(data: &[u8]) -> Vec<u8> {
+    let fun = |x: &u8| {
+        [0, 0, 0, 255]
     };
     data.iter().flat_map(fun).collect()
 }

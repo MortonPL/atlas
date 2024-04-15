@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-use super::ViewedMapLayer;
+use super::{generation::after_generate, ViewedMapLayer};
 
 /// Run Condition
 ///
@@ -140,17 +140,15 @@ pub fn check_event_loaded(events: Res<EventStruct>) -> bool {
 pub fn update_event_loaded(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
-    mut graphics: ResMut<MapGraphicsData>,
+    config: Res<SessionConfig>,
 ) {
     let (layer, data) = events.load_layer_request.take().expect("Always Some");
-    let graphic_layer = graphics.get_layer_mut(layer);
     // Convert image data to logic data.
     let data = png_to_data(data, layer);
     // Assign data.
     logics.put_layer(layer, data);
-    // Trigger texture regeneration.
-    graphic_layer.invalid = true;
-    events.regen_layer_request = Some(vec![layer]);
+    // Handle post generation.
+    post_generation(layer, &mut logics, &mut events, &config, vec![layer]);
 }
 
 /// Run condition
@@ -225,10 +223,23 @@ pub fn update_event_generate(
     let layer = events.generate_request.take().expect("Always Some");
     // Run generation procedure based on generator type and layer.
     let regen_layers = generate(layer, &mut logics, &config);
-    // Update the preview too.
-    if !matches!(layer, ViewedMapLayer::Preview) {
-        events.generate_request = Some(ViewedMapLayer::Preview);
-    }
+    // Handle post generation.
+    post_generation(layer, &mut logics, &mut events, &config, regen_layers);
+}
+
+/// Helper function
+/// 
+/// Regenerate dependant layers.
+fn post_generation(
+    layer: ViewedMapLayer,
+    logics: &mut MapLogicData,
+    events: &mut EventStruct,
+    config: &SessionConfig,
+    mut regen_layers: Vec<ViewedMapLayer>,
+) {
+    // Adjust other layers if needed.
+    let regen_layers_2 = after_generate(layer, logics, config);
+    regen_layers.extend(regen_layers_2);
     // Trigger texture regeneration.
     events.regen_layer_request = Some(regen_layers);
 }
