@@ -26,11 +26,16 @@ pub struct GeneralConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(10.0..=200.0))]
     pub tile_resolution: f32,
-    #[name("Topography Display Mode")]
+    #[name("Preview Height Display")]
     #[control(SidebarEnumDropdown)]
     pub topo_display: TopographyDisplayMode,
+    #[name("Preview Height Levels")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(3..=100))]
+    #[add(speed(0.1))]
+    pub height_levels: u32,
     #[name("World Model")]
-    #[control(SidebarEnumDropdown)]
+    #[control(SidebarEnumSection)]
     pub world_model: WorldModel,
 }
 
@@ -39,8 +44,9 @@ impl Default for GeneralConfig {
         Self {
             seed: rand::random(),
             tile_resolution: 100.0,
-            world_model: Default::default(),
             topo_display: Default::default(),
+            height_levels: 10,
+            world_model: Default::default(),
         }
     }
 }
@@ -48,32 +54,24 @@ impl Default for GeneralConfig {
 /// Config for the continents generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct ContinentsConfig {
-    #[name("Algorithm")]
-    #[control(SidebarEnumDropdown)]
-    pub algorithm: NoiseAlgorithm,
     #[name("Sea Level")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub sea_level: f32,
+    #[name("Algorithm")]
+    #[control(SidebarEnumSection)]
+    pub algorithm: NoiseAlgorithm,
     #[name("Influence Map Type")]
-    #[control(SidebarEnumDropdown)]
+    #[control(SidebarEnumSection)]
     pub influence_map_type: InfluenceShape,
-    #[name("Influence Map Strength")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub influence_map_strength: f32,
-    pub config: FbmConfig,
 }
 
 impl Default for ContinentsConfig {
     fn default() -> Self {
         Self {
-            algorithm: Default::default(),
             sea_level: 0.4,
+            algorithm: Default::default(),
             influence_map_type: Default::default(),
-            influence_map_strength: 1.0,
-            config: Default::default(),
         }
     }
 }
@@ -81,33 +79,25 @@ impl Default for ContinentsConfig {
 /// Config for the topography (heightmap) generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct TopographyConfig {
-    #[name("Algorithm")]
-    #[control(SidebarEnumDropdown)]
-    pub algorithm: NoiseAlgorithm,
     #[name("Coastal Erosion Range")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=7))]
     #[add(speed(0.5))]
     pub coastal_erosion: u8,
+    #[name("Algorithm")]
+    #[control(SidebarEnumSection)]
+    pub algorithm: NoiseAlgorithm,
     #[name("Influence Map Type")]
-    #[control(SidebarEnumDropdown)]
+    #[control(SidebarEnumSection)]
     pub influence_map_type: InfluenceShape,
-    #[name("Influence Map Strength")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub influence_map_strength: f32,
-    pub config: FbmConfig,
 }
 
 impl Default for TopographyConfig {
     fn default() -> Self {
         Self {
-            algorithm: Default::default(),
             coastal_erosion: 1,
+            algorithm: Default::default(),
             influence_map_type: Default::default(),
-            influence_map_strength: 1.0,
-            config: Default::default(),
         }
     }
 }

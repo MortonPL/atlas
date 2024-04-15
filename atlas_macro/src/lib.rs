@@ -11,14 +11,12 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let fields = match ast.data {
-        syn::Data::Enum(_) => unimplemented!(),
         syn::Data::Struct(s) => s.fields,
-        syn::Data::Union(_) => unimplemented!(),
+        _ => unimplemented!(),
     };
     let fields = match fields {
         syn::Fields::Named(n) => n.named,
-        syn::Fields::Unnamed(_) => unimplemented!(),
-        syn::Fields::Unit => unimplemented!(),
+        _ => unimplemented!(),
     };
 
     let mut controls = vec![];
@@ -77,6 +75,43 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
                     let result = atlas_lib::ui::sidebar::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints);
                     atlas_lib::ui::sidebar::#controls::post_show(result, &mut self.#idents);
                 )*
+            }
+        }
+    })
+}
+
+#[proc_macro_derive(MakeUiEnum, attributes(empty))]
+pub fn make_ui_enum_derive(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let enum_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    let variants = match ast.data {
+        syn::Data::Enum(e) => e.variants,
+        _ => unimplemented!(),
+    };
+
+    let mut idents = vec![];
+    for variant in variants {
+        let mut empty = false;
+        for attr in variant.attrs {
+            if attr.path().is_ident("empty") {
+                empty = true;
+            }
+        }
+        if !empty {
+            idents.push(variant.ident)
+        }
+    }
+
+    TokenStream::from(quote! {
+        impl #impl_generics atlas_lib::ui::sidebar::MakeUi for #enum_name #type_generics #where_clause {
+            fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+                match self {
+                    #(Self::#idents(x) => x.make_ui(ui),)*
+                    _ => {},
+                }
             }
         }
     })

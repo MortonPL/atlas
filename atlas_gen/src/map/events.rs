@@ -228,7 +228,7 @@ pub fn update_event_generate(
 }
 
 /// Helper function
-/// 
+///
 /// Regenerate dependant layers.
 fn post_generation(
     layer: ViewedMapLayer,

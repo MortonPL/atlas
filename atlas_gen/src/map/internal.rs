@@ -11,15 +11,21 @@ pub struct MapLogicData {
 
 impl MapLogicData {
     pub fn get_layer(&self, layer: ViewedMapLayer) -> &[u8] {
-        self.layers.get(&layer).expect("MapLogicData should map all layers")
+        self.layers
+            .get(&layer)
+            .expect("MapLogicData should map all layers")
     }
 
     pub fn get_layer_mut(&mut self, layer: ViewedMapLayer) -> &mut [u8] {
-        self.layers.get_mut(&layer).expect("MapLogicData should map all layers")
+        self.layers
+            .get_mut(&layer)
+            .expect("MapLogicData should map all layers")
     }
 
     pub fn pop_layer(&mut self, layer: ViewedMapLayer) -> Vec<u8> {
-        self.layers.remove(&layer).expect("MapLogicData should map all layers")
+        self.layers
+            .remove(&layer)
+            .expect("MapLogicData should map all layers")
     }
 
     pub fn put_layer(&mut self, layer: ViewedMapLayer, data: Vec<u8>) {
@@ -224,10 +230,8 @@ fn continents_from_png(data: Vec<u8>) -> Vec<u8> {
 }
 
 fn climate_from_png(data: Vec<u8>) -> Vec<u8> {
-    let fun = |x: &[u8]| {
-        match (x[0], x[1], x[2]) {
-            _ => 0,
-        }
+    let fun = |x: &[u8]| match (x[0], x[1], x[2]) {
+        _ => 0, // TODO
     };
     data.chunks_exact(4).map(fun).collect()
 }
@@ -263,9 +267,7 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
 }
 
 fn climate_to_png(data: &[u8]) -> Vec<u8> {
-    let fun = |x: &u8| {
-        [0, 0, 0, 255]
-    };
+    let fun = |x: &u8| [0, 0, 0, 255]; // TODO
     data.iter().flat_map(fun).collect()
 }
 

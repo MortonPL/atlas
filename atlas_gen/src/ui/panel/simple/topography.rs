@@ -3,15 +3,12 @@ use bevy_egui::egui::Ui;
 use atlas_lib::ui::{button, sidebar::MakeUi};
 
 use crate::{
-    config::{
-        CircleSamplerConfig, FbmConfig, InfluenceFbmConfig, InfluenceShape, SessionConfig, StripSamplerConfig,
-    },
+    config::{InfluenceShape, SessionConfig},
     event::EventStruct,
     map::ViewedMapLayer,
     ui::{
         internal::UiState,
         panel::{
-            add_section,
             simple::{MainPanelClimate, MainPanelContinents},
             MainPanel, MainPanelTransition,
         },
@@ -29,12 +26,11 @@ impl MainPanel for MainPanelTopography {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        add_section(ui, "Common", |ui| {
-            config.topography.make_ui(ui);
-        });
-        make_algorithm_ui(ui, &mut config.topography.config);
-        let generate_influence = make_influence_map_ui(ui, &mut config.topography.influence_map_type);
-        if generate_influence {
+        config.topography.make_ui(ui);
+
+        if !matches!(config.topography.influence_map_type, InfluenceShape::None(_))
+            && button(ui, "Generate Influence Map")
+        {
             events.generate_request = Some(ViewedMapLayer::TopographyInfluence);
         }
         if button(ui, "Generate Layer") {
@@ -57,45 +53,4 @@ impl MainPanel for MainPanelTopography {
             MainPanelTransition::Next => Box::<MainPanelClimate>::default(),
         }
     }
-}
-
-fn make_algorithm_ui(ui: &mut Ui, config: &mut FbmConfig) {
-    add_section(ui, "Algorithm Settings", |ui| {
-        config.make_ui(ui);
-    });
-}
-
-fn make_influence_map_ui(ui: &mut Ui, config: &mut InfluenceShape) -> bool {
-    match config {
-        InfluenceShape::None(_) => {
-            return false;
-        }
-        InfluenceShape::FromImage(_) => {
-            return false;
-        }
-        InfluenceShape::Circle(x) => make_influence_circle_ui(ui, x),
-        InfluenceShape::Strip(x) => make_influence_strip_ui(ui, x),
-        InfluenceShape::Fbm(x) => make_influence_fbm_ui(ui, x),
-    }
-    button(ui, "Generate Influence Map")
-}
-
-fn make_influence_circle_ui(ui: &mut Ui, config: &mut CircleSamplerConfig) {
-    add_section(ui, "Influence Map Settings", |ui| {
-        config.make_ui(ui);
-    });
-}
-
-fn make_influence_strip_ui(ui: &mut Ui, config: &mut StripSamplerConfig) {
-    add_section(ui, "Influence Map Settings", |ui| {
-        config.make_ui(ui);
-    });
-}
-
-fn make_influence_fbm_ui(ui: &mut Ui, config: &mut InfluenceFbmConfig) {
-    add_section(ui, "Influence Map Settings", |ui| {
-        config.make_ui(ui);
-        let config = &mut config.config;
-        config.make_ui(ui);
-    });
 }

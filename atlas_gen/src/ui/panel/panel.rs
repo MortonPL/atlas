@@ -1,4 +1,4 @@
-use bevy_egui::egui::{self, Ui};
+use bevy_egui::egui::Ui;
 
 use crate::{
     config::SessionConfig,
@@ -41,21 +41,4 @@ impl Default for Box<dyn MainPanel + Sync + Send> {
     fn default() -> Self {
         Box::<MainPanelGeneral>::default()
     }
-}
-
-/// Add a section consisting of a collapsible header and a grid.
-pub fn add_section<R>(
-    ui: &mut Ui,
-    header: impl Into<String>,
-    add_body: impl FnOnce(&mut Ui) -> R,
-) -> Option<R> {
-    let header: String = header.into();
-    egui::CollapsingHeader::new(egui::RichText::new(header.clone()).heading())
-        .default_open(true)
-        .show(ui, |ui| {
-            egui::Grid::new(format!("{}_section_grid", header))
-                .show(ui, add_body)
-                .inner
-        })
-        .body_returned
 }

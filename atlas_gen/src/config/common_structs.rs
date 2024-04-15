@@ -1,16 +1,17 @@
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 
-use atlas_lib::{ui::sidebar::*, MakeUi, UiEditableEnum, UiEditableEnumWithFields};
+use atlas_lib::{ui::sidebar::*, MakeUi, MakeUiEnum, UiEditableEnum, UiEditableEnumWithFields};
 
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
-    Globe(GlobeWorldModel),
+    #[empty]
+    Globe(()),
 }
 
 impl WorldModel {
@@ -44,9 +45,6 @@ impl Default for FlatWorldModel {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct GlobeWorldModel;
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum TopographyDisplayMode {
@@ -57,22 +55,23 @@ pub enum TopographyDisplayMode {
 
 /// Algorithm describes the noise algorithm that should be used to generate a layer,
 /// as well as its paramateres.
-#[derive(Clone, Copy, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum NoiseAlgorithm {
-    Perlin,
-    OpenSimplex,
-    SuperSimplex,
-    FromImage,
+    Perlin(FbmConfig),
+    OpenSimplex(FbmConfig),
+    SuperSimplex(FbmConfig),
+    #[empty]
+    FromImage(()),
 }
 
 impl Default for NoiseAlgorithm {
     fn default() -> Self {
-        Self::Perlin
+        Self::Perlin(Default::default())
     }
 }
 
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct FbmConfig {
     #[name("Seed")]
     #[control(SidebarSliderRandom)]
@@ -129,14 +128,15 @@ impl Default for FbmConfig {
 }
 
 /// Influence map type describes what shape should be generated for the influence map.
-#[derive(Debug, Deserialize, Resource, Serialize, UiEditableEnumWithFields)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum InfluenceShape {
+    #[empty]
     None(()),
     Circle(CircleSamplerConfig),
     Strip(StripSamplerConfig),
     Fbm(InfluenceFbmConfig),
-    FromImage(()),
+    FromImage(InfluenceImageConfig),
 }
 
 impl Default for InfluenceShape {
@@ -147,6 +147,11 @@ impl Default for InfluenceShape {
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct CircleSamplerConfig {
+    #[name("Influence Map Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub influence_map_strength: f32,
     #[name("Radius")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=500))]
@@ -170,6 +175,7 @@ pub struct CircleSamplerConfig {
 impl Default for CircleSamplerConfig {
     fn default() -> Self {
         Self {
+            influence_map_strength: 1.0,
             radius: 100,
             offset: Default::default(),
             midpoint: 0.5,
@@ -180,6 +186,11 @@ impl Default for CircleSamplerConfig {
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct StripSamplerConfig {
+    #[name("Influence Map Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub influence_map_strength: f32,
     #[name("Thickness")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=500))]
@@ -216,6 +227,7 @@ pub struct StripSamplerConfig {
 impl Default for StripSamplerConfig {
     fn default() -> Self {
         Self {
+            influence_map_strength: 1.0,
             thickness: 50,
             length: 100,
             angle: 0,
@@ -227,10 +239,40 @@ impl Default for StripSamplerConfig {
     }
 }
 
-#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceFbmConfig {
+    #[name("Influence Map Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub influence_map_strength: f32,
     #[name("Algorithm")]
-    #[control(SidebarEnumDropdown)]
+    #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
-    pub config: FbmConfig,
+}
+
+impl Default for InfluenceFbmConfig {
+    fn default() -> Self {
+        Self {
+            influence_map_strength: 1.0,
+            algorithm: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct InfluenceImageConfig {
+    #[name("Influence Map Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub influence_map_strength: f32,
+}
+
+impl Default for InfluenceImageConfig {
+    fn default() -> Self {
+        Self {
+            influence_map_strength: 1.0,
+        }
+    }
 }

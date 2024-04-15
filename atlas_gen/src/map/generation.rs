@@ -67,6 +67,7 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Vi
     let cont_data = logics.get_layer(ViewedMapLayer::Continents);
     let climate_data = logics.get_layer(ViewedMapLayer::Climate);
 
+    let height_levels = config.general.height_levels as f32;
     let highest = match config.general.topo_display {
         TopographyDisplayMode::Absolute => 255.0,
         TopographyDisplayMode::Highest => {
@@ -80,7 +81,8 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Vi
         } else {
             let height = real_data[i] as f32 / (highest * 1.2);
             let (h, s, v) = climate_to_hsv(climate_data[i]);
-            let v = v * (((1.0 - height.clamp(0.2, 0.8)) * 10.0).round() / 10.0);
+            let v = v
+                * (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels).clamp(0.15, 0.85);
             let rgb = rgb_from_hsv((h, s, v));
             (r, g, b) = (
                 (rgb[0] * 255.0) as u8,
@@ -106,17 +108,23 @@ fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
     // Move out layer data.
     let mut cont_data = logics.pop_layer(ViewedMapLayer::Continents);
     // Get relevant config info.
-    let algorithm = config.continents.algorithm;
-    let fbm_config = &config.continents.config;
+    let algorithm = &config.continents.algorithm;
     let model = &config.general.world_model;
-    let use_influence = !matches!(config.continents.influence_map_type, InfluenceShape::None(_));
+
+    let (use_influence, influence_strength) = match &config.continents.influence_map_type {
+        InfluenceShape::None(_) => (false, 0.0),
+        InfluenceShape::Circle(x) => (true, x.influence_map_strength),
+        InfluenceShape::Strip(x) => (true, x.influence_map_strength),
+        InfluenceShape::Fbm(x) => (true, x.influence_map_strength),
+        InfluenceShape::FromImage(x) => (true, x.influence_map_strength),
+    };
 
     // Run the noise algorithm to obtain height data for continental discrimination.
-    fill_noise(&mut cont_data, fbm_config, model, algorithm);
+    fill_noise(&mut cont_data, model, algorithm);
     // Apply the influence map if requested.
     if use_influence {
         let map_data = logics.get_layer(ViewedMapLayer::ContinentsInfluence);
-        apply_influence(&mut cont_data, map_data, config.continents.influence_map_strength);
+        apply_influence(&mut cont_data, map_data, influence_strength);
     }
     // Globally set the ocean tiles with no flooding.
     if config.continents.sea_level.is_zero() {
@@ -145,17 +153,23 @@ fn generate_topography(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
     // Move out layer data.
     let mut topo_data = logics.pop_layer(ViewedMapLayer::Topography);
     // Get relevant config info.
-    let algorithm = config.topography.algorithm;
-    let fbm_config = &config.topography.config;
+    let algorithm = &config.topography.algorithm;
     let model = &config.general.world_model;
-    let use_influence = !matches!(config.continents.influence_map_type, InfluenceShape::None(_));
+
+    let (use_influence, influence_strength) = match &config.topography.influence_map_type {
+        InfluenceShape::None(_) => (false, 0.0),
+        InfluenceShape::Circle(x) => (true, x.influence_map_strength),
+        InfluenceShape::Strip(x) => (true, x.influence_map_strength),
+        InfluenceShape::Fbm(x) => (true, x.influence_map_strength),
+        InfluenceShape::FromImage(x) => (true, x.influence_map_strength),
+    };
 
     // Run the noise algorithm for map topography (height data).
-    fill_noise(&mut topo_data, fbm_config, model, algorithm);
+    fill_noise(&mut topo_data, model, algorithm);
     // Apply the influence map if requested.
     if use_influence {
         let map_data = logics.get_layer(ViewedMapLayer::TopographyInfluence);
-        apply_influence(&mut topo_data, map_data, config.continents.influence_map_strength);
+        apply_influence(&mut topo_data, map_data, influence_strength);
     }
     // Set new layer data.
     logics.put_layer(ViewedMapLayer::Topography, topo_data);

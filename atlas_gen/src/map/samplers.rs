@@ -214,12 +214,16 @@ where
 }
 
 /// Fill a data layer with specified noise algorithm.
-pub fn fill_noise(data: &mut [u8], config: &FbmConfig, model: &WorldModel, algorithm: NoiseAlgorithm) {
+pub fn fill_noise(data: &mut [u8], model: &WorldModel, algorithm: &NoiseAlgorithm) {
     match algorithm {
-        NoiseAlgorithm::Perlin => sample_fill(data, FbmSampler::<Perlin>::new(config), model),
-        NoiseAlgorithm::OpenSimplex => sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model),
-        NoiseAlgorithm::SuperSimplex => sample_fill(data, FbmSampler::<SuperSimplex>::new(config), model),
-        NoiseAlgorithm::FromImage => { /* Do nothing. */ }
+        NoiseAlgorithm::Perlin(config) => sample_fill(data, FbmSampler::<Perlin>::new(config), model),
+        NoiseAlgorithm::OpenSimplex(config) => {
+            sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model)
+        }
+        NoiseAlgorithm::SuperSimplex(config) => {
+            sample_fill(data, FbmSampler::<SuperSimplex>::new(config), model)
+        }
+        NoiseAlgorithm::FromImage(_) => { /* Do nothing. */ }
     }
 }
 
@@ -230,7 +234,7 @@ pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldMode
         InfluenceShape::FromImage(_) => unreachable!(),
         InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model),
         InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model),
-        InfluenceShape::Fbm(x) => fill_noise(data, &x.config, model, x.algorithm),
+        InfluenceShape::Fbm(x) => fill_noise(data, model, &x.algorithm),
     }
 }
 
