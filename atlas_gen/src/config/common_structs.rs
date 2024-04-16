@@ -133,8 +133,8 @@ impl Default for FbmConfig {
 pub enum InfluenceShape {
     #[empty]
     None(()),
-    Circle(CircleSamplerConfig),
-    Strip(StripSamplerConfig),
+    Circle(InfluenceCircleConfig),
+    Strip(InfluenceSamplerConfig),
     Fbm(InfluenceFbmConfig),
     FromImage(InfluenceImageConfig),
 }
@@ -145,13 +145,24 @@ impl Default for InfluenceShape {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+pub enum InfluenceMode {
+    #[default]
+    ScaleDown,
+    ScaleUp,
+    ScaleUpDown,
+}
+
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct CircleSamplerConfig {
-    #[name("Influence Map Strength")]
+pub struct InfluenceCircleConfig {
+    #[name("Influence Mode")]
+    #[control(SidebarEnumDropdown)]
+    pub influence_mode: InfluenceMode,
+    #[name("Influence Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
-    pub influence_map_strength: f32,
+    pub influence_strength: f32,
     #[name("Radius")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=500))]
@@ -172,10 +183,11 @@ pub struct CircleSamplerConfig {
     pub midpoint_value: f32,
 }
 
-impl Default for CircleSamplerConfig {
+impl Default for InfluenceCircleConfig {
     fn default() -> Self {
         Self {
-            influence_map_strength: 1.0,
+            influence_mode: Default::default(),
+            influence_strength: 1.0,
             radius: 100,
             offset: Default::default(),
             midpoint: 0.5,
@@ -185,12 +197,15 @@ impl Default for CircleSamplerConfig {
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct StripSamplerConfig {
-    #[name("Influence Map Strength")]
+pub struct InfluenceSamplerConfig {
+    #[name("Influence Mode")]
+    #[control(SidebarEnumDropdown)]
+    pub influence_mode: InfluenceMode,
+    #[name("Influence Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
-    pub influence_map_strength: f32,
+    pub influence_strength: f32,
     #[name("Thickness")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=500))]
@@ -224,10 +239,11 @@ pub struct StripSamplerConfig {
     pub midpoint_value: f32,
 }
 
-impl Default for StripSamplerConfig {
+impl Default for InfluenceSamplerConfig {
     fn default() -> Self {
         Self {
-            influence_map_strength: 1.0,
+            influence_mode: Default::default(),
+            influence_strength: 1.0,
             thickness: 50,
             length: 100,
             angle: 0,
@@ -241,11 +257,14 @@ impl Default for StripSamplerConfig {
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceFbmConfig {
-    #[name("Influence Map Strength")]
+    #[name("Influence Mode")]
+    #[control(SidebarEnumDropdown)]
+    pub influence_mode: InfluenceMode,
+    #[name("Influence Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
-    pub influence_map_strength: f32,
+    pub influence_strength: f32,
     #[name("Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
@@ -254,7 +273,8 @@ pub struct InfluenceFbmConfig {
 impl Default for InfluenceFbmConfig {
     fn default() -> Self {
         Self {
-            influence_map_strength: 1.0,
+            influence_mode: Default::default(),
+            influence_strength: 1.0,
             algorithm: Default::default(),
         }
     }
@@ -268,17 +288,21 @@ impl AsRef<NoiseAlgorithm> for InfluenceFbmConfig {
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceImageConfig {
-    #[name("Influence Map Strength")]
+    #[name("Influence Mode")]
+    #[control(SidebarEnumDropdown)]
+    pub influence_mode: InfluenceMode,
+    #[name("Influence Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
-    pub influence_map_strength: f32,
+    pub influence_strength: f32,
 }
 
 impl Default for InfluenceImageConfig {
     fn default() -> Self {
         Self {
-            influence_map_strength: 1.0,
+            influence_mode: Default::default(),
+            influence_strength: 1.0,
         }
     }
 }

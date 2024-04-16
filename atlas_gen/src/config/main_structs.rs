@@ -63,7 +63,7 @@ pub struct ContinentsConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
-    #[name("Influence Shaoe")]
+    #[name("Influence Shape")]
     #[control(SidebarEnumSection)]
     pub influence_shape: InfluenceShape,
 }

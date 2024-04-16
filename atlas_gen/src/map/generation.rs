@@ -204,7 +204,7 @@ fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
     let topo_data = logics.get_layer(MapDataLayer::Topography);
     let filter_data = logics.get_layer(MapDataLayer::TopographyFilter);
     // Little trick: topography filter is basically an influence layer.
-    apply_influence_from_src(&mut real_data, topo_data, filter_data, 1.0);
+    apply_influence_from_src(&mut real_data, topo_data, filter_data, Default::default(), 1.0);
     // Set new layer data.
     logics.put_layer(MapDataLayer::RealTopography, real_data);
 
@@ -278,16 +278,16 @@ fn handle_influence(
     layer: MapDataLayer,
     config: impl AsRef<InfluenceShape>,
 ) {
-    let (use_influence, influence_strength) = match config.as_ref() {
-        InfluenceShape::None(_) => (false, 0.0),
-        InfluenceShape::Circle(x) => (true, x.influence_map_strength),
-        InfluenceShape::Strip(x) => (true, x.influence_map_strength),
-        InfluenceShape::Fbm(x) => (true, x.influence_map_strength),
-        InfluenceShape::FromImage(x) => (true, x.influence_map_strength),
+    let (use_influence, influence_strength, influence_mode) = match config.as_ref() {
+        InfluenceShape::None(_) => (false, 0.0, Default::default()),
+        InfluenceShape::Circle(x) => (true, x.influence_strength, x.influence_mode),
+        InfluenceShape::Strip(x) => (true, x.influence_strength, x.influence_mode),
+        InfluenceShape::Fbm(x) => (true, x.influence_strength, x.influence_mode),
+        InfluenceShape::FromImage(x) => (true, x.influence_strength, x.influence_mode),
     };
     if use_influence {
         let map_data = logics.get_layer(layer);
-        apply_influence(data, map_data, influence_strength);
+        apply_influence(data, map_data, influence_mode, influence_strength);
     }
 }
 

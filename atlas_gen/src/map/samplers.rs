@@ -3,7 +3,7 @@ use bevy_egui::egui::lerp;
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::config::{
-    CircleSamplerConfig, FbmConfig, InfluenceShape, NoiseAlgorithm, StripSamplerConfig, WorldModel,
+    FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceSamplerConfig, InfluenceShape, NoiseAlgorithm, WorldModel
 };
 
 trait Sampler {
@@ -20,7 +20,7 @@ struct CircleSampler {
 }
 
 impl CircleSampler {
-    fn new(config: &CircleSamplerConfig) -> Self {
+    fn new(config: &InfluenceCircleConfig) -> Self {
         let offset = Vec2::new(config.offset[0] as f32, config.offset[1] as f32);
         Self {
             offset,
@@ -70,7 +70,7 @@ struct StripSampler {
 }
 
 impl StripSampler {
-    fn new(config: &StripSamplerConfig) -> Self {
+    fn new(config: &InfluenceSamplerConfig) -> Self {
         let offset = Vec2::new(config.offset[0] as f32, config.offset[1] as f32);
         let (start, end, slope_a) =
             Self::precalculate_strip(config.length as f32, config.angle as f32, config.flip);
@@ -239,30 +239,74 @@ pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldMode
 }
 
 /// Apply influence data to real data with given influence strength.
-/// Real data is multiplied by ratio of influence data to 255.
 /// Strength == 0.0 means no effect, strength == 1.0 means max effect.
-pub fn apply_influence(data: &mut [u8], influence: &[u8], strength: f32) {
+pub fn apply_influence(data: &mut [u8], influence: &[u8], mode: InfluenceMode, strength: f32) {
     let strength = strength.clamp(0.0, 1.0);
     if strength.is_zero() {
         return;
     }
-    for i in 0..data.len() {
-        let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
-        data[i] = (data[i] as f32 * inf) as u8;
+    match mode {
+        // Scale "bad" influence to 0
+        InfluenceMode::ScaleDown => {
+            for i in 0..data.len() {
+                let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
+                data[i] = lerp(0.0..=(data[i] as f32), inf) as u8;
+            }
+        }
+        // Scale "good" influence to 1
+        InfluenceMode::ScaleUp => {
+            for i in 0..data.len() {
+                let inf = (influence[i] as f32 / 255.0) * strength;
+                data[i] = lerp((data[i] as f32)..=255.0, inf) as u8;
+            }
+        }
+        // Scale both "bad" and "good" influence with baseline being 0.5
+        InfluenceMode::ScaleUpDown => {
+            for i in 0..data.len() {
+                let inf = (influence[i] as f32 / 255.0 - 0.5) * strength;
+                data[i] = if inf <= 0.0 {
+                    lerp(0.0..=(data[i] as f32), 1.0 + inf * 2.0)
+                } else {
+                    lerp((data[i] as f32)..=255.0, inf * 2.0)
+                } as u8;
+            }
+        }
     }
 }
 
 /// Apply influence data to real data with given influence strength.
-/// Real data is multiplied by ratio of influence data to 255.
 /// Strength == 0.0 means no effect, strength == 1.0 means max effect.
-pub fn apply_influence_from_src(dest: &mut [u8], src: &[u8], influence: &[u8], strength: f32) {
+pub fn apply_influence_from_src(dest: &mut [u8], src: &[u8], influence: &[u8], mode: InfluenceMode, strength: f32) {
     let strength = strength.clamp(0.0, 1.0);
     if strength.is_zero() {
         return;
     }
-    for i in 0..dest.len() {
-        let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
-        dest[i] = (src[i] as f32 * inf) as u8;
+    match mode {
+        // Scale "bad" influence to 0
+        InfluenceMode::ScaleDown => {
+            for i in 0..dest.len() {
+                let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
+                dest[i] = lerp(0.0..=(src[i] as f32), inf) as u8;
+            }
+        }
+        // Scale "good" influence to 1
+        InfluenceMode::ScaleUp => {
+            for i in 0..dest.len() {
+                let inf = (influence[i] as f32 / 255.0) * strength;
+                dest[i] = lerp((src[i] as f32)..=255.0, inf) as u8;
+            }
+        }
+        // Scale both "bad" and "good" influence with baseline being 0.5
+        InfluenceMode::ScaleUpDown => {
+            for i in 0..dest.len() {
+                let inf = (influence[i] as f32 / 255.0 - 0.5) * strength;
+                dest[i] = if inf <= 0.0 {
+                    lerp(0.0..=(src[i] as f32), 1.0 + inf * 2.0)
+                } else {
+                    lerp((src[i] as f32)..=255.0, inf * 2.0)
+                } as u8;
+            }
+        }
     }
 }
 
