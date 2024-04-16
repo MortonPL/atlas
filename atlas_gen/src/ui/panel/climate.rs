@@ -6,7 +6,7 @@ use crate::{
     map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{MainPanelResources, MainPanelHumidity, MainPanelTransition, SidebarPanel},
+        panel::{MainPanelHumidity, MainPanelResources, MainPanelTransition, SidebarPanel},
     },
 };
 

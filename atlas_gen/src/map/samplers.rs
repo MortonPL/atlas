@@ -266,7 +266,6 @@ pub fn apply_influence_from_src(dest: &mut [u8], src: &[u8], influence: &[u8], s
     }
 }
 
-
 fn sample_fill<T>(data: &mut [u8], sampler: T, model: &WorldModel)
 where
     T: Sampler,

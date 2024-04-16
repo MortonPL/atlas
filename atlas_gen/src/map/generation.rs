@@ -19,10 +19,10 @@ pub fn generate(layer: MapDataLayer, logics: &mut MapLogicData, config: &Session
         MapDataLayer::Topography => generate_generic(logics, &config.topography, model, layer),
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
         MapDataLayer::Humidity => generate_humidity(logics, config, layer),
-        MapDataLayer::Climate => todo!(),  // TODO
-        MapDataLayer::Resource => todo!(), // TODO
+        MapDataLayer::Climate => todo!(),   // TODO
+        MapDataLayer::Resource => todo!(),  // TODO
         MapDataLayer::Fertility => todo!(), // TODO
-        MapDataLayer::Richness => todo!(), // TODO
+        MapDataLayer::Richness => todo!(),  // TODO
         // Influence
         MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, layer),
         MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, layer),
@@ -204,7 +204,7 @@ fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
     let topo_data = logics.get_layer(MapDataLayer::Topography);
     let filter_data = logics.get_layer(MapDataLayer::TopographyFilter);
     // Little trick: topography filter is basically an influence layer.
-    apply_influence_from_src(&mut real_data, &topo_data, &filter_data, 1.0);
+    apply_influence_from_src(&mut real_data, topo_data, filter_data, 1.0);
     // Set new layer data.
     logics.put_layer(MapDataLayer::RealTopography, real_data);
 
