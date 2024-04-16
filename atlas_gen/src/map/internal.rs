@@ -2,40 +2,40 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{prelude::*, utils::HashMap};
 
-use crate::map::ViewedMapLayer;
+use crate::map::MapDataLayer;
 
 #[derive(Default, Resource)]
 pub struct MapLogicData {
-    layers: HashMap<ViewedMapLayer, Vec<u8>>,
+    layers: HashMap<MapDataLayer, Vec<u8>>,
 }
 
 impl MapLogicData {
-    pub fn get_layer(&self, layer: ViewedMapLayer) -> &[u8] {
+    pub fn get_layer(&self, layer: MapDataLayer) -> &[u8] {
         self.layers
             .get(&layer)
             .expect("MapLogicData should map all layers")
     }
 
-    pub fn get_layer_mut(&mut self, layer: ViewedMapLayer) -> &mut [u8] {
+    pub fn get_layer_mut(&mut self, layer: MapDataLayer) -> &mut [u8] {
         self.layers
             .get_mut(&layer)
             .expect("MapLogicData should map all layers")
     }
 
-    pub fn pop_layer(&mut self, layer: ViewedMapLayer) -> Vec<u8> {
+    pub fn pop_layer(&mut self, layer: MapDataLayer) -> Vec<u8> {
         self.layers
             .remove(&layer)
             .expect("MapLogicData should map all layers")
     }
 
-    pub fn put_layer(&mut self, layer: ViewedMapLayer, data: Vec<u8>) {
+    pub fn put_layer(&mut self, layer: MapDataLayer, data: Vec<u8>) {
         self.layers.insert(layer, data);
     }
 
     pub fn resize_all_layers(&mut self, size: usize) {
         for (layer, data) in self.layers.iter_mut() {
             let bpp = match layer {
-                ViewedMapLayer::Preview => 4,
+                MapDataLayer::Preview => 4,
                 _ => 1,
             };
             data.resize(size * bpp, 0);
@@ -45,14 +45,14 @@ impl MapLogicData {
 
 #[derive(Default, Resource)]
 pub struct MapGraphicsData {
-    pub current: ViewedMapLayer,
-    pub layers: HashMap<ViewedMapLayer, MapGraphicsLayer>,
+    pub current: MapDataLayer,
+    pub layers: HashMap<MapDataLayer, MapGraphicsLayer>,
     pub empty_material: Handle<StandardMaterial>,
 }
 
 impl MapGraphicsData {
     /// Access mutably one of the graphical layers.
-    pub fn get_layer_mut(&mut self, layer: ViewedMapLayer) -> &mut MapGraphicsLayer {
+    pub fn get_layer_mut(&mut self, layer: MapDataLayer) -> &mut MapGraphicsLayer {
         self.layers
             .get_mut(&layer)
             .expect("MapGraphicsData should map all layers")
@@ -154,21 +154,23 @@ pub fn get_material_mut<'a>(
 /// The underlying conversion may differ based on layer variant.
 ///
 /// This function is the inverse of [`data_to_png`].
-pub fn png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8> {
+pub fn png_to_data(data: Vec<u8>, layer: MapDataLayer) -> Vec<u8> {
     match layer {
-        ViewedMapLayer::Preview => data,
-        ViewedMapLayer::Continents => continents_from_png(data),
-        ViewedMapLayer::ContinentsInfluence => extract_monochrome(data),
-        ViewedMapLayer::Topography => extract_monochrome(data),
-        ViewedMapLayer::TopographyInfluence => extract_monochrome(data),
-        ViewedMapLayer::Temperature => todo!(), // TODO
-        ViewedMapLayer::Humidity => todo!(),    // TODO
-        ViewedMapLayer::Climate => todo!(),     // TODO
-        ViewedMapLayer::Fertility => todo!(),   // TODO
-        ViewedMapLayer::Resource => todo!(),    // TODO
-        ViewedMapLayer::Richness => todo!(),    // TODO
-        ViewedMapLayer::RealTopography => extract_monochrome(data),
-        ViewedMapLayer::TopographyFilter => extract_monochrome(data),
+        MapDataLayer::Preview => data,
+        MapDataLayer::Continents => continents_from_png(data),
+        MapDataLayer::ContinentsInfluence => extract_monochrome(data),
+        MapDataLayer::Topography => extract_monochrome(data),
+        MapDataLayer::TopographyInfluence => extract_monochrome(data),
+        MapDataLayer::Temperature => extract_monochrome(data),
+        MapDataLayer::TemperatureInfluence => extract_monochrome(data),
+        MapDataLayer::Humidity => extract_monochrome(data),
+        MapDataLayer::HumidityInfluence => extract_monochrome(data),
+        MapDataLayer::Climate => todo!(),   // TODO
+        MapDataLayer::Fertility => todo!(), // TODO
+        MapDataLayer::Resource => todo!(),  // TODO
+        MapDataLayer::Richness => todo!(),  // TODO
+        MapDataLayer::RealTopography => extract_monochrome(data),
+        MapDataLayer::TopographyFilter => extract_monochrome(data),
     }
 }
 
@@ -176,25 +178,27 @@ pub fn png_to_data(data: Vec<u8>, layer: ViewedMapLayer) -> Vec<u8> {
 /// The underlying conversion may differ based on layer variant.
 ///
 /// This function is the inverse of [`png_to_data`].
-pub fn data_to_png(data_layers: &MapLogicData, layer: ViewedMapLayer) -> Vec<u8> {
+pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
     let data = data_layers
         .layers
         .get(&layer)
         .expect("MapLogicData should map all layers");
     match layer {
-        ViewedMapLayer::Preview => data.to_vec(),
-        ViewedMapLayer::Continents => continents_to_png(data),
-        ViewedMapLayer::ContinentsInfluence => expand_monochrome(data),
-        ViewedMapLayer::Topography => expand_monochrome(data),
-        ViewedMapLayer::TopographyInfluence => expand_monochrome(data),
-        ViewedMapLayer::Temperature => todo!(), // TODO
-        ViewedMapLayer::Humidity => todo!(),    // TODO
-        ViewedMapLayer::Climate => todo!(),     // TODO
-        ViewedMapLayer::Fertility => todo!(),   // TODO
-        ViewedMapLayer::Resource => todo!(),    // TODO
-        ViewedMapLayer::Richness => todo!(),    // TODO
-        ViewedMapLayer::RealTopography => expand_monochrome(data),
-        ViewedMapLayer::TopographyFilter => expand_monochrome(data),
+        MapDataLayer::Preview => data.to_vec(),
+        MapDataLayer::Continents => continents_to_png(data),
+        MapDataLayer::ContinentsInfluence => expand_monochrome(data),
+        MapDataLayer::Topography => expand_monochrome(data),
+        MapDataLayer::TopographyInfluence => expand_monochrome(data),
+        MapDataLayer::Temperature => expand_monochrome(data),
+        MapDataLayer::TemperatureInfluence => expand_monochrome(data),
+        MapDataLayer::Humidity => expand_monochrome(data),
+        MapDataLayer::HumidityInfluence => expand_monochrome(data),
+        MapDataLayer::Climate => todo!(),   // TODO
+        MapDataLayer::Fertility => todo!(), // TODO
+        MapDataLayer::Resource => todo!(),  // TODO
+        MapDataLayer::Richness => todo!(),  // TODO
+        MapDataLayer::RealTopography => expand_monochrome(data),
+        MapDataLayer::TopographyFilter => expand_monochrome(data),
     }
 }
 

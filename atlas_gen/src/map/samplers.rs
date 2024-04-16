@@ -214,8 +214,8 @@ where
 }
 
 /// Fill a data layer with specified noise algorithm.
-pub fn fill_noise(data: &mut [u8], model: &WorldModel, algorithm: &NoiseAlgorithm) {
-    match algorithm {
+pub fn fill_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl AsRef<NoiseAlgorithm>) {
+    match algorithm.as_ref() {
         NoiseAlgorithm::Perlin(config) => sample_fill(data, FbmSampler::<Perlin>::new(config), model),
         NoiseAlgorithm::OpenSimplex(config) => {
             sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model)
@@ -234,7 +234,7 @@ pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldMode
         InfluenceShape::FromImage(_) => unreachable!(),
         InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model),
         InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model),
-        InfluenceShape::Fbm(x) => fill_noise(data, model, &x.algorithm),
+        InfluenceShape::Fbm(x) => fill_with_algorithm(data, model, x),
     }
 }
 
@@ -251,6 +251,21 @@ pub fn apply_influence(data: &mut [u8], influence: &[u8], strength: f32) {
         data[i] = (data[i] as f32 * inf) as u8;
     }
 }
+
+/// Apply influence data to real data with given influence strength.
+/// Real data is multiplied by ratio of influence data to 255.
+/// Strength == 0.0 means no effect, strength == 1.0 means max effect.
+pub fn apply_influence_from_src(dest: &mut [u8], src: &[u8], influence: &[u8], strength: f32) {
+    let strength = strength.clamp(0.0, 1.0);
+    if strength.is_zero() {
+        return;
+    }
+    for i in 0..dest.len() {
+        let inf = 1.0 - (1.0 - influence[i] as f32 / 255.0) * strength;
+        dest[i] = (src[i] as f32 * inf) as u8;
+    }
+}
+
 
 fn sample_fill<T>(data: &mut [u8], sampler: T, model: &WorldModel)
 where

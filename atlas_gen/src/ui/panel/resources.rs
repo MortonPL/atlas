@@ -3,36 +3,37 @@ use bevy_egui::egui::Ui;
 use crate::{
     config::SessionConfig,
     event::EventStruct,
-    map::ViewedMapLayer,
+    map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{MainPanel, MainPanelClimate, MainPanelTransition},
+        panel::{MainPanelClimate, MainPanelTransition, SidebarPanel},
     },
 };
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelResources;
 
-impl MainPanel for MainPanelResources {
+impl SidebarPanel for MainPanelResources {
     fn show(
         &mut self,
-        _ui: &mut Ui,
+        ui: &mut Ui,
         _config: &mut SessionConfig,
         _ui_state: &mut UiState,
-        _events: &mut EventStruct,
+        events: &mut EventStruct,
     ) {
         // TODO
+        self.button_layer(ui, events);
     }
 
     fn get_heading(&self) -> &'static str {
         "Resources"
     }
 
-    fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Resource
+    fn get_layer(&self) -> MapDataLayer {
+        MapDataLayer::Resource
     }
 
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
         match transition {
             MainPanelTransition::Previous => Box::<MainPanelClimate>::default(),
             _ => Box::new(*self),

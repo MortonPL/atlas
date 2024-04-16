@@ -1,9 +1,10 @@
+use atlas_lib::ui::button;
 use bevy_egui::egui::Ui;
 
 use crate::{
-    config::SessionConfig,
+    config::{InfluenceShape, SessionConfig},
     event::EventStruct,
-    map::ViewedMapLayer,
+    map::MapDataLayer,
     ui::{internal::UiState, panel::general::MainPanelGeneral},
 };
 
@@ -17,12 +18,12 @@ pub enum MainPanelTransition {
 }
 
 /// A sidebar page.
-pub trait MainPanel {
+pub trait SidebarPanel {
     /// Get panel heading.
     fn get_heading(&self) -> &'static str;
 
     /// Get layer that should be displayed with this panel.
-    fn get_layer(&self) -> ViewedMapLayer;
+    fn get_layer(&self) -> MapDataLayer;
 
     /// Create UI for this panel.
     fn show(
@@ -34,10 +35,24 @@ pub trait MainPanel {
     );
 
     /// Handle transitioning to the previous or next panel.
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send>;
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send>;
+
+    /// Create a "Generate Layer" button.
+    fn button_layer(&self, ui: &mut Ui, events: &mut EventStruct) {
+        if button(ui, "Generate Layer") {
+            events.generate_request = Some(self.get_layer());
+        }
+    }
+
+    /// Create a "Generate Influence Map" button.
+    fn button_influence(&self, ui: &mut Ui, events: &mut EventStruct, influence: &InfluenceShape) {
+        if !matches!(influence, InfluenceShape::None(_)) && button(ui, "Generate Influence Map") {
+            events.generate_request = self.get_layer().get_influence_layer();
+        }
+    }
 }
 
-impl Default for Box<dyn MainPanel + Sync + Send> {
+impl Default for Box<dyn SidebarPanel + Sync + Send> {
     fn default() -> Self {
         Box::<MainPanelGeneral>::default()
     }

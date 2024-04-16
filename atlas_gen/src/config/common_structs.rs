@@ -260,6 +260,12 @@ impl Default for InfluenceFbmConfig {
     }
 }
 
+impl AsRef<NoiseAlgorithm> for InfluenceFbmConfig {
+    fn as_ref(&self) -> &NoiseAlgorithm {
+        &self.algorithm
+    }
+}
+
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceImageConfig {
     #[name("Influence Map Strength")]

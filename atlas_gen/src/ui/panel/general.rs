@@ -5,17 +5,17 @@ use atlas_lib::ui::{button, sidebar::MakeUi, UiEditableEnum};
 use crate::{
     config::{SessionConfig, WorldModel},
     event::EventStruct,
-    map::ViewedMapLayer,
+    map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{MainPanel, MainPanelContinents, MainPanelTransition},
+        panel::{MainPanelContinents, MainPanelTransition, SidebarPanel},
     },
 };
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelGeneral {}
 
-impl MainPanel for MainPanelGeneral {
+impl SidebarPanel for MainPanelGeneral {
     fn show(
         &mut self,
         ui: &mut Ui,
@@ -53,11 +53,11 @@ impl MainPanel for MainPanelGeneral {
         "General"
     }
 
-    fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Preview
+    fn get_layer(&self) -> MapDataLayer {
+        MapDataLayer::Preview
     }
 
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
         match transition {
             MainPanelTransition::Next => Box::<MainPanelContinents>::default(),
             _ => Box::new(*self),

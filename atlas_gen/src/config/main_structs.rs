@@ -11,6 +11,8 @@ pub struct SessionConfig {
     pub general: GeneralConfig,
     pub continents: ContinentsConfig,
     pub topography: TopographyConfig,
+    pub temperature: TemperatureConfig,
+    pub humidity: HumidityConfig,
     pub climate: ClimateConfig,
     pub resources: ResourcesConfig,
 }
@@ -61,9 +63,9 @@ pub struct ContinentsConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
-    #[name("Influence Map Type")]
+    #[name("Influence Shaoe")]
     #[control(SidebarEnumSection)]
-    pub influence_map_type: InfluenceShape,
+    pub influence_shape: InfluenceShape,
 }
 
 impl Default for ContinentsConfig {
@@ -71,8 +73,20 @@ impl Default for ContinentsConfig {
         Self {
             sea_level: 0.4,
             algorithm: Default::default(),
-            influence_map_type: Default::default(),
+            influence_shape: Default::default(),
         }
+    }
+}
+
+impl AsRef<InfluenceShape> for ContinentsConfig {
+    fn as_ref(&self) -> &InfluenceShape {
+        &self.influence_shape
+    }
+}
+
+impl AsRef<NoiseAlgorithm> for ContinentsConfig {
+    fn as_ref(&self) -> &NoiseAlgorithm {
+        &self.algorithm
     }
 }
 
@@ -87,9 +101,9 @@ pub struct TopographyConfig {
     #[name("Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
-    #[name("Influence Map Type")]
+    #[name("Influence Shape")]
     #[control(SidebarEnumSection)]
-    pub influence_map_type: InfluenceShape,
+    pub influence_shape: InfluenceShape,
 }
 
 impl Default for TopographyConfig {
@@ -97,8 +111,84 @@ impl Default for TopographyConfig {
         Self {
             coastal_erosion: 1,
             algorithm: Default::default(),
-            influence_map_type: Default::default(),
+            influence_shape: Default::default(),
         }
+    }
+}
+
+impl AsRef<InfluenceShape> for TopographyConfig {
+    fn as_ref(&self) -> &InfluenceShape {
+        &self.influence_shape
+    }
+}
+
+impl AsRef<NoiseAlgorithm> for TopographyConfig {
+    fn as_ref(&self) -> &NoiseAlgorithm {
+        &self.algorithm
+    }
+}
+
+/// Config for the temperature generation.
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct TemperatureConfig {
+    #[name("Algorithm")]
+    #[control(SidebarEnumSection)]
+    pub algorithm: NoiseAlgorithm,
+    #[name("Influence Shape")]
+    #[control(SidebarEnumSection)]
+    pub influence_shape: InfluenceShape,
+}
+
+impl Default for TemperatureConfig {
+    fn default() -> Self {
+        Self {
+            algorithm: Default::default(),
+            influence_shape: Default::default(),
+        }
+    }
+}
+
+impl AsRef<InfluenceShape> for TemperatureConfig {
+    fn as_ref(&self) -> &InfluenceShape {
+        &self.influence_shape
+    }
+}
+
+impl AsRef<NoiseAlgorithm> for TemperatureConfig {
+    fn as_ref(&self) -> &NoiseAlgorithm {
+        &self.algorithm
+    }
+}
+
+/// Config for the humidity generation.
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct HumidityConfig {
+    #[name("Algorithm")]
+    #[control(SidebarEnumSection)]
+    pub algorithm: NoiseAlgorithm,
+    #[name("Influence Map Type")]
+    #[control(SidebarEnumSection)]
+    pub influence_shape: InfluenceShape,
+}
+
+impl Default for HumidityConfig {
+    fn default() -> Self {
+        Self {
+            algorithm: Default::default(),
+            influence_shape: Default::default(),
+        }
+    }
+}
+
+impl AsRef<InfluenceShape> for HumidityConfig {
+    fn as_ref(&self) -> &InfluenceShape {
+        &self.influence_shape
+    }
+}
+
+impl AsRef<NoiseAlgorithm> for HumidityConfig {
+    fn as_ref(&self) -> &NoiseAlgorithm {
+        &self.algorithm
     }
 }
 

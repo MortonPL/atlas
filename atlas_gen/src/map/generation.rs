@@ -2,70 +2,71 @@ use bevy::utils::petgraph::matrix_graph::Zero;
 use bevy_egui::egui::ecolor::rgb_from_hsv;
 
 use crate::{
-    config::{InfluenceShape, SessionConfig, TopographyDisplayMode, WorldModel},
+    config::{InfluenceShape, NoiseAlgorithm, SessionConfig, TopographyDisplayMode, WorldModel},
     map::{
         internal::{climate_to_hsv, MapLogicData},
-        samplers::{apply_influence, fill_influence, fill_noise},
-        ViewedMapLayer,
+        samplers::{apply_influence, apply_influence_from_src, fill_influence, fill_with_algorithm},
+        MapDataLayer,
     },
 };
 
 /// Choose relevant generation procedure based on layer.
-pub fn generate(
-    layer: ViewedMapLayer,
-    logics: &mut MapLogicData,
-    config: &SessionConfig,
-) -> Vec<ViewedMapLayer> {
+pub fn generate(layer: MapDataLayer, logics: &mut MapLogicData, config: &SessionConfig) -> Vec<MapDataLayer> {
     let model = &config.general.world_model;
     match layer {
-        ViewedMapLayer::Preview => generate_preview(logics, config),
-        ViewedMapLayer::Continents => generate_continents(logics, config),
-        ViewedMapLayer::ContinentsInfluence => {
-            generate_influence(logics, &config.continents.influence_map_type, model, layer)
-        }
-        ViewedMapLayer::Topography => generate_topography(logics, config),
-        ViewedMapLayer::TopographyInfluence => {
-            generate_influence(logics, &config.topography.influence_map_type, model, layer)
-        }
-        ViewedMapLayer::Climate => todo!(),  // TODO
-        ViewedMapLayer::Resource => todo!(), // TODO
-        _ => unreachable!(),
+        MapDataLayer::Preview => generate_preview(logics, config),
+        MapDataLayer::Continents => generate_continents(logics, config, layer),
+        MapDataLayer::Topography => generate_generic(logics, &config.topography, model, layer),
+        MapDataLayer::Temperature => generate_temperature(logics, config, layer),
+        MapDataLayer::Humidity => generate_humidity(logics, config, layer),
+        MapDataLayer::Climate => todo!(),  // TODO
+        MapDataLayer::Resource => todo!(), // TODO
+        MapDataLayer::Fertility => todo!(), // TODO
+        MapDataLayer::Richness => todo!(), // TODO
+        // Influence
+        MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, layer),
+        MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, layer),
+        MapDataLayer::TemperatureInfluence => generate_influence(logics, &config.temperature, model, layer),
+        MapDataLayer::HumidityInfluence => generate_influence(logics, &config.humidity, model, layer),
+        // Unreachable
+        MapDataLayer::RealTopography => unreachable!(),
+        MapDataLayer::TopographyFilter => unreachable!(),
     }
 }
 
 /// Refresh other layers (if needed) after modifying this layer.
 pub fn after_generate(
-    layer: ViewedMapLayer,
+    layer: MapDataLayer,
     logics: &mut MapLogicData,
     config: &SessionConfig,
-) -> Vec<ViewedMapLayer> {
+) -> Vec<MapDataLayer> {
     let mut regen_layers = match layer {
-        ViewedMapLayer::Continents => {
+        MapDataLayer::Continents => {
             generate_utility_topo_filter(logics, config);
             generate_utility_real_topo(logics);
-            vec![ViewedMapLayer::RealTopography, ViewedMapLayer::TopographyFilter]
+            vec![MapDataLayer::RealTopography, MapDataLayer::TopographyFilter]
         }
-        ViewedMapLayer::Topography => {
+        MapDataLayer::Topography => {
             generate_utility_topo_filter(logics, config);
             generate_utility_real_topo(logics);
-            vec![ViewedMapLayer::RealTopography, ViewedMapLayer::TopographyFilter]
+            vec![MapDataLayer::RealTopography, MapDataLayer::TopographyFilter]
         }
         _ => vec![],
     };
-    if !matches!(layer, ViewedMapLayer::Preview) {
+    if !matches!(layer, MapDataLayer::Preview) {
         generate_preview(logics, config);
-        regen_layers.push(ViewedMapLayer::Preview);
+        regen_layers.push(MapDataLayer::Preview);
     }
     regen_layers
 }
 
 /// Generate pretty map preview.
-fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
+fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<MapDataLayer> {
     // Move out layer data.
-    let mut preview_data = logics.pop_layer(ViewedMapLayer::Preview);
-    let real_data = logics.get_layer(ViewedMapLayer::RealTopography);
-    let cont_data = logics.get_layer(ViewedMapLayer::Continents);
-    let climate_data = logics.get_layer(ViewedMapLayer::Climate);
+    let mut preview_data = logics.pop_layer(MapDataLayer::Preview);
+    let real_data = logics.get_layer(MapDataLayer::RealTopography);
+    let cont_data = logics.get_layer(MapDataLayer::Continents);
+    let climate_data = logics.get_layer(MapDataLayer::Climate);
 
     let height_levels = config.general.height_levels as f32;
     let highest = match config.general.topo_display {
@@ -98,34 +99,25 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Vi
     }
 
     // Set new layer data.
-    logics.put_layer(ViewedMapLayer::Preview, preview_data);
+    logics.put_layer(MapDataLayer::Preview, preview_data);
 
-    vec![ViewedMapLayer::Preview]
+    vec![MapDataLayer::Preview]
 }
 
 /// Generate continental data.
-fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
+fn generate_continents(
+    logics: &mut MapLogicData,
+    config: &SessionConfig,
+    layer: MapDataLayer,
+) -> Vec<MapDataLayer> {
     // Move out layer data.
-    let mut cont_data = logics.pop_layer(ViewedMapLayer::Continents);
+    let mut cont_data = logics.pop_layer(layer);
     // Get relevant config info.
-    let algorithm = &config.continents.algorithm;
     let model = &config.general.world_model;
-
-    let (use_influence, influence_strength) = match &config.continents.influence_map_type {
-        InfluenceShape::None(_) => (false, 0.0),
-        InfluenceShape::Circle(x) => (true, x.influence_map_strength),
-        InfluenceShape::Strip(x) => (true, x.influence_map_strength),
-        InfluenceShape::Fbm(x) => (true, x.influence_map_strength),
-        InfluenceShape::FromImage(x) => (true, x.influence_map_strength),
-    };
-
     // Run the noise algorithm to obtain height data for continental discrimination.
-    fill_noise(&mut cont_data, model, algorithm);
+    fill_with_algorithm(&mut cont_data, model, &config.continents);
     // Apply the influence map if requested.
-    if use_influence {
-        let map_data = logics.get_layer(ViewedMapLayer::ContinentsInfluence);
-        apply_influence(&mut cont_data, map_data, influence_strength);
-    }
+    handle_influence(&mut cont_data, logics, layer, &config.continents);
     // Globally set the ocean tiles with no flooding.
     if config.continents.sea_level.is_zero() {
         for value in &mut cont_data {
@@ -143,60 +135,85 @@ fn generate_continents(logics: &mut MapLogicData, config: &SessionConfig) -> Vec
     }
 
     // Set new layer data.
-    logics.put_layer(ViewedMapLayer::Continents, cont_data);
+    logics.put_layer(layer, cont_data);
 
-    vec![ViewedMapLayer::Continents]
+    vec![layer]
 }
 
-/// Generate topography data.
-fn generate_topography(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
+/// A generic generation routine.
+fn generate_generic(
+    logics: &mut MapLogicData,
+    config: impl AsRef<NoiseAlgorithm> + AsRef<InfluenceShape>,
+    model: &WorldModel,
+    layer: MapDataLayer,
+) -> Vec<MapDataLayer> {
     // Move out layer data.
-    let mut topo_data = logics.pop_layer(ViewedMapLayer::Topography);
-    // Get relevant config info.
-    let algorithm = &config.topography.algorithm;
-    let model = &config.general.world_model;
-
-    let (use_influence, influence_strength) = match &config.topography.influence_map_type {
-        InfluenceShape::None(_) => (false, 0.0),
-        InfluenceShape::Circle(x) => (true, x.influence_map_strength),
-        InfluenceShape::Strip(x) => (true, x.influence_map_strength),
-        InfluenceShape::Fbm(x) => (true, x.influence_map_strength),
-        InfluenceShape::FromImage(x) => (true, x.influence_map_strength),
-    };
-
+    let mut data = logics.pop_layer(layer);
     // Run the noise algorithm for map topography (height data).
-    fill_noise(&mut topo_data, model, algorithm);
+    fill_with_algorithm(&mut data, model, &config);
     // Apply the influence map if requested.
-    if use_influence {
-        let map_data = logics.get_layer(ViewedMapLayer::TopographyInfluence);
-        apply_influence(&mut topo_data, map_data, influence_strength);
-    }
+    handle_influence(&mut data, logics, layer, &config);
     // Set new layer data.
-    logics.put_layer(ViewedMapLayer::Topography, topo_data);
+    logics.put_layer(layer, data);
+    // This layer should be refreshed.
+    vec![layer]
+}
 
-    vec![ViewedMapLayer::Topography]
+fn generate_temperature(
+    logics: &mut MapLogicData,
+    config: &SessionConfig,
+    layer: MapDataLayer,
+) -> Vec<MapDataLayer> {
+    // Move out layer data.
+    let mut temp_data = logics.pop_layer(layer);
+    // Get relevant config info.
+    let model = &config.general.world_model;
+    // Run the noise algorithm for map topography (height data).
+    fill_with_algorithm(&mut temp_data, model, &config.temperature);
+    // Apply the influence map if requested.
+    handle_influence(&mut temp_data, logics, layer, &config.temperature);
+    // Set new layer data.
+    logics.put_layer(layer, temp_data);
+
+    vec![layer]
+}
+
+fn generate_humidity(
+    logics: &mut MapLogicData,
+    config: &SessionConfig,
+    layer: MapDataLayer,
+) -> Vec<MapDataLayer> {
+    // Move out layer data.
+    let mut humi_data = logics.pop_layer(layer);
+    // Get relevant config info.
+    let model = &config.general.world_model;
+    // Run the noise algorithm for map topography (height data).
+    fill_with_algorithm(&mut humi_data, model, &config.humidity);
+    // Apply the influence map if requested.
+    handle_influence(&mut humi_data, logics, layer, &config.humidity);
+    // Set new layer data.
+    logics.put_layer(layer, humi_data);
+
+    vec![layer]
 }
 
 /// Generate FINAL topography data.
-fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<ViewedMapLayer> {
+fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
     // Move out layer data.
-    let mut real_data = logics.pop_layer(ViewedMapLayer::RealTopography);
-    let topo_data = logics.get_layer(ViewedMapLayer::Topography);
-    let filter_data = logics.get_layer(ViewedMapLayer::TopographyFilter);
-
-    for i in 0..real_data.len() {
-        real_data[i] = (topo_data[i] as f32 * ((255 - filter_data[i]) as f32 / 255.0)) as u8;
-    }
-
+    let mut real_data = logics.pop_layer(MapDataLayer::RealTopography);
+    let topo_data = logics.get_layer(MapDataLayer::Topography);
+    let filter_data = logics.get_layer(MapDataLayer::TopographyFilter);
+    // Little trick: topography filter is basically an influence layer.
+    apply_influence_from_src(&mut real_data, &topo_data, &filter_data, 1.0);
     // Set new layer data.
-    logics.put_layer(ViewedMapLayer::RealTopography, real_data);
+    logics.put_layer(MapDataLayer::RealTopography, real_data);
 
-    vec![ViewedMapLayer::RealTopography]
+    vec![MapDataLayer::RealTopography]
 }
 
 /// Generate beach smoothing topography filter.
-fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<ViewedMapLayer> {
-    let mut filter_data = logics.pop_layer(ViewedMapLayer::TopographyFilter);
+fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<MapDataLayer> {
+    let mut filter_data = logics.pop_layer(MapDataLayer::TopographyFilter);
     filter_data.fill(0);
 
     let kernel: i32 = config.topography.coastal_erosion as i32;
@@ -204,7 +221,7 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfi
         return vec![];
     }
 
-    let cont_data = logics.get_layer(ViewedMapLayer::Continents);
+    let cont_data = logics.get_layer(MapDataLayer::Continents);
 
     match &config.general.world_model {
         WorldModel::Flat(x) => {
@@ -228,7 +245,7 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfi
                                 }
                             }
                         }
-                        filter_data[i] = (value * multiplier * 2).min(255) as u8;
+                        filter_data[i] = 255 - (value * multiplier * 2).min(255) as u8;
                     };
                 }
             }
@@ -237,21 +254,41 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfi
     }
 
     // Set new layer data.
-    logics.put_layer(ViewedMapLayer::TopographyFilter, filter_data);
+    logics.put_layer(MapDataLayer::TopographyFilter, filter_data);
 
-    vec![ViewedMapLayer::TopographyFilter]
+    vec![MapDataLayer::TopographyFilter]
 }
 
 /// Generate an influence map for a layer with a given influence shape.
 fn generate_influence(
     logics: &mut MapLogicData,
-    shape: &InfluenceShape,
+    shape: impl AsRef<InfluenceShape>,
     model: &WorldModel,
-    layer: ViewedMapLayer,
-) -> Vec<ViewedMapLayer> {
+    layer: MapDataLayer,
+) -> Vec<MapDataLayer> {
     let map_data = logics.get_layer_mut(layer);
-    fill_influence(map_data, shape, model);
+    fill_influence(map_data, shape.as_ref(), model);
     vec![layer]
+}
+
+/// Check if influence map should be applied and apply it.
+fn handle_influence(
+    data: &mut [u8],
+    logics: &mut MapLogicData,
+    layer: MapDataLayer,
+    config: impl AsRef<InfluenceShape>,
+) {
+    let (use_influence, influence_strength) = match config.as_ref() {
+        InfluenceShape::None(_) => (false, 0.0),
+        InfluenceShape::Circle(x) => (true, x.influence_map_strength),
+        InfluenceShape::Strip(x) => (true, x.influence_map_strength),
+        InfluenceShape::Fbm(x) => (true, x.influence_map_strength),
+        InfluenceShape::FromImage(x) => (true, x.influence_map_strength),
+    };
+    if use_influence {
+        let map_data = logics.get_layer(layer);
+        apply_influence(data, map_data, influence_strength);
+    }
 }
 
 /// Is this continent tile marked as water?

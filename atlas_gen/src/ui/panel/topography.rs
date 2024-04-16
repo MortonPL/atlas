@@ -1,23 +1,21 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::ui::{button, sidebar::MakeUi};
+use atlas_lib::ui::sidebar::MakeUi;
 
 use crate::{
-    config::{InfluenceShape, SessionConfig},
+    config::SessionConfig,
     event::EventStruct,
-    map::ViewedMapLayer,
+    map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{
-            MainPanel, MainPanelTransition, {MainPanelClimate, MainPanelContinents},
-        },
+        panel::{MainPanelContinents, MainPanelTemperature, MainPanelTransition, SidebarPanel},
     },
 };
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelTopography;
 
-impl MainPanel for MainPanelTopography {
+impl SidebarPanel for MainPanelTopography {
     fn show(
         &mut self,
         ui: &mut Ui,
@@ -26,30 +24,23 @@ impl MainPanel for MainPanelTopography {
         events: &mut EventStruct,
     ) {
         config.topography.make_ui(ui);
-
-        if !matches!(config.topography.influence_map_type, InfluenceShape::None(_))
-            && button(ui, "Generate Influence Map")
-        {
-            events.generate_request = Some(ViewedMapLayer::TopographyInfluence);
-        }
-        if button(ui, "Generate Layer") {
-            events.generate_request = Some(self.get_layer());
-        }
+        self.button_influence(ui, events, &config.topography.influence_shape);
+        self.button_layer(ui, events);
     }
 
     fn get_heading(&self) -> &'static str {
         "Topography"
     }
 
-    fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Topography
+    fn get_layer(&self) -> MapDataLayer {
+        MapDataLayer::Topography
     }
 
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
         match transition {
             MainPanelTransition::None => Box::new(*self),
             MainPanelTransition::Previous => Box::<MainPanelContinents>::default(),
-            MainPanelTransition::Next => Box::<MainPanelClimate>::default(),
+            MainPanelTransition::Next => Box::<MainPanelTemperature>::default(),
         }
     }
 }

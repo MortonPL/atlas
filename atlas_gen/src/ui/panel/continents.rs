@@ -1,21 +1,21 @@
 use bevy_egui::egui::Ui;
 
-use atlas_lib::ui::{button, sidebar::MakeUi};
+use atlas_lib::ui::sidebar::MakeUi;
 
 use crate::{
-    config::{InfluenceShape, SessionConfig},
+    config::SessionConfig,
     event::EventStruct,
-    map::ViewedMapLayer,
+    map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{MainPanel, MainPanelGeneral, MainPanelTopography, MainPanelTransition},
+        panel::{MainPanelGeneral, MainPanelTopography, MainPanelTransition, SidebarPanel},
     },
 };
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelContinents;
 
-impl MainPanel for MainPanelContinents {
+impl SidebarPanel for MainPanelContinents {
     fn show(
         &mut self,
         ui: &mut Ui,
@@ -24,27 +24,19 @@ impl MainPanel for MainPanelContinents {
         events: &mut EventStruct,
     ) {
         config.continents.make_ui(ui);
-
-        if !matches!(config.continents.influence_map_type, InfluenceShape::None(_))
-            && button(ui, "Generate Influence Map")
-        {
-            events.generate_request = Some(ViewedMapLayer::ContinentsInfluence);
-        }
-
-        if button(ui, "Generate Layer") {
-            events.generate_request = Some(self.get_layer());
-        }
+        self.button_influence(ui, events, &config.continents.influence_shape);
+        self.button_layer(ui, events);
     }
 
     fn get_heading(&self) -> &'static str {
         "Continents"
     }
 
-    fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Continents
+    fn get_layer(&self) -> MapDataLayer {
+        MapDataLayer::Continents
     }
 
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
         match transition {
             MainPanelTransition::None => Box::new(*self),
             MainPanelTransition::Previous => Box::<MainPanelGeneral>::default(),

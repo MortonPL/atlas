@@ -38,15 +38,13 @@ impl Plugin for MapPlugin {
     }
 }
 
-/// Which layer is currently visible in the viewport.
+/// A map layer containing some sort of data.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiEditableEnum)]
-pub enum ViewedMapLayer {
+pub enum MapDataLayer {
     #[default]
     Preview,
     Continents,
-    ContinentsInfluence,
     Topography,
-    TopographyInfluence,
     Temperature,
     Humidity,
     Climate,
@@ -57,23 +55,53 @@ pub enum ViewedMapLayer {
     RealTopography,
     //#[invisible] // DEBUG
     TopographyFilter,
+    // Influence
+    ContinentsInfluence,
+    TopographyInfluence,
+    TemperatureInfluence,
+    HumidityInfluence,
 }
 
-/// Array of all [`ViewedMapLayer`] variants.
-const VIEWED_MAP_LAYERS: [ViewedMapLayer; 13] = [
-    ViewedMapLayer::Preview,
-    ViewedMapLayer::Continents,
-    ViewedMapLayer::ContinentsInfluence,
-    ViewedMapLayer::Topography,
-    ViewedMapLayer::TopographyInfluence,
-    ViewedMapLayer::Temperature,
-    ViewedMapLayer::Humidity,
-    ViewedMapLayer::Climate,
-    ViewedMapLayer::Fertility,
-    ViewedMapLayer::Resource,
-    ViewedMapLayer::Richness,
-    ViewedMapLayer::RealTopography,
-    ViewedMapLayer::TopographyFilter,
+impl MapDataLayer {
+    pub fn get_influence_layer(&self) -> Option<Self> {
+        match self {
+            MapDataLayer::Preview => None,
+            MapDataLayer::Continents => Some(MapDataLayer::ContinentsInfluence),
+            MapDataLayer::Topography => Some(MapDataLayer::TopographyInfluence),
+            MapDataLayer::Temperature => Some(MapDataLayer::TemperatureInfluence),
+            MapDataLayer::Humidity => Some(MapDataLayer::HumidityInfluence),
+            MapDataLayer::Climate => None,
+            MapDataLayer::Fertility => todo!(),
+            MapDataLayer::Resource => todo!(),
+            MapDataLayer::Richness => todo!(),
+            MapDataLayer::RealTopography => None,
+            MapDataLayer::TopographyFilter => None,
+            MapDataLayer::ContinentsInfluence => Some(MapDataLayer::ContinentsInfluence),
+            MapDataLayer::TopographyInfluence => Some(MapDataLayer::TopographyInfluence),
+            MapDataLayer::TemperatureInfluence => Some(MapDataLayer::TemperatureInfluence),
+            MapDataLayer::HumidityInfluence => Some(MapDataLayer::HumidityInfluence),
+        }
+    }
+}
+
+/// Array of all [`MapDataLayer`] variants.
+const MAP_DATA_LAYERS: [MapDataLayer; 15] = [
+    MapDataLayer::Preview,
+    MapDataLayer::Continents,
+    MapDataLayer::Topography,
+    MapDataLayer::Temperature,
+    MapDataLayer::Humidity,
+    MapDataLayer::Climate,
+    MapDataLayer::Fertility,
+    MapDataLayer::Resource,
+    MapDataLayer::Richness,
+    MapDataLayer::RealTopography,
+    MapDataLayer::TopographyFilter,
+    // Influence
+    MapDataLayer::ContinentsInfluence,
+    MapDataLayer::TopographyInfluence,
+    MapDataLayer::TemperatureInfluence,
+    MapDataLayer::HumidityInfluence,
 ];
 
 /// Startup system
@@ -94,7 +122,7 @@ fn startup_layers(
     });
     graphics.empty_material = empty_material;
     // Initialize all graphic and logical map layers.
-    for layer in VIEWED_MAP_LAYERS {
+    for layer in MAP_DATA_LAYERS {
         let material = materials.add(StandardMaterial {
             base_color_texture: Some(images.add(empty_texture.clone())),
             unlit: true,

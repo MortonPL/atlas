@@ -14,8 +14,8 @@ use atlas_lib::ui::{
 use crate::{
     config::{load_config, load_image, save_config, SessionConfig},
     event::EventStruct,
-    map::ViewedMapLayer,
-    ui::panel::{MainPanel, MainPanelTransition},
+    map::MapDataLayer,
+    ui::panel::{MainPanelTransition, SidebarPanel},
 };
 
 /// Default sidebar width in points. Should be greater or equal to [SIDEBAR_MIN_WIDTH].
@@ -38,9 +38,9 @@ enum FileDialogMode {
     /// Load generator configuration to TOML file.
     LoadConfig,
     /// Save generation layer output to PNG file.
-    SaveImage(ViewedMapLayer),
+    SaveImage(MapDataLayer),
     /// Load generation layer output from PNG file.
-    LoadImage(ViewedMapLayer),
+    LoadImage(MapDataLayer),
 }
 
 /// Struct that contains only the UI-related state (no logic).
@@ -49,13 +49,13 @@ pub struct UiState {
     pub viewport_size: bevy::prelude::Vec2,
     file_dialog: Option<egui_file::FileDialog>,
     file_dialog_mode: FileDialogMode,
-    current_layer: ViewedMapLayer,
+    current_layer: MapDataLayer,
 }
 
 /// Currently viewed sidebar panel.
 #[derive(Default, Resource)]
 pub struct UiStatePanel {
-    current_panel: Box<dyn MainPanel + Sync + Send>,
+    current_panel: Box<dyn SidebarPanel + Sync + Send>,
 }
 
 /// Add the entire UI.
@@ -274,7 +274,7 @@ fn file_dialog_save_config(path: &Path, config: &mut ResMut<SessionConfig>) {
 /// Load a layer image and send an event.
 fn file_dialog_load_image(
     path: &Path,
-    layer: ViewedMapLayer,
+    layer: MapDataLayer,
     config: &mut ResMut<SessionConfig>,
     events: &mut EventStruct,
 ) {
@@ -284,6 +284,6 @@ fn file_dialog_load_image(
 }
 
 /// Send and event to save a layer image.
-fn file_dialog_save_image(path: &Path, layer: ViewedMapLayer, events: &mut EventStruct) {
+fn file_dialog_save_image(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
     events.save_layer_request = Some((layer, path.into()));
 }

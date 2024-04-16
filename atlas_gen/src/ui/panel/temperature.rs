@@ -1,43 +1,46 @@
 use bevy_egui::egui::Ui;
 
+use atlas_lib::ui::sidebar::MakeUi;
+
 use crate::{
     config::SessionConfig,
     event::EventStruct,
     map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{MainPanelResources, MainPanelHumidity, MainPanelTransition, SidebarPanel},
+        panel::{MainPanelHumidity, MainPanelTopography, MainPanelTransition, SidebarPanel},
     },
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelClimate;
+pub struct MainPanelTemperature;
 
-impl SidebarPanel for MainPanelClimate {
+impl SidebarPanel for MainPanelTemperature {
     fn show(
         &mut self,
         ui: &mut Ui,
-        _config: &mut SessionConfig,
+        config: &mut SessionConfig,
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        // TODO
+        config.temperature.make_ui(ui);
+        self.button_influence(ui, events, &config.temperature.influence_shape);
         self.button_layer(ui, events);
     }
 
     fn get_heading(&self) -> &'static str {
-        "Climate"
+        "Temperature"
     }
 
     fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Climate
+        MapDataLayer::Temperature
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
         match transition {
-            MainPanelTransition::Previous => Box::<MainPanelHumidity>::default(),
             MainPanelTransition::None => Box::new(*self),
-            MainPanelTransition::Next => Box::<MainPanelResources>::default(),
+            MainPanelTransition::Previous => Box::<MainPanelTopography>::default(),
+            MainPanelTransition::Next => Box::<MainPanelHumidity>::default(),
         }
     }
 }

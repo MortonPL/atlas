@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-use super::{generation::after_generate, ViewedMapLayer};
+use super::{generation::after_generate, MapDataLayer};
 
 /// Run Condition
 ///
@@ -231,11 +231,11 @@ pub fn update_event_generate(
 ///
 /// Regenerate dependant layers.
 fn post_generation(
-    layer: ViewedMapLayer,
+    layer: MapDataLayer,
     logics: &mut MapLogicData,
     events: &mut EventStruct,
     config: &SessionConfig,
-    mut regen_layers: Vec<ViewedMapLayer>,
+    mut regen_layers: Vec<MapDataLayer>,
 ) {
     // Adjust other layers if needed.
     let regen_layers_2 = after_generate(layer, logics, config);
