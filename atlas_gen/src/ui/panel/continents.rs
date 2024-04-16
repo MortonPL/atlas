@@ -8,7 +8,7 @@ use crate::{
     map::ViewedMapLayer,
     ui::{
         internal::UiState,
-        panel::{simple::MainPanelTopography, MainPanel, MainPanelGeneral, MainPanelTransition},
+        panel::{MainPanel, MainPanelGeneral, MainPanelTopography, MainPanelTransition},
     },
 };
 

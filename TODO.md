@@ -3,12 +3,14 @@
 - Visual event log (?)
 - Lotsa error handling
 
-- Clean up ui code
-- Split things into files better
 - Maybe loading should be moved back to each panel?
 - Reset current panel config button
 
 - Make simple climate generator
+  - temperature generator
+  - humidity generator
+  - climate assigning
+    - custom climate rules?
 - Make simple province generator
   - with resources
 

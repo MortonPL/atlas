@@ -9,8 +9,7 @@ use crate::{
     ui::{
         internal::UiState,
         panel::{
-            simple::{MainPanelClimate, MainPanelContinents},
-            MainPanel, MainPanelTransition,
+            MainPanel, MainPanelTransition, {MainPanelClimate, MainPanelContinents},
         },
     },
 };

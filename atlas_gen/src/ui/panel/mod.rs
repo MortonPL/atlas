@@ -1,7 +1,16 @@
-mod general;
 #[allow(clippy::module_inception)] // Reason: module is private anyways
 mod panel;
-pub mod simple;
+
+mod general;
+mod climate;
+mod continents;
+mod resources;
+mod topography;
 
 pub use general::*;
 pub use panel::*;
+
+use climate::*;
+use continents::*;
+use resources::*;
+use topography::*;

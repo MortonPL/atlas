@@ -6,14 +6,16 @@ use crate::{
     map::ViewedMapLayer,
     ui::{
         internal::UiState,
-        panel::{simple::MainPanelClimate, MainPanel, MainPanelTransition},
+        panel::{
+            MainPanel, MainPanelTransition, {MainPanelResources, MainPanelTopography},
+        },
     },
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelResources;
+pub struct MainPanelClimate;
 
-impl MainPanel for MainPanelResources {
+impl MainPanel for MainPanelClimate {
     fn show(
         &mut self,
         _ui: &mut Ui,
@@ -25,17 +27,18 @@ impl MainPanel for MainPanelResources {
     }
 
     fn get_heading(&self) -> &'static str {
-        "Resources"
+        "Climate"
     }
 
     fn get_layer(&self) -> ViewedMapLayer {
-        ViewedMapLayer::Resource
+        ViewedMapLayer::Climate
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn MainPanel + Sync + Send> {
         match transition {
-            MainPanelTransition::Previous => Box::<MainPanelClimate>::default(),
-            _ => Box::new(*self),
+            MainPanelTransition::Previous => Box::<MainPanelTopography>::default(),
+            MainPanelTransition::None => Box::new(*self),
+            MainPanelTransition::Next => Box::<MainPanelResources>::default(),
         }
     }
 }
