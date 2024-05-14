@@ -66,10 +66,12 @@ fn update_ui(
 /// Handle user input
 fn update_input(
     kb: Res<Input<KeyCode>>,
-    mouse: EventReader<MouseWheel>,
+    mouse_wheel: EventReader<MouseWheel>,
+    window: Query<&Window>,
     mut cameras: Query<&mut Transform, With<MainCamera>>,
+    ui_state: Res<UiState>,
 ) {
-    handle_camera(kb, mouse, &mut cameras.single_mut());
+    handle_camera(kb, mouse_wheel, window.single(), &mut cameras.single_mut(), &ui_state);
 }
 
 /// Update system (after [update_ui]).

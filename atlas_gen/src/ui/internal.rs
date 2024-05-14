@@ -93,17 +93,23 @@ pub fn create_ui(
 /// Handle camera movement/zoom inputs.
 pub fn handle_camera(
     kb: Res<Input<KeyCode>>,
-    mut mouse: EventReader<MouseWheel>,
+    mut mouse_wheel: EventReader<MouseWheel>,
+    window: &Window,
     camera: &mut Mut<Transform>,
+    ui_state: &UiState,
 ) {
-    let scroll = if let Some(event) = mouse.read().next() {
-        match event.unit {
-            MouseScrollUnit::Line => event.y,
-            MouseScrollUnit::Pixel => event.y * 2.0,
+    let mut scroll = 0.0;
+    // Don't scroll with mouse if it's not inside the viewport.
+    if let Some(event) = mouse_wheel.read().next() {
+        if let Some(cursor) = window.cursor_position() {
+            if (cursor[0] <= ui_state.viewport_size[0]) && (cursor[1] <= ui_state.viewport_size[1]) {
+                match event.unit {
+                    MouseScrollUnit::Line => scroll = event.y,
+                    MouseScrollUnit::Pixel => scroll = event.y * 2.0,
+                }
+            }
         }
-    } else {
-        0.0
-    };
+    }
     let mut z = camera.translation.z;
     // Zoom in.
     if kb.pressed(KeyCode::Equals) || (scroll > 0.0) {
@@ -172,21 +178,23 @@ fn create_current_panel(
 ) {
     // Panel heading and content.
     ui.heading(ui_panel.current_panel.get_heading());
-    egui::ScrollArea::both().show(ui, |ui| ui_panel.current_panel.show(ui, config, ui_state, events));
-    // Previous/Next buttons and panel transitioning.
-    ui.separator();
-    ui.horizontal(|ui| {
-        let transition = match (button(ui, "Previous"), button(ui, "Next")) {
-            (true, _) => MainPanelTransition::Previous,
-            (false, true) => MainPanelTransition::Next,
-            _ => MainPanelTransition::None,
-        };
-        ui_panel.current_panel = ui_panel.current_panel.transition(transition);
-        if transition != MainPanelTransition::None {
-            let layer = ui_panel.current_panel.get_layer();
-            events.viewed_layer_changed = Some(layer);
-            ui_state.current_layer = layer;
-        }
+    egui::ScrollArea::both().show(ui, |ui| {
+        ui_panel.current_panel.show(ui, config, ui_state, events);
+        // Previous/Next buttons and panel transitioning.
+        ui.separator();
+        ui.horizontal(|ui| {
+            let transition = match (button(ui, "Previous"), button(ui, "Next")) {
+                (true, _) => MainPanelTransition::Previous,
+                (false, true) => MainPanelTransition::Next,
+                _ => MainPanelTransition::None,
+            };
+            ui_panel.current_panel = ui_panel.current_panel.transition(transition);
+            if transition != MainPanelTransition::None {
+                let layer = ui_panel.current_panel.get_layer();
+                events.viewed_layer_changed = Some(layer);
+                ui_state.current_layer = layer;
+            }
+        });
     });
 }
 

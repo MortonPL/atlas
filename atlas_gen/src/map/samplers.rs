@@ -213,6 +213,22 @@ where
     }
 }
 
+pub fn add_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl AsRef<NoiseAlgorithm>, strength: f32) {
+    if strength.is_zero() {
+        return;
+    }
+    match algorithm.as_ref() {
+        NoiseAlgorithm::Perlin(config) => sample_add(data, FbmSampler::<Perlin>::new(config), model, strength),
+        NoiseAlgorithm::OpenSimplex(config) => {
+            sample_add(data, FbmSampler::<OpenSimplex>::new(config), model, strength)
+        }
+        NoiseAlgorithm::SuperSimplex(config) => {
+            sample_add(data, FbmSampler::<SuperSimplex>::new(config), model, strength)
+        }
+        NoiseAlgorithm::FromImage(_) => { /* Do nothing. */ }
+    }
+}
+
 /// Fill a data layer with specified noise algorithm.
 pub fn fill_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl AsRef<NoiseAlgorithm>) {
     match algorithm.as_ref() {
@@ -307,6 +323,32 @@ pub fn apply_influence_from_src(dest: &mut [u8], src: &[u8], influence: &[u8], m
                 } as u8;
             }
         }
+    }
+}
+
+fn sample_add<T>(data: &mut [u8], sampler: T, model: &WorldModel, strength: f32)
+where
+    T: Sampler,
+{
+    match model {
+        WorldModel::Flat(flat) => {
+            let width = flat.world_size[0] as i32;
+            let height = flat.world_size[1] as i32;
+            // NOTE: Not respected by FbmSampler.
+            let origin = Vec2::new(width as f32 / 2.0, height as f32 / 2.0);
+            // NOTE: Only respected by FbmSampler.
+            let scale = f32::sqrt((width * height) as f32);
+            let sampler = sampler.offset_origin(origin).set_scale(scale);
+            for y in 0..height {
+                for x in 0..width {
+                    let i = (y * width + x) as usize;
+                    let p = Vec2::new(x as f32, y as f32);
+                    let value = (sampler.sample(p) * 255f32 * strength) as u8;
+                    data[i] = data[i].saturating_add(value);
+                }
+            }
+        }
+        WorldModel::Globe(_) => todo!(), // TODO
     }
 }
 

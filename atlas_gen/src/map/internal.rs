@@ -165,7 +165,7 @@ pub fn png_to_data(data: Vec<u8>, layer: MapDataLayer) -> Vec<u8> {
         MapDataLayer::TemperatureInfluence => extract_monochrome(data),
         MapDataLayer::Humidity => extract_monochrome(data),
         MapDataLayer::HumidityInfluence => extract_monochrome(data),
-        MapDataLayer::Climate => todo!(),   // TODO
+        MapDataLayer::Climate => climate_from_png(data),
         MapDataLayer::Fertility => todo!(), // TODO
         MapDataLayer::Resource => todo!(),  // TODO
         MapDataLayer::Richness => todo!(),  // TODO
@@ -193,7 +193,7 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
         MapDataLayer::TemperatureInfluence => expand_monochrome(data),
         MapDataLayer::Humidity => expand_monochrome(data),
         MapDataLayer::HumidityInfluence => expand_monochrome(data),
-        MapDataLayer::Climate => todo!(),   // TODO
+        MapDataLayer::Climate => climate_to_png(data),
         MapDataLayer::Fertility => todo!(), // TODO
         MapDataLayer::Resource => todo!(),  // TODO
         MapDataLayer::Richness => todo!(),  // TODO

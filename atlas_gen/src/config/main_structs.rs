@@ -131,7 +131,29 @@ impl AsRef<NoiseAlgorithm> for TopographyConfig {
 /// Config for the temperature generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct TemperatureConfig {
-    #[name("Algorithm")]
+    #[name("Temperature At South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub south_value: u8,
+    #[name("Temperature At Equator")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub equator_value: u8,
+    #[name("Temperature At North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub north_value: u8,
+    #[name("Temperature Drop Per Height Unit")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10.0))]
+    #[add(speed(0.1))]
+    pub drop_per_height: f32,
+    #[name("Noise Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub algorithm_strength: f32,
+    #[name("Noise Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
     #[name("Influence Shape")]
@@ -142,6 +164,11 @@ pub struct TemperatureConfig {
 impl Default for TemperatureConfig {
     fn default() -> Self {
         Self {
+            south_value: 60,
+            equator_value: 130,
+            north_value: 80,
+            drop_per_height: 0.1,
+            algorithm_strength: 0.1,
             algorithm: Default::default(),
             influence_shape: Default::default(),
         }
@@ -163,6 +190,44 @@ impl AsRef<NoiseAlgorithm> for TemperatureConfig {
 /// Config for the humidity generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct HumidityConfig {
+    #[name("Humidity At South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub south_value: u8,
+    #[name("Humidity At 46 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub south_temperate_value: u8,
+    #[name("Humidity At 23 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub south_tropic_value: u8,
+    #[name("Humidity At Equator")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub equator_value: u8,
+    #[name("Humidity At 23 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub north_tropic_value: u8,
+    #[name("Humidity At 46 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub north_temperate_value: u8,
+    #[name("Humidity At North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0..=255))]
+    pub north_value: u8,
+    #[name("Humidity Drop Per Height Unit")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10.0))]
+    #[add(speed(0.1))]
+    pub drop_per_height: f32,
+    #[name("Noise Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub algorithm_strength: f32,
     #[name("Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
@@ -174,6 +239,15 @@ pub struct HumidityConfig {
 impl Default for HumidityConfig {
     fn default() -> Self {
         Self {
+            south_value: 128,
+            south_temperate_value: 200,
+            south_tropic_value: 25,
+            equator_value: 230,
+            north_tropic_value: 25,
+            north_temperate_value: 200,
+            north_value: 128,
+            drop_per_height: 0.1,
+            algorithm_strength: 0.1,
             algorithm: Default::default(),
             influence_shape: Default::default(),
         }
