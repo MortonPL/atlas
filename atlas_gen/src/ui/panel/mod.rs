@@ -4,7 +4,7 @@ mod panel;
 mod climate;
 mod continents;
 mod general;
-mod humidity;
+mod precipitation;
 mod resources;
 mod temperature;
 mod topography;
@@ -14,7 +14,7 @@ pub use panel::*;
 
 use climate::*;
 use continents::*;
-use humidity::*;
+use precipitation::*;
 use resources::*;
 use temperature::*;
 use topography::*;

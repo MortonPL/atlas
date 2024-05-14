@@ -8,7 +8,7 @@ use crate::{
     map::MapDataLayer,
     ui::{
         internal::UiState,
-        panel::{MainPanelHumidity, MainPanelTopography, MainPanelTransition, SidebarPanel},
+        panel::{MainPanelPrecipitation, MainPanelTopography, MainPanelTransition, SidebarPanel},
     },
 };
 
@@ -40,7 +40,7 @@ impl SidebarPanel for MainPanelTemperature {
         match transition {
             MainPanelTransition::None => Box::new(*self),
             MainPanelTransition::Previous => Box::<MainPanelTopography>::default(),
-            MainPanelTransition::Next => Box::<MainPanelHumidity>::default(),
+            MainPanelTransition::Next => Box::<MainPanelPrecipitation>::default(),
         }
     }
 }

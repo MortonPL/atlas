@@ -13,9 +13,9 @@ use crate::{
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelHumidity;
+pub struct MainPanelPrecipitation;
 
-impl SidebarPanel for MainPanelHumidity {
+impl SidebarPanel for MainPanelPrecipitation {
     fn show(
         &mut self,
         ui: &mut Ui,
@@ -23,17 +23,17 @@ impl SidebarPanel for MainPanelHumidity {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        config.humidity.make_ui(ui);
-        self.button_influence(ui, events, &config.humidity.influence_shape);
+        config.precipitation.make_ui(ui);
+        self.button_influence(ui, events, &config.precipitation.influence_shape);
         self.button_layer(ui, events);
     }
 
     fn get_heading(&self) -> &'static str {
-        "Humidity"
+        "Precipitation"
     }
 
     fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Humidity
+        MapDataLayer::Precipitation
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {

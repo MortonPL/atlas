@@ -163,8 +163,8 @@ pub fn png_to_data(data: Vec<u8>, layer: MapDataLayer) -> Vec<u8> {
         MapDataLayer::TopographyInfluence => extract_monochrome(data),
         MapDataLayer::Temperature => extract_monochrome(data),
         MapDataLayer::TemperatureInfluence => extract_monochrome(data),
-        MapDataLayer::Humidity => extract_monochrome(data),
-        MapDataLayer::HumidityInfluence => extract_monochrome(data),
+        MapDataLayer::Precipitation => extract_monochrome(data),
+        MapDataLayer::PrecipitationInfluence => extract_monochrome(data),
         MapDataLayer::Climate => climate_from_png(data),
         MapDataLayer::Fertility => todo!(), // TODO
         MapDataLayer::Resource => todo!(),  // TODO
@@ -191,8 +191,8 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
         MapDataLayer::TopographyInfluence => expand_monochrome(data),
         MapDataLayer::Temperature => expand_monochrome(data),
         MapDataLayer::TemperatureInfluence => expand_monochrome(data),
-        MapDataLayer::Humidity => expand_monochrome(data),
-        MapDataLayer::HumidityInfluence => expand_monochrome(data),
+        MapDataLayer::Precipitation => expand_monochrome(data),
+        MapDataLayer::PrecipitationInfluence => expand_monochrome(data),
         MapDataLayer::Climate => climate_to_png(data),
         MapDataLayer::Fertility => todo!(), // TODO
         MapDataLayer::Resource => todo!(),  // TODO
@@ -205,15 +205,6 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
 /// Expand climate layer data to climate's assigned color.
 pub fn climate_to_hsv(data: u8) -> (f32, f32, f32) {
     (0.3, 0.9, 0.9) // TODO
-}
-
-/// Channels of an RGBA image.
-enum RgbaChannel {
-    Red,
-    Green,
-    Blue,
-    #[allow(dead_code)]
-    Alpha,
 }
 
 /// Convert an RGBA image to continents/ocean data.
@@ -241,17 +232,6 @@ fn climate_from_png(data: Vec<u8>) -> Vec<u8> {
 }
 
 /// Extract one channel from an RGBA image.
-fn extract_rgba_channel(data: Vec<u8>, channel: RgbaChannel) -> Vec<u8> {
-    let offset = match channel {
-        RgbaChannel::Red => 0,
-        RgbaChannel::Green => 1,
-        RgbaChannel::Blue => 2,
-        RgbaChannel::Alpha => 3,
-    };
-    data.into_iter().skip(offset).step_by(4).collect()
-}
-
-/// Extract one channel from an RGBA image.
 fn extract_monochrome(data: Vec<u8>) -> Vec<u8> {
     data.into_iter().step_by(4).collect()
 }
@@ -271,17 +251,10 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
 }
 
 fn climate_to_png(data: &[u8]) -> Vec<u8> {
-    let fun = |x: &u8| [0, 0, 0, 255]; // TODO
-    data.iter().flat_map(fun).collect()
-}
-
-/// Expand one channel to an RGBA image.
-fn expand_rgba_channel(data: &[u8], channel: RgbaChannel) -> Vec<u8> {
-    let fun = match channel {
-        RgbaChannel::Red => |x: &u8| [*x, 0, 0, 255],
-        RgbaChannel::Green => |x: &u8| [0, *x, 0, 255],
-        RgbaChannel::Blue => |x: &u8| [0, 0, *x, 255],
-        RgbaChannel::Alpha => |x: &u8| [0, 0, 0, *x],
+    let fun = |x: &u8| {
+        match x {
+            _ => [0, 0, 0, 255], // TODO
+        }
     };
     data.iter().flat_map(fun).collect()
 }

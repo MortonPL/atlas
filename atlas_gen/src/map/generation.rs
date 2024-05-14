@@ -21,7 +21,7 @@ pub fn generate(layer: MapDataLayer, logics: &mut MapLogicData, config: &Session
         MapDataLayer::Continents => generate_continents(logics, config, layer),
         MapDataLayer::Topography => generate_generic(logics, &config.topography, model, layer),
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
-        MapDataLayer::Humidity => generate_humidity(logics, config, layer),
+        MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
         MapDataLayer::Resource => todo!(),  // TODO
         MapDataLayer::Fertility => todo!(), // TODO
@@ -30,7 +30,9 @@ pub fn generate(layer: MapDataLayer, logics: &mut MapLogicData, config: &Session
         MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, layer),
         MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, layer),
         MapDataLayer::TemperatureInfluence => generate_influence(logics, &config.temperature, model, layer),
-        MapDataLayer::HumidityInfluence => generate_influence(logics, &config.humidity, model, layer),
+        MapDataLayer::PrecipitationInfluence => {
+            generate_influence(logics, &config.precipitation, model, layer)
+        }
         // Unreachable
         MapDataLayer::RealTopography => unreachable!(),
         MapDataLayer::TopographyFilter => unreachable!(),
@@ -58,7 +60,7 @@ pub fn after_generate(
             generate_climate(logics, config, MapDataLayer::Climate);
             vec![MapDataLayer::Climate]
         }
-        MapDataLayer::Humidity => {
+        MapDataLayer::Precipitation => {
             generate_climate(logics, config, MapDataLayer::Climate);
             vec![MapDataLayer::Climate]
         }
@@ -232,7 +234,7 @@ fn generate_temperature(
     vec![layer]
 }
 
-fn generate_humidity(
+fn generate_precipitation(
     logics: &mut MapLogicData,
     config: &SessionConfig,
     layer: MapDataLayer,
@@ -253,33 +255,33 @@ fn generate_humidity(
                     let y2 = y as f32 / height as f32;
                     let value = if y2 < 0.246 {
                         // north-temperate
-                        let range =
-                            config.humidity.north_value as f32..=config.humidity.north_temperate_value as f32;
+                        let range = config.precipitation.north_value as f32
+                            ..=config.precipitation.north_temperate_value as f32;
                         lerp(range, y2 / 0.246)
                     } else if y2 < 0.373 {
                         // temperate-tropic
-                        let range = config.humidity.north_temperate_value as f32
-                            ..=config.humidity.north_tropic_value as f32;
+                        let range = config.precipitation.north_temperate_value as f32
+                            ..=config.precipitation.north_tropic_value as f32;
                         lerp(range, (y2 - 0.246) / (0.373 - 0.246))
                     } else if y2 < 0.5 {
                         // tropic-equator
-                        let range =
-                            config.humidity.north_tropic_value as f32..=config.humidity.equator_value as f32;
+                        let range = config.precipitation.north_tropic_value as f32
+                            ..=config.precipitation.equator_value as f32;
                         lerp(range, (y2 - 0.373) / (0.5 - 0.373))
                     } else if y2 < 0.627 {
                         // equator-tropic
-                        let range =
-                            config.humidity.equator_value as f32..=config.humidity.south_tropic_value as f32;
+                        let range = config.precipitation.equator_value as f32
+                            ..=config.precipitation.south_tropic_value as f32;
                         lerp(range, (y2 - 0.5) / (0.627 - 0.5))
                     } else if y2 < 0.754 {
                         // tropic-temperate
-                        let range = config.humidity.south_tropic_value as f32
-                            ..=config.humidity.south_temperate_value as f32;
+                        let range = config.precipitation.south_tropic_value as f32
+                            ..=config.precipitation.south_temperate_value as f32;
                         lerp(range, (y2 - 0.627) / (0.754 - 0.627))
                     } else {
                         // temperate-south
-                        let range =
-                            config.humidity.south_temperate_value as f32..=config.humidity.south_value as f32;
+                        let range = config.precipitation.south_temperate_value as f32
+                            ..=config.precipitation.south_value as f32;
                         lerp(range, (y2 - 0.754) / (1.0 - 0.754))
                     };
                     humi_data[i] = value as u8;
@@ -292,19 +294,19 @@ fn generate_humidity(
     add_with_algorithm(
         &mut humi_data,
         model,
-        &config.humidity,
-        config.humidity.algorithm_strength,
+        &config.precipitation,
+        config.precipitation.algorithm_strength,
     );
     // Apply height penalty.
-    if !config.humidity.drop_per_height.is_zero() {
+    if !config.precipitation.drop_per_height.is_zero() {
         for i in 0..humi_data.len() {
-            let drop = (topo_data[i] as f32 * config.humidity.drop_per_height).min(255f32) as u8;
+            let drop = (topo_data[i] as f32 * config.precipitation.drop_per_height).min(255f32) as u8;
             humi_data[i] = humi_data[i].saturating_sub(drop);
         }
     }
     // Apply the influence map if requested.
     if let Some(inf_layer) = layer.get_influence_layer() {
-        handle_influence(&mut humi_data, logics, inf_layer, &config.humidity);
+        handle_influence(&mut humi_data, logics, inf_layer, &config.precipitation);
     }
     // Set new layer data.
     logics.put_layer(layer, humi_data);

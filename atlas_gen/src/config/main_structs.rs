@@ -12,7 +12,7 @@ pub struct SessionConfig {
     pub continents: ContinentsConfig,
     pub topography: TopographyConfig,
     pub temperature: TemperatureConfig,
-    pub humidity: HumidityConfig,
+    pub precipitation: PrecipitationConfig,
     pub climate: ClimateConfig,
     pub resources: ResourcesConfig,
 }
@@ -131,19 +131,19 @@ impl AsRef<NoiseAlgorithm> for TopographyConfig {
 /// Config for the temperature generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct TemperatureConfig {
-    #[name("Temperature At South")]
+    #[name("Temperature (C+100) At South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_value: u8,
-    #[name("Temperature At Equator")]
+    #[name("Temperature (C+100) At Equator")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub equator_value: u8,
-    #[name("Temperature At North")]
+    #[name("Temperature (C+100) At North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_value: u8,
-    #[name("Temperature Drop Per Height Unit")]
+    #[name("Temperature (C+100) Drop Per Height Unit")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10.0))]
     #[add(speed(0.1))]
@@ -187,38 +187,38 @@ impl AsRef<NoiseAlgorithm> for TemperatureConfig {
     }
 }
 
-/// Config for the humidity generation.
+/// Config for the precipitation generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct HumidityConfig {
-    #[name("Humidity At South")]
+pub struct PrecipitationConfig {
+    #[name("Precipitation (x40mm) At South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_value: u8,
-    #[name("Humidity At 46 Degrees South")]
+    #[name("Precipitation (x40mm) At 46 Degrees South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_temperate_value: u8,
-    #[name("Humidity At 23 Degrees South")]
+    #[name("Precipitation (x40mm) At 23 Degrees South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_tropic_value: u8,
-    #[name("Humidity At Equator")]
+    #[name("Precipitation (x40mm) At Equator")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub equator_value: u8,
-    #[name("Humidity At 23 Degrees North")]
+    #[name("Precipitation (x40mm) At 23 Degrees North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_tropic_value: u8,
-    #[name("Humidity At 46 Degrees North")]
+    #[name("Precipitation (x40mm) At 46 Degrees North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_temperate_value: u8,
-    #[name("Humidity At North")]
+    #[name("Precipitation (x40mm) At North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_value: u8,
-    #[name("Humidity Drop Per Height Unit")]
+    #[name("Precipitation (x40mm) Drop Per Height Unit")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10.0))]
     #[add(speed(0.1))]
@@ -236,7 +236,7 @@ pub struct HumidityConfig {
     pub influence_shape: InfluenceShape,
 }
 
-impl Default for HumidityConfig {
+impl Default for PrecipitationConfig {
     fn default() -> Self {
         Self {
             south_value: 128,
@@ -254,21 +254,44 @@ impl Default for HumidityConfig {
     }
 }
 
-impl AsRef<InfluenceShape> for HumidityConfig {
+impl AsRef<InfluenceShape> for PrecipitationConfig {
     fn as_ref(&self) -> &InfluenceShape {
         &self.influence_shape
     }
 }
 
-impl AsRef<NoiseAlgorithm> for HumidityConfig {
+impl AsRef<NoiseAlgorithm> for PrecipitationConfig {
     fn as_ref(&self) -> &NoiseAlgorithm {
         &self.algorithm
     }
 }
 
 /// Config for the climate generation.
+#[derive(Debug, Deserialize, Resource, Serialize)]
+pub struct ClimateConfig {
+    pub climates: Vec<SingleClimateConfig>,
+}
+
+impl Default for ClimateConfig {
+    fn default() -> Self {
+        Self {
+            climates: vec![SingleClimateConfig {
+                name: "Subtropical Desert".to_string(),
+                temperature: [103, 255],
+                precipitation: [0, 64],
+                color: [255, 200, 0],
+            }],
+        }
+    }
+}
+
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct ClimateConfig {}
+pub struct SingleClimateConfig {
+    pub name: String,
+    pub temperature: [u8; 2],
+    pub precipitation: [u8; 2],
+    pub color: [u8; 3],
+}
 
 /// Config for the resource generation.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]

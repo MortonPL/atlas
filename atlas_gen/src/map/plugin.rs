@@ -46,7 +46,7 @@ pub enum MapDataLayer {
     Continents,
     Topography,
     Temperature,
-    Humidity,
+    Precipitation,
     Climate,
     Fertility,
     Resource,
@@ -59,7 +59,7 @@ pub enum MapDataLayer {
     ContinentsInfluence,
     TopographyInfluence,
     TemperatureInfluence,
-    HumidityInfluence,
+    PrecipitationInfluence,
 }
 
 impl MapDataLayer {
@@ -69,7 +69,7 @@ impl MapDataLayer {
             MapDataLayer::Continents => Some(MapDataLayer::ContinentsInfluence),
             MapDataLayer::Topography => Some(MapDataLayer::TopographyInfluence),
             MapDataLayer::Temperature => Some(MapDataLayer::TemperatureInfluence),
-            MapDataLayer::Humidity => Some(MapDataLayer::HumidityInfluence),
+            MapDataLayer::Precipitation => Some(MapDataLayer::PrecipitationInfluence),
             MapDataLayer::Climate => None,
             MapDataLayer::Fertility => todo!(),
             MapDataLayer::Resource => todo!(),
@@ -79,7 +79,7 @@ impl MapDataLayer {
             MapDataLayer::ContinentsInfluence => Some(MapDataLayer::ContinentsInfluence),
             MapDataLayer::TopographyInfluence => Some(MapDataLayer::TopographyInfluence),
             MapDataLayer::TemperatureInfluence => Some(MapDataLayer::TemperatureInfluence),
-            MapDataLayer::HumidityInfluence => Some(MapDataLayer::HumidityInfluence),
+            MapDataLayer::PrecipitationInfluence => Some(MapDataLayer::PrecipitationInfluence),
         }
     }
 }
@@ -90,7 +90,7 @@ const MAP_DATA_LAYERS: [MapDataLayer; 15] = [
     MapDataLayer::Continents,
     MapDataLayer::Topography,
     MapDataLayer::Temperature,
-    MapDataLayer::Humidity,
+    MapDataLayer::Precipitation,
     MapDataLayer::Climate,
     MapDataLayer::Fertility,
     MapDataLayer::Resource,
@@ -101,7 +101,7 @@ const MAP_DATA_LAYERS: [MapDataLayer; 15] = [
     MapDataLayer::ContinentsInfluence,
     MapDataLayer::TopographyInfluence,
     MapDataLayer::TemperatureInfluence,
-    MapDataLayer::HumidityInfluence,
+    MapDataLayer::PrecipitationInfluence,
 ];
 
 /// Startup system
