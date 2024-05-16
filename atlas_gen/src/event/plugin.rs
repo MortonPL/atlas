@@ -13,7 +13,7 @@ impl Plugin for EventPlugin {
     }
 }
 
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct EventStruct {
     /// The world model in the config has been changed.
     pub world_model_changed: Option<WorldModel>,
@@ -23,10 +23,30 @@ pub struct EventStruct {
     pub load_layer_request: Option<(MapDataLayer, Vec<u8>)>,
     /// A map layer should be saved to file.
     pub save_layer_request: Option<(MapDataLayer, Box<Path>)>,
+    /// A map layer should be rendered to file.
+    pub render_layer_request: Option<(MapDataLayer, Box<Path>)>,
     /// A map layer should be reset to empty.
     pub reset_layer_request: Option<MapDataLayer>,
     /// Some map layer textures should be regenerated.
     pub regen_layer_request: Option<Vec<MapDataLayer>>,
     /// This map layer requests data generation.
     pub generate_request: Option<MapDataLayer>,
+    /// "climatemap.png" should be reloaded.
+    pub load_climatemap_request: Option<()>,
+}
+
+impl Default for EventStruct {
+    fn default() -> Self {
+        Self {
+            world_model_changed: Default::default(),
+            viewed_layer_changed: Default::default(),
+            load_layer_request: Default::default(),
+            save_layer_request: Default::default(),
+            render_layer_request: Default::default(),
+            reset_layer_request: Default::default(),
+            regen_layer_request: Default::default(),
+            generate_request: Default::default(),
+            load_climatemap_request: Some(()),
+        }
+    }
 }

@@ -4,15 +4,14 @@ use crate::{
     config::{save_image, SessionConfig, WorldModel},
     event::EventStruct,
     map::{
-        generation::generate,
+        generation::{after_generate, generate},
         internal::{
-            data_to_png, get_material, get_material_mut, make_image, png_to_data, CurrentWorldModel,
-            MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
+            data_to_png, data_to_view, get_material, get_material_mut, make_image, png_to_data,
+            CurrentWorldModel, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
         },
+        MapDataLayer,
     },
 };
-
-use super::{generation::after_generate, MapDataLayer};
 
 /// Run Condition
 ///
@@ -112,7 +111,7 @@ pub fn update_event_regen(
     let layers = events.regen_layer_request.take().expect("Always Some");
     for layer in layers {
         // Convert logical data to image data.
-        let mut data = data_to_png(&logics, layer);
+        let mut data = data_to_view(&logics, layer, &config);
         // Fetch handles.
         let layer = graphics.get_layer_mut(layer);
         let material = get_material_mut(&mut materials, &layer.material);
@@ -129,7 +128,7 @@ pub fn update_event_regen(
 
 /// Run condition
 ///
-/// Check if "load layer image" event needs handling.
+/// Check if "load layer data" event needs handling.
 pub fn check_event_loaded(events: Res<EventStruct>) -> bool {
     events.load_layer_request.is_some()
 }
@@ -153,22 +152,43 @@ pub fn update_event_loaded(
 
 /// Run condition
 ///
-/// Check if "save layer image" event needs handling.
+/// Check if "save layer data" event needs handling.
 pub fn check_event_saved(events: Res<EventStruct>) -> bool {
     events.save_layer_request.is_some()
 }
 
 /// Update system
 ///
-/// Save new layer data.
+/// Save layer data.
 pub fn update_event_saved(
+    mut events: ResMut<EventStruct>,
+    logics: Res<MapLogicData>,
+    config: Res<SessionConfig>,
+) {
+    let (layer, path) = events.render_layer_request.take().expect("Always Some");
+    let image = data_to_png(&logics, layer);
+    let (width, height) = config.general.world_model.get_dimensions();
+    save_image(path, &image, width, height).unwrap(); // TODO error handling
+}
+
+/// Run condition
+///
+/// Check if "save layer image" event needs handling.
+pub fn check_event_rendered(events: Res<EventStruct>) -> bool {
+    events.render_layer_request.is_some()
+}
+
+/// Update system
+///
+/// Save visual layer data.
+pub fn update_event_rendered(
     mut events: ResMut<EventStruct>,
     config: Res<SessionConfig>,
     mut graphics: ResMut<MapGraphicsData>,
     images: Res<Assets<Image>>,
     materials: Res<Assets<StandardMaterial>>,
 ) {
-    let (layer, path) = events.save_layer_request.take().expect("Always Some");
+    let (layer, path) = events.render_layer_request.take().expect("Always Some");
     let layer = graphics.get_layer_mut(layer);
     // Don't try to save an invalid layer.
     if layer.invalid {
@@ -225,6 +245,21 @@ pub fn update_event_generate(
     let regen_layers = generate(layer, &mut logics, &config);
     // Handle post generation.
     post_generation(layer, &mut logics, &mut events, &config, regen_layers);
+}
+
+/// Run condition
+///
+/// Check if "reload climatemap.png" event needs handling.
+pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
+    events.load_climatemap_request.is_some()
+}
+
+/// Update system
+///
+/// Reload climatemap.png.
+pub fn update_event_climatemap(mut events: ResMut<EventStruct>, mut logics: ResMut<MapLogicData>) {
+    events.load_climatemap_request.take();
+    logics.load_climatemap();
 }
 
 /// Helper function

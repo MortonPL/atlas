@@ -7,9 +7,10 @@ use crate::{
     event::EventStruct,
     map::{
         events::{
-            check_event_changed, check_event_generate, check_event_loaded, check_event_regen,
-            check_event_reset, check_event_saved, check_event_world_model, update_event_changed,
-            update_event_generate, update_event_loaded, update_event_regen, update_event_reset,
+            check_event_changed, check_event_climatemap, check_event_generate, check_event_loaded,
+            check_event_regen, check_event_rendered, check_event_reset, check_event_saved,
+            check_event_world_model, update_event_changed, update_event_climatemap, update_event_generate,
+            update_event_loaded, update_event_regen, update_event_rendered, update_event_reset,
             update_event_saved, update_event_world_model,
         },
         internal::{
@@ -32,9 +33,11 @@ impl Plugin for MapPlugin {
             .add_systems(Update, update_event_changed.run_if(check_event_changed))
             .add_systems(Update, update_event_loaded.run_if(check_event_loaded))
             .add_systems(Update, update_event_saved.run_if(check_event_saved))
+            .add_systems(Update, update_event_rendered.run_if(check_event_rendered))
             .add_systems(Update, update_event_reset.run_if(check_event_reset))
             .add_systems(Update, update_event_regen.run_if(check_event_regen))
-            .add_systems(Update, update_event_generate.run_if(check_event_generate));
+            .add_systems(Update, update_event_generate.run_if(check_event_generate))
+            .add_systems(Update, update_event_climatemap.run_if(check_event_climatemap));
     }
 }
 

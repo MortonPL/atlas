@@ -37,10 +37,12 @@ enum FileDialogMode {
     SaveConfig,
     /// Load generator configuration to TOML file.
     LoadConfig,
-    /// Save generation layer output to PNG file.
-    SaveImage(MapDataLayer),
-    /// Load generation layer output from PNG file.
-    LoadImage(MapDataLayer),
+    /// Save layer data to PNG file.
+    SaveData(MapDataLayer),
+    /// Load layer data from PNG file.
+    LoadData(MapDataLayer),
+    /// Render (save texture) of a layer to a PNG file.
+    RenderImage(MapDataLayer),
 }
 
 /// Struct that contains only the UI-related state (no logic).
@@ -154,16 +156,22 @@ fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut 
             let mut file_picker = egui_file::FileDialog::open_file(None);
             file_picker.open();
             ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::LoadImage(ui_state.current_layer);
+            ui_state.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
         }
         if button(ui, "Save Layer") {
             let mut file_picker = egui_file::FileDialog::save_file(None);
             file_picker.open();
             ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::SaveImage(ui_state.current_layer);
+            ui_state.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
         }
         if button(ui, "Reset Layer") {
             events.reset_layer_request = Some(ui_state.current_layer);
+        }
+        if button(ui, "Render Layer") {
+            let mut file_picker = egui_file::FileDialog::save_file(None);
+            file_picker.open();
+            ui_state.file_dialog = Some(file_picker);
+            ui_state.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
         }
     });
 }
@@ -225,8 +233,9 @@ fn handle_file_dialog(
             match mode {
                 FileDialogMode::LoadConfig => file_dialog_load_config(path, config, ui_panel, events), // TODO error handling
                 FileDialogMode::SaveConfig => file_dialog_save_config(path, config), // TODO error handling
-                FileDialogMode::LoadImage(layer) => file_dialog_load_image(path, layer, config, events), // TODO error handling
-                FileDialogMode::SaveImage(layer) => file_dialog_save_image(path, layer, events), // TODO error handling
+                FileDialogMode::LoadData(layer) => file_dialog_load_data(path, layer, config, events), // TODO error handling
+                FileDialogMode::SaveData(layer) => file_dialog_save_data(path, layer, events), // TODO error handling
+                FileDialogMode::RenderImage(layer) => file_dialog_render_image(path, layer, events), // TODO error handling
             };
         }
         ui_state.file_dialog = None;
@@ -280,7 +289,7 @@ fn file_dialog_save_config(path: &Path, config: &mut ResMut<SessionConfig>) {
 }
 
 /// Load a layer image and send an event.
-fn file_dialog_load_image(
+fn file_dialog_load_data(
     path: &Path,
     layer: MapDataLayer,
     config: &mut ResMut<SessionConfig>,
@@ -291,7 +300,12 @@ fn file_dialog_load_image(
     events.load_layer_request = Some((layer, data));
 }
 
-/// Send and event to save a layer image.
-fn file_dialog_save_image(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
+/// Send an event to save a layer image.
+fn file_dialog_save_data(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
     events.save_layer_request = Some((layer, path.into()));
+}
+
+/// Send and event to render a layer image.
+fn file_dialog_render_image(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
+    events.render_layer_request = Some((layer, path.into()));
 }

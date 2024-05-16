@@ -131,19 +131,19 @@ impl AsRef<NoiseAlgorithm> for TopographyConfig {
 /// Config for the temperature generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct TemperatureConfig {
-    #[name("Temperature (C+100) At South")]
+    #[name("Temperature (100 = 0C) At South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_value: u8,
-    #[name("Temperature (C+100) At Equator")]
+    #[name("Temperature (100 = 0C) At Equator")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub equator_value: u8,
-    #[name("Temperature (C+100) At North")]
+    #[name("Temperature (100 = 0C) At North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_value: u8,
-    #[name("Temperature (C+100) Drop Per Height Unit")]
+    #[name("Temperature (100 = 0C) Drop Per Height Unit")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10.0))]
     #[add(speed(0.1))]
@@ -164,9 +164,9 @@ pub struct TemperatureConfig {
 impl Default for TemperatureConfig {
     fn default() -> Self {
         Self {
-            south_value: 60,
-            equator_value: 130,
-            north_value: 80,
+            south_value: 20,
+            equator_value: 160,
+            north_value: 60,
             drop_per_height: 0.1,
             algorithm_strength: 0.1,
             algorithm: Default::default(),
@@ -190,35 +190,35 @@ impl AsRef<NoiseAlgorithm> for TemperatureConfig {
 /// Config for the precipitation generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct PrecipitationConfig {
-    #[name("Precipitation (x40mm) At South")]
+    #[name("Precipitation (x20mm) At South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_value: u8,
-    #[name("Precipitation (x40mm) At 46 Degrees South")]
+    #[name("Precipitation (x20mm) At 46 Degrees South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_temperate_value: u8,
-    #[name("Precipitation (x40mm) At 23 Degrees South")]
+    #[name("Precipitation (x20mm) At 23 Degrees South")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub south_tropic_value: u8,
-    #[name("Precipitation (x40mm) At Equator")]
+    #[name("Precipitation (x20mm) At Equator")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub equator_value: u8,
-    #[name("Precipitation (x40mm) At 23 Degrees North")]
+    #[name("Precipitation (x20mm) At 23 Degrees North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_tropic_value: u8,
-    #[name("Precipitation (x40mm) At 46 Degrees North")]
+    #[name("Precipitation (x20mm) At 46 Degrees North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_temperate_value: u8,
-    #[name("Precipitation (x40mm) At North")]
+    #[name("Precipitation (x20mm) At North")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0..=255))]
     pub north_value: u8,
-    #[name("Precipitation (x40mm) Drop Per Height Unit")]
+    #[name("Precipitation (x20mm) Drop Per Height Unit")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10.0))]
     #[add(speed(0.1))]
@@ -239,13 +239,13 @@ pub struct PrecipitationConfig {
 impl Default for PrecipitationConfig {
     fn default() -> Self {
         Self {
-            south_value: 128,
-            south_temperate_value: 200,
-            south_tropic_value: 25,
-            equator_value: 230,
-            north_tropic_value: 25,
-            north_temperate_value: 200,
-            north_value: 128,
+            south_value: 0,
+            south_temperate_value: 40,
+            south_tropic_value: 3,
+            equator_value: 200,
+            north_tropic_value: 3,
+            north_temperate_value: 40,
+            north_value: 0,
             drop_per_height: 0.1,
             algorithm_strength: 0.1,
             algorithm: Default::default(),
@@ -269,28 +269,168 @@ impl AsRef<NoiseAlgorithm> for PrecipitationConfig {
 /// Config for the climate generation.
 #[derive(Debug, Deserialize, Resource, Serialize)]
 pub struct ClimateConfig {
-    pub climates: Vec<SingleClimateConfig>,
+    pub climates: Vec<BiomeConfig>,
+    #[serde(skip)]
+    pub default_climate: BiomeConfig,
 }
 
 impl Default for ClimateConfig {
     fn default() -> Self {
         Self {
-            climates: vec![SingleClimateConfig {
-                name: "Subtropical Desert".to_string(),
-                temperature: [103, 255],
-                precipitation: [0, 64],
-                color: [255, 200, 0],
-            }],
+            default_climate: BiomeConfig {
+                name: "Default Biome".to_string(),
+                color: [255, 0, 255],
+                productivity: 1.0,
+            },
+            climates: vec![
+                BiomeConfig {
+                    // 0
+                    name: "Default Biome".to_string(),
+                    color: [255, 0, 255],
+                    productivity: 1.0,
+                },
+                BiomeConfig {
+                    // 1
+                    name: "Polar Desert".to_string(),
+                    color: [225, 245, 250],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 2
+                    name: "Scorched Desert".to_string(),
+                    color: [255, 215, 0],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 3
+                    name: "Arctic Desert (Wet)".to_string(),
+                    color: [145, 160, 160],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 4
+                    name: "Tundra (Wet)".to_string(),
+                    color: [90, 195, 155],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 5
+                    name: "Boreal Forest (Wet)".to_string(),
+                    color: [40, 140, 100],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 6
+                    name: "Temperate Rainforest (Wet)".to_string(),
+                    color: [90, 230, 45],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 7
+                    name: "Tropical Rainforest (Wet)".to_string(),
+                    color: [30, 255, 0],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 8
+                    name: "Arctic Desert".to_string(),
+                    color: [170, 185, 190],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 9
+                    name: "Tundra".to_string(),
+                    color: [140, 195, 175],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 10
+                    name: "Boreal Forest".to_string(),
+                    color: [90, 170, 140],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 11
+                    name: "Cold Desert (Arid)".to_string(),
+                    color: [160, 155, 140],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 12
+                    name: "Cold Desert".to_string(),
+                    color: [185, 175, 140],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 13
+                    name: "Temperate Grassland".to_string(),
+                    color: [180, 190, 130],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 14
+                    name: "Temperate Shrubland".to_string(),
+                    color: [150, 190, 130],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 15
+                    name: "Temperate Woodland".to_string(),
+                    color: [90, 200, 75],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 16
+                    name: "Temperate Forest".to_string(),
+                    color: [50, 185, 65],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 17
+                    name: "Temperate Rainforest".to_string(),
+                    color: [0, 180, 50],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 18
+                    name: "Hot Desert (Arid)".to_string(),
+                    color: [220, 195, 80],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 19
+                    name: "Hot Desert".to_string(),
+                    color: [225, 220, 55],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 20
+                    name: "Savanna".to_string(),
+                    color: [180, 210, 45],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 21
+                    name: "Tropical Forest".to_string(),
+                    color: [130, 210, 0],
+                    productivity: 0.1, // TODO find good value
+                },
+                BiomeConfig {
+                    // 22
+                    name: "Tropical Rainforest".to_string(),
+                    color: [25, 210, 0],
+                    productivity: 0.1, // TODO find good value
+                },
+            ],
         }
     }
 }
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
-pub struct SingleClimateConfig {
+pub struct BiomeConfig {
     pub name: String,
-    pub temperature: [u8; 2],
-    pub precipitation: [u8; 2],
     pub color: [u8; 3],
+    pub productivity: f32,
 }
 
 /// Config for the resource generation.

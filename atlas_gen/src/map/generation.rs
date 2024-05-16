@@ -1,10 +1,13 @@
 use bevy::utils::petgraph::matrix_graph::Zero;
-use bevy_egui::egui::{ecolor::rgb_from_hsv, lerp};
+use bevy_egui::egui::{
+    ecolor::{hsv_from_rgb, rgb_from_hsv},
+    lerp,
+};
 
 use crate::{
     config::{InfluenceShape, NoiseAlgorithm, SessionConfig, TopographyDisplayMode, WorldModel},
     map::{
-        internal::{climate_to_hsv, MapLogicData},
+        internal::{fetch_climate, MapLogicData},
         samplers::{
             add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
             fill_with_algorithm,
@@ -94,7 +97,9 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Ma
             (r, g, b) = (0, 160, 255);
         } else {
             let height = real_data[i] as f32 / (highest * 1.2);
-            let (h, s, v) = climate_to_hsv(climate_data[i]);
+            let climate = fetch_climate(climate_data[i] as usize, config);
+            let rgb = climate.color.map(|x| x as f32 / 255.0);
+            let (h, s, v) = hsv_from_rgb(rgb);
             let v = v
                 * (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels).clamp(0.15, 0.85);
             let rgb = rgb_from_hsv((h, s, v));
@@ -319,14 +324,22 @@ fn generate_climate(
     config: &SessionConfig,
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
-    /*
     // Move out layer data.
     let mut clim_data = logics.pop_layer(layer);
-    // Get relevant config info.
-    let model = &config.general.world_model;
+    let temp_data = logics.get_layer(MapDataLayer::Temperature);
+    let prec_data = logics.get_layer(MapDataLayer::Precipitation);
+    let len = config.climate.climates.len() as u8;
+    if let Some(map) = logics.get_climatemap() {
+        // Use climate map.
+        for i in 0..clim_data.len() {
+            let map_index = prec_data[i] as usize * 255 + temp_data[i] as usize;
+            let climate = map[map_index];
+            clim_data[i] = if climate < len { climate } else { 0 };
+        }
+    }
     // Set new layer data.
     logics.put_layer(layer, clim_data);
-    */
+
     vec![layer]
 }
 
