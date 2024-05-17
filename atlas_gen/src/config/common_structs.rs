@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use atlas_lib::{ui::sidebar::*, MakeUi, MakeUiEnum, UiEditableEnum, UiEditableEnumWithFields};
 
+use crate::config::{CELSIUS_MAX, CELSIUS_MIN, PRECIP_MAX, PRECIP_MIN};
+
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
@@ -49,8 +51,19 @@ impl Default for FlatWorldModel {
 #[serde(rename_all = "lowercase")]
 pub enum TopographyDisplayMode {
     #[default]
-    Absolute,
+    Nothing,
+    Absolute128,
+    Absolute255,
     Highest,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorDisplayMode {
+    #[default]
+    Topography,
+    SimplifiedClimate,
+    DetailedClimate,
 }
 
 /// Algorithm describes the noise algorithm that should be used to generate a layer,
@@ -102,6 +115,11 @@ pub struct FbmConfig {
     #[add(clamp_range(-1.0..=1.0))]
     #[add(speed(0.1))]
     pub bias: f32,
+    #[name("Second Bias")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(-1.0..=1.0))]
+    #[add(speed(0.1))]
+    pub bias2: f32,
     #[name("Range")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.1..=10.0))]
@@ -121,6 +139,7 @@ impl Default for FbmConfig {
             neatness: 2.0,
             roughness: 0.5,
             bias: 0.0,
+            bias2: 0.0,
             range: 1.0,
             offset: Default::default(),
         }
@@ -134,7 +153,7 @@ pub enum InfluenceShape {
     #[empty]
     None(()),
     Circle(InfluenceCircleConfig),
-    Strip(InfluenceSamplerConfig),
+    Strip(InfluenceStripConfig),
     Fbm(InfluenceFbmConfig),
     FromImage(InfluenceImageConfig),
 }
@@ -197,7 +216,7 @@ impl Default for InfluenceCircleConfig {
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct InfluenceSamplerConfig {
+pub struct InfluenceStripConfig {
     #[name("Influence Mode")]
     #[control(SidebarEnumDropdown)]
     pub influence_mode: InfluenceMode,
@@ -239,12 +258,12 @@ pub struct InfluenceSamplerConfig {
     pub midpoint_value: f32,
 }
 
-impl Default for InfluenceSamplerConfig {
+impl Default for InfluenceStripConfig {
     fn default() -> Self {
         Self {
             influence_mode: Default::default(),
             influence_strength: 1.0,
-            thickness: 50,
+            thickness: 100,
             length: 100,
             angle: 0,
             flip: false,
@@ -305,4 +324,90 @@ impl Default for InfluenceImageConfig {
             influence_strength: 1.0,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct LatitudinalTemperatureLerp {
+    #[name("Value At South Pole")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub south_pole_value: f32,
+    #[name("Value At 69 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub south_arctic_value: f32,
+    #[name("Value At 46 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub south_temperate_value: f32,
+    #[name("Value At 23 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub south_tropic_value: f32,
+    #[name("Value At Equator")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub equator_value: f32,
+    #[name("Value At 23 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub north_tropic_value: f32,
+    #[name("Value At 46 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub north_temperate_value: f32,
+    #[name("Value At 69 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub north_arctic_value: f32,
+    #[name("Value At North Pole")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(CELSIUS_MIN..=CELSIUS_MAX))]
+    pub north_pole_value: f32,
+    #[name("Non-Linear Tropics Bias")]
+    #[control(SidebarCheckbox)]
+    pub non_linear_tropics: bool,
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct LatitudinalPrecipitationLerp {
+    #[name("Value At South Pole")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub south_pole_value: f32,
+    #[name("Value At 69 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub south_arctic_value: f32,
+    #[name("Value At 46 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub south_temperate_value: f32,
+    #[name("Value At 23 Degrees South")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub south_tropic_value: f32,
+    #[name("Value At Equator")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub equator_value: f32,
+    #[name("Value At 23 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub north_tropic_value: f32,
+    #[name("Value At 46 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub north_temperate_value: f32,
+    #[name("Value At 69 Degrees North")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub north_arctic_value: f32,
+    #[name("Value At North Pole")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(PRECIP_MIN..=PRECIP_MAX))]
+    pub north_pole_value: f32,
+    #[name("Non-Linear Tropics Bias")]
+    #[control(SidebarCheckbox)]
+    pub non_linear_tropics: bool,
 }

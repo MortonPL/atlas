@@ -3,7 +3,9 @@ use bevy_egui::egui::lerp;
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::config::{
-    FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceSamplerConfig, InfluenceShape, NoiseAlgorithm, WorldModel
+    celsius_to_fraction, precip_to_fraction, FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceShape,
+    InfluenceStripConfig, LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm,
+    WorldModel,
 };
 
 trait Sampler {
@@ -70,7 +72,7 @@ struct StripSampler {
 }
 
 impl StripSampler {
-    fn new(config: &InfluenceSamplerConfig) -> Self {
+    fn new(config: &InfluenceStripConfig) -> Self {
         let offset = Vec2::new(config.offset[0] as f32, config.offset[1] as f32);
         let (start, end, slope_a) =
             Self::precalculate_strip(config.length as f32, config.angle as f32, config.flip);
@@ -169,6 +171,7 @@ struct FbmSampler<N> {
     scale: f32,
     noise: Fbm<N>,
     bias: f32,
+    bias2: f32,
     range: f32,
 }
 
@@ -188,6 +191,7 @@ where
             scale: 1.0,
             noise,
             bias: config.bias,
+            bias2: config.bias2,
             range: config.range,
         }
     }
@@ -200,7 +204,8 @@ where
     fn sample(&self, p: Vec2) -> f32 {
         let xy = p / self.scale + self.origin;
         let sample = (self.noise.get([xy.x as f64, xy.y as f64]) + 1.0) / 2.0;
-        ((sample as f32 + self.bias).clamp(0.0, 1.0) * self.range).clamp(0.0, 1.0)
+        (((sample as f32 + self.bias).clamp(0.0, 1.0) * self.range).clamp(0.0, 1.0) + self.bias2)
+            .clamp(0.0, 1.0)
     }
 
     fn offset_origin(self, _offset: Vec2) -> Self {
@@ -213,12 +218,144 @@ where
     }
 }
 
-pub fn add_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl AsRef<NoiseAlgorithm>, strength: f32) {
+struct LatitudinalSampler {
+    pub south_value: f32,
+    pub south_arctic_value: f32,
+    pub south_temperate_value: f32,
+    pub south_tropic_value: f32,
+    pub equator_value: f32,
+    pub north_tropic_value: f32,
+    pub north_temperate_value: f32,
+    pub north_arctic_value: f32,
+    pub north_value: f32,
+    pub height: f32,
+    pub non_linear_tropics: bool,
+}
+
+impl LatitudinalSampler {
+    pub fn new_temp(config: &LatitudinalTemperatureLerp, height: u32) -> Self {
+        Self {
+            south_value: celsius_to_fraction(config.south_pole_value),
+            south_arctic_value: celsius_to_fraction(config.south_arctic_value),
+            south_temperate_value: celsius_to_fraction(config.south_temperate_value),
+            south_tropic_value: celsius_to_fraction(config.south_tropic_value),
+            equator_value: celsius_to_fraction(config.equator_value),
+            north_tropic_value: celsius_to_fraction(config.north_tropic_value),
+            north_temperate_value: celsius_to_fraction(config.north_temperate_value),
+            north_arctic_value: celsius_to_fraction(config.north_arctic_value),
+            north_value: celsius_to_fraction(config.north_pole_value),
+            height: height as f32,
+            non_linear_tropics: config.non_linear_tropics,
+        }
+    }
+
+    pub fn new_precip(config: &LatitudinalPrecipitationLerp, height: u32) -> Self {
+        Self {
+            south_value: precip_to_fraction(config.south_pole_value),
+            south_arctic_value: precip_to_fraction(config.south_arctic_value),
+            south_temperate_value: precip_to_fraction(config.south_temperate_value),
+            south_tropic_value: precip_to_fraction(config.south_tropic_value),
+            equator_value: precip_to_fraction(config.equator_value),
+            north_tropic_value: precip_to_fraction(config.north_tropic_value),
+            north_temperate_value: precip_to_fraction(config.north_temperate_value),
+            north_arctic_value: precip_to_fraction(config.north_arctic_value),
+            north_value: precip_to_fraction(config.north_pole_value),
+            height: height as f32,
+            non_linear_tropics: config.non_linear_tropics,
+        }
+    }
+}
+
+impl Sampler for LatitudinalSampler {
+    fn offset_origin(self, _offset: Vec2) -> Self {
+        self
+    }
+
+    fn set_scale(self, _scale: f32) -> Self {
+        self
+    }
+
+    fn sample(&self, p: Vec2) -> f32 {
+        let y = p.y / self.height;
+        if y < 0.117 {
+            // north-arctic
+            let range = self.north_value..=self.north_arctic_value;
+            let y = y / 0.117;
+            lerp(range, y)
+        } else if y < 0.244 {
+            // arctic-temperate
+            let range = self.north_arctic_value..=self.north_temperate_value;
+            let y = (y - 0.117) / (0.244 - 0.117);
+            lerp(range, y)
+        } else if y < 0.372 {
+            // temperate-tropic
+            let range = self.north_temperate_value..=self.north_tropic_value;
+            let mut y = (y - 0.244) / (0.372 - 0.244);
+            if self.non_linear_tropics {
+                y = y.powi(4);
+            }
+            lerp(range, y)
+        } else if y < 0.5 {
+            // tropic-equator
+            let range = self.north_tropic_value..=self.equator_value;
+            let y = (y - 0.372) / (0.5 - 0.372);
+            lerp(range, y)
+        } else if y < 0.628 {
+            // equator-tropic
+            let range = self.equator_value..=self.south_tropic_value;
+            let y = (y - 0.5) / (0.628 - 0.5);
+            lerp(range, y)
+        } else if y < 0.756 {
+            // tropic-temperate
+            let range = self.south_tropic_value..=self.south_temperate_value;
+            let mut y = (y - 0.628) / (0.756 - 0.628);
+            if self.non_linear_tropics {
+                y = y.sqrt().sqrt();
+            }
+            lerp(range, y)
+        } else if y < 0.883 {
+            // temperate-arctic
+            let range = self.south_temperate_value..=self.south_arctic_value;
+            let y = (y - 0.756) / (0.883 - 0.756);
+            lerp(range, y)
+        } else {
+            // arctic-south
+            let range = self.south_arctic_value..=self.south_value;
+            let y = (y - 0.883) / (1.0 - 0.883);
+            lerp(range, y)
+        }
+    }
+}
+
+pub fn fill_latitudinal_temp(data: &mut [u8], model: &WorldModel, config: &LatitudinalTemperatureLerp) {
+    let sampler = match model {
+        WorldModel::Flat(x) => LatitudinalSampler::new_temp(config, x.world_size[1]),
+        WorldModel::Globe(_) => todo!(),
+    };
+    sample_fill(data, sampler, model);
+}
+
+pub fn fill_latitudinal_precip(data: &mut [u8], model: &WorldModel, config: &LatitudinalPrecipitationLerp) {
+    let sampler = match model {
+        WorldModel::Flat(x) => LatitudinalSampler::new_precip(config, x.world_size[1]),
+        WorldModel::Globe(_) => todo!(),
+    };
+    sample_fill(data, sampler, model);
+}
+
+pub fn add_with_algorithm(
+    data: &mut [u8],
+    model: &WorldModel,
+    algorithm: impl AsRef<NoiseAlgorithm>,
+    strength: f32,
+) {
     if strength.is_zero() {
         return;
     }
     match algorithm.as_ref() {
-        NoiseAlgorithm::Perlin(config) => sample_add(data, FbmSampler::<Perlin>::new(config), model, strength),
+        NoiseAlgorithm::Perlin(config) => {
+            sample_add(data, FbmSampler::<Perlin>::new(config), model, strength)
+        }
         NoiseAlgorithm::OpenSimplex(config) => {
             sample_add(data, FbmSampler::<OpenSimplex>::new(config), model, strength)
         }
@@ -292,7 +429,13 @@ pub fn apply_influence(data: &mut [u8], influence: &[u8], mode: InfluenceMode, s
 
 /// Apply influence data to real data with given influence strength.
 /// Strength == 0.0 means no effect, strength == 1.0 means max effect.
-pub fn apply_influence_from_src(dest: &mut [u8], src: &[u8], influence: &[u8], mode: InfluenceMode, strength: f32) {
+pub fn apply_influence_from_src(
+    dest: &mut [u8],
+    src: &[u8],
+    influence: &[u8],
+    mode: InfluenceMode,
+    strength: f32,
+) {
     let strength = strength.clamp(0.0, 1.0);
     if strength.is_zero() {
         return;
@@ -343,8 +486,8 @@ where
                 for x in 0..width {
                     let i = (y * width + x) as usize;
                     let p = Vec2::new(x as f32, y as f32);
-                    let value = (sampler.sample(p) * 255f32 * strength) as u8;
-                    data[i] = data[i].saturating_add(value);
+                    let value = ((sampler.sample(p) - 0.5) * 127f32 * strength) as i8;
+                    data[i] = data[i].saturating_add_signed(value);
                 }
             }
         }

@@ -289,3 +289,39 @@ where
         0
     }
 }
+
+/// A section for a struct with fields.
+pub struct SidebarStructSection<'u, 'v, T> {
+    ui: &'u mut Ui,
+    value: &'v mut T,
+    label: &'static str,
+    __: PhantomData<&'v T>,
+}
+
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructSection<'u, 'v, T>
+where
+    T: MakeUi,
+{
+    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+        Self {
+            ui,
+            value,
+            label,
+            __: PhantomData,
+        }
+    }
+
+    fn show(self, hint: Option<&str>) -> usize {
+        let response = egui::CollapsingHeader::new(egui::RichText::new(self.label).heading())
+            .default_open(true)
+            .show(self.ui, |ui| {
+                egui::Grid::new(format!("{}_section_grid", self.label))
+                    .show(ui, |ui| self.value.make_ui(ui))
+            });
+        self.ui.end_row();
+        response
+            .header_response
+            .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+        0
+    }
+}

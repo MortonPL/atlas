@@ -1,16 +1,16 @@
 use bevy::utils::petgraph::matrix_graph::Zero;
-use bevy_egui::egui::{
-    ecolor::{hsv_from_rgb, rgb_from_hsv},
-    lerp,
-};
+use bevy_egui::egui::ecolor::{hsv_from_rgb, rgb_from_hsv};
 
 use crate::{
-    config::{InfluenceShape, NoiseAlgorithm, SessionConfig, TopographyDisplayMode, WorldModel},
+    config::{
+        precip_clamp, precip_to_byte, ColorDisplayMode, InfluenceShape, NoiseAlgorithm, SessionConfig,
+        TopographyDisplayMode, WorldModel,
+    },
     map::{
         internal::{fetch_climate, MapLogicData},
         samplers::{
             add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
-            fill_with_algorithm,
+            fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,
         },
         MapDataLayer,
     },
@@ -52,12 +52,30 @@ pub fn after_generate(
         MapDataLayer::Continents => {
             generate_utility_topo_filter(logics, config);
             generate_utility_real_topo(logics);
-            vec![MapDataLayer::RealTopography, MapDataLayer::TopographyFilter]
+            generate_temperature(logics, config, MapDataLayer::Temperature);
+            generate_precipitation(logics, config, MapDataLayer::Precipitation);
+            generate_climate(logics, config, MapDataLayer::Climate);
+            vec![
+                MapDataLayer::TopographyFilter,
+                MapDataLayer::RealTopography,
+                MapDataLayer::Temperature,
+                MapDataLayer::Precipitation,
+                MapDataLayer::Climate,
+            ]
         }
         MapDataLayer::Topography => {
             generate_utility_topo_filter(logics, config);
             generate_utility_real_topo(logics);
-            vec![MapDataLayer::RealTopography, MapDataLayer::TopographyFilter]
+            generate_temperature(logics, config, MapDataLayer::Temperature);
+            generate_precipitation(logics, config, MapDataLayer::Precipitation);
+            generate_climate(logics, config, MapDataLayer::Climate);
+            vec![
+                MapDataLayer::TopographyFilter,
+                MapDataLayer::RealTopography,
+                MapDataLayer::Temperature,
+                MapDataLayer::Precipitation,
+                MapDataLayer::Climate,
+            ]
         }
         MapDataLayer::Temperature => {
             generate_climate(logics, config, MapDataLayer::Climate);
@@ -84,9 +102,12 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Ma
     let cont_data = logics.get_layer(MapDataLayer::Continents);
     let climate_data = logics.get_layer(MapDataLayer::Climate);
 
+    let climate_display = config.general.color_display;
     let height_levels = config.general.height_levels as f32;
     let highest = match config.general.topo_display {
-        TopographyDisplayMode::Absolute => 255.0,
+        TopographyDisplayMode::Nothing => 0.0,
+        TopographyDisplayMode::Absolute128 => 128.0,
+        TopographyDisplayMode::Absolute255 => 255.0,
         TopographyDisplayMode::Highest => {
             *real_data.iter().max().expect("RealTopography must not be empty") as f32
         }
@@ -96,13 +117,43 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Ma
         if is_sea(cont_data[i]) {
             (r, g, b) = (0, 160, 255);
         } else {
-            let height = real_data[i] as f32 / (highest * 1.2);
-            let climate = fetch_climate(climate_data[i] as usize, config);
-            let rgb = climate.color.map(|x| x as f32 / 255.0);
-            let (h, s, v) = hsv_from_rgb(rgb);
-            let v = v
-                * (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels).clamp(0.15, 0.85);
-            let rgb = rgb_from_hsv((h, s, v));
+            // Fetch preview color.
+            let mut rgb = match climate_display {
+                ColorDisplayMode::Topography => {
+                    if real_data[i] < 5 {
+                        [70, 180, 75]
+                    } else if real_data[i] < 13 {
+                        [110, 190, 70]
+                    } else if real_data[i] < 25 {
+                        [240, 230, 60]
+                    } else if real_data[i] < 38 {
+                        [190, 130, 80]
+                    } else if real_data[i] < 50 {
+                        [180, 85, 40]
+                    } else {
+                        [140, 140, 140]
+                    }
+                }
+                ColorDisplayMode::SimplifiedClimate => {
+                    let climate = fetch_climate(climate_data[i] as usize, config);
+                    climate.simple_color
+                }
+                ColorDisplayMode::DetailedClimate => {
+                    let climate = fetch_climate(climate_data[i] as usize, config);
+                    climate.color
+                }
+            }
+            .map(|x| x as f32 / 255.0);
+            // Shift color value according to height.
+            if !highest.is_zero() {
+                let height = real_data[i] as f32 / highest;
+                let (h, s, v) = hsv_from_rgb(rgb);
+                let v = v
+                    * (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels)
+                        .clamp(0.15, 0.85);
+                rgb = rgb_from_hsv((h, s, v));
+            }
+            // Set final color.
             (r, g, b) = (
                 (rgb[0] * 255.0) as u8,
                 (rgb[1] * 255.0) as u8,
@@ -192,29 +243,7 @@ fn generate_temperature(
     // Get relevant config info.
     let model = &config.general.world_model;
     // Set temperature based on latitude.
-    match &config.general.world_model {
-        WorldModel::Flat(x) => {
-            let width = x.world_size[0];
-            let height = x.world_size[1];
-            for y in 0..height {
-                for x in 0..width {
-                    let i = (y * width + x) as usize;
-                    let y2 = y as f32 / height as f32;
-                    let value = if y2 < 0.5 {
-                        let range =
-                            config.temperature.north_value as f32..=config.temperature.equator_value as f32;
-                        lerp(range, y2 * 2.0)
-                    } else {
-                        let range =
-                            config.temperature.equator_value as f32..=config.temperature.south_value as f32;
-                        lerp(range, (y2 - 0.5) * 2.0)
-                    };
-                    temp_data[i] = value as u8;
-                }
-            }
-        }
-        WorldModel::Globe(_) => todo!(), // TODO
-    }
+    fill_latitudinal_temp(&mut temp_data, model, &config.temperature.latitudinal);
     // Append the noise algorithm data.
     add_with_algorithm(
         &mut temp_data,
@@ -223,9 +252,10 @@ fn generate_temperature(
         config.temperature.algorithm_strength,
     );
     // Apply height penalty.
-    if !config.temperature.drop_per_height.is_zero() {
+    let real_lapse_rate = config.temperature.lapse_rate * 2.0 / 25.0;
+    if !real_lapse_rate.is_zero() {
         for i in 0..temp_data.len() {
-            let drop = (topo_data[i] as f32 * config.temperature.drop_per_height).min(255f32) as u8;
+            let drop = (topo_data[i] as f32 * real_lapse_rate).min(255f32) as u8;
             temp_data[i] = temp_data[i].saturating_sub(drop);
         }
     }
@@ -249,52 +279,8 @@ fn generate_precipitation(
     let topo_data = logics.get_layer(MapDataLayer::RealTopography);
     // Get relevant config info.
     let model = &config.general.world_model;
-    // Set temperature based on latitude.
-    match &config.general.world_model {
-        WorldModel::Flat(x) => {
-            let width = x.world_size[0];
-            let height = x.world_size[1];
-            for y in 0..height {
-                for x in 0..width {
-                    let i = (y * width + x) as usize;
-                    let y2 = y as f32 / height as f32;
-                    let value = if y2 < 0.246 {
-                        // north-temperate
-                        let range = config.precipitation.north_value as f32
-                            ..=config.precipitation.north_temperate_value as f32;
-                        lerp(range, y2 / 0.246)
-                    } else if y2 < 0.373 {
-                        // temperate-tropic
-                        let range = config.precipitation.north_temperate_value as f32
-                            ..=config.precipitation.north_tropic_value as f32;
-                        lerp(range, (y2 - 0.246) / (0.373 - 0.246))
-                    } else if y2 < 0.5 {
-                        // tropic-equator
-                        let range = config.precipitation.north_tropic_value as f32
-                            ..=config.precipitation.equator_value as f32;
-                        lerp(range, (y2 - 0.373) / (0.5 - 0.373))
-                    } else if y2 < 0.627 {
-                        // equator-tropic
-                        let range = config.precipitation.equator_value as f32
-                            ..=config.precipitation.south_tropic_value as f32;
-                        lerp(range, (y2 - 0.5) / (0.627 - 0.5))
-                    } else if y2 < 0.754 {
-                        // tropic-temperate
-                        let range = config.precipitation.south_tropic_value as f32
-                            ..=config.precipitation.south_temperate_value as f32;
-                        lerp(range, (y2 - 0.627) / (0.754 - 0.627))
-                    } else {
-                        // temperate-south
-                        let range = config.precipitation.south_temperate_value as f32
-                            ..=config.precipitation.south_value as f32;
-                        lerp(range, (y2 - 0.754) / (1.0 - 0.754))
-                    };
-                    humi_data[i] = value as u8;
-                }
-            }
-        }
-        WorldModel::Globe(_) => todo!(), // TODO
-    }
+    // Set precipitation based on latitude.
+    fill_latitudinal_precip(&mut humi_data, model, &config.precipitation.latitudinal);
     // Append the noise algorithm data.
     add_with_algorithm(
         &mut humi_data,
@@ -305,8 +291,13 @@ fn generate_precipitation(
     // Apply height penalty.
     if !config.precipitation.drop_per_height.is_zero() {
         for i in 0..humi_data.len() {
-            let drop = (topo_data[i] as f32 * config.precipitation.drop_per_height).min(255f32) as u8;
-            humi_data[i] = humi_data[i].saturating_sub(drop);
+            let altitude = topo_data[i] as f32 * 40.0;
+            if altitude > config.precipitation.drop_off_point {
+                let drop =
+                    (altitude - config.precipitation.drop_off_point) * config.precipitation.drop_per_height;
+                let drop = precip_to_byte(precip_clamp(drop));
+                humi_data[i] = humi_data[i].saturating_sub(drop);
+            }
         }
     }
     // Apply the influence map if requested.
