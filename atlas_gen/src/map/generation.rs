@@ -3,7 +3,7 @@ use bevy_egui::egui::ecolor::{hsv_from_rgb, rgb_from_hsv};
 
 use crate::{
     config::{
-        precip_clamp, precip_to_byte, ColorDisplayMode, InfluenceShape, NoiseAlgorithm, SessionConfig,
+        precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceShape, NoiseAlgorithm,
         TopographyDisplayMode, WorldModel,
     },
     map::{
@@ -17,7 +17,11 @@ use crate::{
 };
 
 /// Choose relevant generation procedure based on layer.
-pub fn generate(layer: MapDataLayer, logics: &mut MapLogicData, config: &SessionConfig) -> Vec<MapDataLayer> {
+pub fn generate(
+    layer: MapDataLayer,
+    logics: &mut MapLogicData,
+    config: &AtlasGenConfig,
+) -> Vec<MapDataLayer> {
     let model = &config.general.world_model;
     match layer {
         MapDataLayer::Preview => generate_preview(logics, config),
@@ -46,7 +50,7 @@ pub fn generate(layer: MapDataLayer, logics: &mut MapLogicData, config: &Session
 pub fn after_generate(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
-    config: &SessionConfig,
+    config: &AtlasGenConfig,
 ) -> Vec<MapDataLayer> {
     let mut regen_layers = match layer {
         MapDataLayer::Continents => {
@@ -95,7 +99,7 @@ pub fn after_generate(
 }
 
 /// Generate pretty map preview.
-fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<MapDataLayer> {
+fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<MapDataLayer> {
     // Move out layer data.
     let mut preview_data = logics.pop_layer(MapDataLayer::Preview);
     let real_data = logics.get_layer(MapDataLayer::RealTopography);
@@ -176,7 +180,7 @@ fn generate_preview(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<Ma
 /// Generate continental data.
 fn generate_continents(
     logics: &mut MapLogicData,
-    config: &SessionConfig,
+    config: &AtlasGenConfig,
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
     // Move out layer data.
@@ -234,7 +238,7 @@ fn generate_generic(
 
 fn generate_temperature(
     logics: &mut MapLogicData,
-    config: &SessionConfig,
+    config: &AtlasGenConfig,
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
     // Move out layer data.
@@ -271,7 +275,7 @@ fn generate_temperature(
 
 fn generate_precipitation(
     logics: &mut MapLogicData,
-    config: &SessionConfig,
+    config: &AtlasGenConfig,
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
     // Move out layer data.
@@ -312,14 +316,14 @@ fn generate_precipitation(
 
 fn generate_climate(
     logics: &mut MapLogicData,
-    config: &SessionConfig,
+    config: &AtlasGenConfig,
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
     // Move out layer data.
     let mut clim_data = logics.pop_layer(layer);
     let temp_data = logics.get_layer(MapDataLayer::Temperature);
     let prec_data = logics.get_layer(MapDataLayer::Precipitation);
-    let len = config.climate.climates.len() as u8;
+    let len = config.climate.biomes.len() as u8;
     if let Some(map) = logics.get_climatemap() {
         // Use climate map.
         for i in 0..clim_data.len() {
@@ -349,7 +353,7 @@ fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
 }
 
 /// Generate beach smoothing topography filter.
-fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &SessionConfig) -> Vec<MapDataLayer> {
+fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<MapDataLayer> {
     let mut filter_data = logics.pop_layer(MapDataLayer::TopographyFilter);
     filter_data.fill(0);
 

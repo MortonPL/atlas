@@ -49,6 +49,7 @@
 		"rust-analyzer.linkedProjects": [
 			".\\atlas_gen\\Cargo.toml",
 			".\\atlas_lib\\Cargo.toml",
+			".\\atlas_macro\\Cargo.toml",
 			".\\atlas_sim\\Cargo.toml",
 		],
 	},

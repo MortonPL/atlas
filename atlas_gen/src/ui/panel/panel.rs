@@ -2,10 +2,10 @@ use atlas_lib::ui::button;
 use bevy_egui::egui::Ui;
 
 use crate::{
-    config::{InfluenceShape, SessionConfig},
+    config::{AtlasGenConfig, InfluenceShape},
     event::EventStruct,
     map::MapDataLayer,
-    ui::{internal::UiState, panel::general::MainPanelGeneral},
+    ui::{internal::UiState, panel::MainPanelGeneral},
 };
 
 /// Transition between sidebar panels.
@@ -17,7 +17,7 @@ pub enum MainPanelTransition {
     Next,
 }
 
-/// A sidebar page.
+/// A sidebar page/panel.
 pub trait SidebarPanel {
     /// Get panel heading.
     fn get_heading(&self) -> &'static str;
@@ -25,17 +25,29 @@ pub trait SidebarPanel {
     /// Get layer that should be displayed with this panel.
     fn get_layer(&self) -> MapDataLayer;
 
+    /// Create a config UI for this panel. Nothing shown by default.
+    fn make_ui(&mut self, _ui: &mut Ui, _config: &mut AtlasGenConfig) {}
+
+    /// Handle transitioning to the previous or next panel.
+    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send>;
+
+    /// Get influence shape from this panel's config. [`InfluenceShape::None`] by default.
+    fn get_influence_shape<'b>(&self, _config: &'b AtlasGenConfig) -> &'b InfluenceShape {
+        &InfluenceShape::None(())
+    }
+
     /// Create UI for this panel.
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut SessionConfig,
-        ui_state: &mut UiState,
+        config: &mut AtlasGenConfig,
+        _ui_state: &mut UiState,
         events: &mut EventStruct,
-    );
-
-    /// Handle transitioning to the previous or next panel.
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send>;
+    ) {
+        self.make_ui(ui, config);
+        self.button_influence(ui, events, self.get_influence_shape(config));
+        self.button_layer(ui, events);
+    }
 
     /// Create a "Generate Layer" button.
     fn button_layer(&self, ui: &mut Ui, events: &mut EventStruct) {

@@ -9,7 +9,7 @@ use bevy::{
 use bevy_egui::{EguiContexts, EguiPlugin};
 
 use crate::{
-    config::SessionConfig,
+    config::AtlasGenConfig,
     event::EventStruct,
     ui::internal::{create_ui, handle_camera, UiState, UiStatePanel},
 };
@@ -21,7 +21,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule_order = app.world.get_resource_mut::<MainScheduleOrder>().unwrap();
         schedule_order.insert_after(RunFixedUpdateLoop, UiUpdate);
-        // Systems that create Egui widgets should be run during the `CoreSet::Update` set,
+        // NOTE: Systems that create Egui widgets should be run during the `CoreSet::Update` set,
         // or after the `EguiSet::BeginFrame` system (which belongs to the `CoreSet::PreUpdate` set).
         app.init_resource::<UiState>()
             .init_resource::<UiStatePanel>()
@@ -34,7 +34,7 @@ impl Plugin for UiPlugin {
     }
 }
 
-/// Schedule run before [Update], designed for UI handling.
+/// Schedule run before [`Update`], designed for UI handling.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct UiUpdate;
 
@@ -46,7 +46,7 @@ struct MainCamera;
 ///
 /// Redraw the immediate UI.
 fn update_ui(
-    config: ResMut<SessionConfig>,
+    config: ResMut<AtlasGenConfig>,
     mut contexts: EguiContexts,
     mut ui_state: ResMut<UiState>,
     mut ui_panel: ResMut<UiStatePanel>,
@@ -63,7 +63,7 @@ fn update_ui(
 
 /// Update system
 ///
-/// Handle user input
+/// Handle user input.
 fn update_input(
     kb: Res<Input<KeyCode>>,
     mouse_wheel: EventReader<MouseWheel>,
@@ -71,7 +71,13 @@ fn update_input(
     mut cameras: Query<&mut Transform, With<MainCamera>>,
     ui_state: Res<UiState>,
 ) {
-    handle_camera(kb, mouse_wheel, window.single(), &mut cameras.single_mut(), &ui_state);
+    handle_camera(
+        kb,
+        mouse_wheel,
+        window.single(),
+        &mut cameras.single_mut(),
+        &ui_state,
+    );
 }
 
 /// Update system (after [update_ui]).
@@ -105,6 +111,6 @@ fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
         },
         MainCamera,
     ));
-    // More ambient light than default
+    // More ambient light than default.
     light.brightness = 1.0;
 }

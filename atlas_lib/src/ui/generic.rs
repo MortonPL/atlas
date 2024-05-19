@@ -1,5 +1,6 @@
 use bevy_egui::egui::{Ui, WidgetText};
 
+/// An enum that can be changed via dropdown.
 pub trait UiEditableEnum {
     const LEN: usize;
 
@@ -14,10 +15,12 @@ pub trait UiEditableEnum {
     }
 }
 
+/// Shorthand for `ui.button(text).clicked()`.
 pub fn button(ui: &mut Ui, text: impl Into<WidgetText>) -> bool {
     ui.button(text).clicked()
 }
 
+/// [`button`] that executes a function when clicked or returns default value when not.
 pub fn button_action<F, T>(ui: &mut Ui, text: impl Into<WidgetText>, fun: F) -> T
 where
     F: FnOnce() -> T,

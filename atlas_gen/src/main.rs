@@ -9,7 +9,7 @@ mod ui;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(config::ConfigPlugin)
+        .add_plugins(config::GenConfigPlugin)
         .add_plugins(event::EventPlugin)
         .add_plugins(ui::UiPlugin)
         .add_plugins(map::MapPlugin)

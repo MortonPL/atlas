@@ -4,14 +4,17 @@
 pub const CELSIUS_MIN: f32 = -50.0;
 pub const CELSIUS_MAX: f32 = 77.5;
 
+#[allow(unused)]
 pub fn celsius_clamp(x: f32) -> f32 {
     x.clamp(CELSIUS_MIN, CELSIUS_MAX)
 }
 
+#[allow(unused)]
 pub fn celsius_to_byte(x: f32) -> u8 {
     (x * 2.0 + 100.0) as u8
 }
 
+#[allow(unused)]
 pub fn celsius_from_byte(x: u8) -> f32 {
     (x - 100) as f32 / 2.0
 }
@@ -20,6 +23,7 @@ pub fn celsius_to_fraction(x: f32) -> f32 {
     (x - CELSIUS_MIN) / 127.5
 }
 
+#[allow(unused)]
 pub fn celsius_from_fraction(x: f32) -> f32 {
     x * (CELSIUS_MAX - CELSIUS_MIN) + CELSIUS_MIN
 }
@@ -38,6 +42,7 @@ pub fn precip_to_byte(x: f32) -> u8 {
     (x / 20.0) as u8
 }
 
+#[allow(unused)]
 pub fn precip_from_byte(x: u8) -> f32 {
     x as f32 * 20.0
 }
@@ -46,6 +51,7 @@ pub fn precip_to_fraction(x: f32) -> f32 {
     x / PRECIP_MAX
 }
 
+#[allow(unused)]
 pub fn precip_from_fraction(x: f32) -> f32 {
     x * PRECIP_MAX
 }

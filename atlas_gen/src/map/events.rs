@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    config::{save_image, SessionConfig, WorldModel},
+    config::{save_image, save_image_grey, AtlasGenConfig, WorldModel},
     event::EventStruct,
     map::{
         generation::{after_generate, generate},
@@ -102,7 +102,7 @@ pub fn check_event_regen(events: Res<EventStruct>) -> bool {
 /// Regenerate graphical layer based on logical layer data.
 pub fn update_event_regen(
     mut events: ResMut<EventStruct>,
-    config: ResMut<SessionConfig>,
+    config: ResMut<AtlasGenConfig>,
     mut graphics: ResMut<MapGraphicsData>,
     logics: Res<MapLogicData>,
     mut images: ResMut<Assets<Image>>,
@@ -139,7 +139,7 @@ pub fn check_event_loaded(events: Res<EventStruct>) -> bool {
 pub fn update_event_loaded(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
-    config: Res<SessionConfig>,
+    config: Res<AtlasGenConfig>,
 ) {
     let (layer, data) = events.load_layer_request.take().expect("Always Some");
     // Convert image data to logic data.
@@ -163,12 +163,12 @@ pub fn check_event_saved(events: Res<EventStruct>) -> bool {
 pub fn update_event_saved(
     mut events: ResMut<EventStruct>,
     logics: Res<MapLogicData>,
-    config: Res<SessionConfig>,
+    config: Res<AtlasGenConfig>,
 ) {
     let (layer, path) = events.render_layer_request.take().expect("Always Some");
     let image = data_to_png(&logics, layer);
     let (width, height) = config.general.world_model.get_dimensions();
-    save_image(path, &image, width, height).unwrap(); // TODO error handling
+    save_image_grey(path, &image, width, height).unwrap(); // TODO error handling
 }
 
 /// Run condition
@@ -183,7 +183,7 @@ pub fn check_event_rendered(events: Res<EventStruct>) -> bool {
 /// Save visual layer data.
 pub fn update_event_rendered(
     mut events: ResMut<EventStruct>,
-    config: Res<SessionConfig>,
+    config: Res<AtlasGenConfig>,
     mut graphics: ResMut<MapGraphicsData>,
     images: Res<Assets<Image>>,
     materials: Res<Assets<StandardMaterial>>,
@@ -238,7 +238,7 @@ pub fn check_event_generate(events: Res<EventStruct>) -> bool {
 pub fn update_event_generate(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
-    config: Res<SessionConfig>,
+    config: Res<AtlasGenConfig>,
 ) {
     let layer = events.generate_request.take().expect("Always Some");
     // Run generation procedure based on generator type and layer.
@@ -269,7 +269,7 @@ fn post_generation(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
     events: &mut EventStruct,
-    config: &SessionConfig,
+    config: &AtlasGenConfig,
     mut regen_layers: Vec<MapDataLayer>,
 ) {
     // Adjust other layers if needed.

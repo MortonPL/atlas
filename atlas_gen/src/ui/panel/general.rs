@@ -3,7 +3,7 @@ use bevy_egui::egui::Ui;
 use atlas_lib::ui::{button, sidebar::MakeUi, UiEditableEnum};
 
 use crate::{
-    config::{SessionConfig, WorldModel},
+    config::{AtlasGenConfig, WorldModel},
     event::EventStruct,
     map::MapDataLayer,
     ui::{
@@ -12,6 +12,7 @@ use crate::{
     },
 };
 
+/// Panel with general world gen and preview settings.
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelGeneral {}
 
@@ -19,7 +20,7 @@ impl SidebarPanel for MainPanelGeneral {
     fn show(
         &mut self,
         ui: &mut Ui,
-        config: &mut SessionConfig,
+        config: &mut AtlasGenConfig,
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {

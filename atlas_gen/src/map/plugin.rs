@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use atlas_lib::UiEditableEnum;
 
 use crate::{
-    config::SessionConfig,
+    config::AtlasGenConfig,
     event::EventStruct,
     map::{
         events::{
@@ -145,7 +145,7 @@ fn startup_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     graphics: ResMut<MapGraphicsData>,
-    config: Res<SessionConfig>,
+    config: Res<AtlasGenConfig>,
     mut events: ResMut<EventStruct>,
 ) {
     spawn_default_globe(&mut commands, &mut meshes, &graphics);

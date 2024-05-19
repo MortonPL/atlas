@@ -12,24 +12,25 @@ use atlas_lib::ui::{
 };
 
 use crate::{
-    config::{load_config, load_image, save_config, SessionConfig},
+    config::{load_config, load_image, save_config, AtlasGenConfig},
     event::EventStruct,
     map::MapDataLayer,
     ui::panel::{MainPanelTransition, SidebarPanel},
 };
 
-/// Default sidebar width in points. Should be greater or equal to [SIDEBAR_MIN_WIDTH].
+/// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
 const SIDEBAR_WIDTH: f32 = 420.0;
-/// Minimal sidebar width in points.
+/// Minimum sidebar width in points.
 const SIDEBAR_MIN_WIDTH: f32 = 420.0;
 
-/// Minimal camera zoom as Z in world space (bad idea?).
-const MIN_CAMERA_ZOOM: f32 = 2.0;
-/// Minimal camera zoom as Z in world space (bad idea?).
-const MAX_CAMERA_ZOOM: f32 = 5.0;
-/// Mutliplier to current Z.
+/// Minimum camera zoom as Z in world space (bad idea?).
+const MIN_CAMERA_ZOOM: f32 = 1.0;
+/// Maximum camera zoom as Z in world space (bad idea?).
+const MAX_CAMERA_ZOOM: f32 = 7.0;
+/// Mutliplier to scroll value.
 const CAMERA_ZOOM_SPEED: f32 = 0.05;
 
+/// Mode of operation for the generic file dialog.
 #[derive(Clone, Copy, Default)]
 enum FileDialogMode {
     /// Save generator configuration to TOML file.
@@ -37,33 +38,38 @@ enum FileDialogMode {
     SaveConfig,
     /// Load generator configuration to TOML file.
     LoadConfig,
-    /// Save layer data to PNG file.
+    /// Save this layer data to PNG file.
     SaveData(MapDataLayer),
-    /// Load layer data from PNG file.
+    /// Load this layer data from PNG file.
     LoadData(MapDataLayer),
-    /// Render (save texture) of a layer to a PNG file.
+    /// Render this layer to a PNG file.
     RenderImage(MapDataLayer),
 }
 
 /// Struct that contains only the UI-related state (no logic).
 #[derive(Default, Resource)]
 pub struct UiState {
+    /// Size (in pixels) of the viewport, AKA window size - sidebar size.
     pub viewport_size: bevy::prelude::Vec2,
+    /// All purpose file dialog. Some if open, None if closed.
     file_dialog: Option<egui_file::FileDialog>,
+    /// File dialog mode of operation. See [`FileDialogMode`].
     file_dialog_mode: FileDialogMode,
+    /// Currently viewed map layer.
     current_layer: MapDataLayer,
 }
 
-/// Currently viewed sidebar panel.
+/// Extra struct (alongside [`UiState`]) that holds the current sidebar panel.
 #[derive(Default, Resource)]
 pub struct UiStatePanel {
+    /// Currently viewed sidebar panel.
     current_panel: Box<dyn SidebarPanel + Sync + Send>,
 }
 
 /// Add the entire UI.
 pub fn create_ui(
     ctx: &Context,
-    mut config: ResMut<SessionConfig>,
+    mut config: ResMut<AtlasGenConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -87,6 +93,8 @@ pub fn create_ui(
             create_layer_view_settings(ui, ui_state, events);
             ui.separator();
             create_current_panel(ui, &mut config, ui_state, ui_panel, events);
+            // We've finished drawing the sidebar. Its size is now established
+            // and we can calculate the viewport size.
             adjust_viewport(ui, ui_state);
         });
     handle_file_dialog(ctx, &mut config, ui_state, ui_panel, events);
@@ -120,13 +128,14 @@ pub fn handle_camera(
     } else if kb.pressed(KeyCode::Minus) || (scroll < 0.0) {
         z *= 1.0f32 + CAMERA_ZOOM_SPEED * (1.0 - scroll);
     }
+    // Apply new Z to the camera.
     camera.translation.z = z.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
 }
 
-/// Add a top bar with configuration S/L.
+/// Create the top part of the sidebar with configuration S/L.
 fn create_sidebar_head(
     ui: &mut Ui,
-    config: &mut ResMut<SessionConfig>,
+    config: &mut ResMut<AtlasGenConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -139,54 +148,43 @@ fn create_sidebar_head(
             button_action(ui, "Reset Config", || {
                 reset_config_clicked(config, ui_panel, events)
             });
+            // TODO Reset current panel
         });
     });
 }
 
 /// Create sidebar settings for the layer display.
 fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut EventStruct) {
-    ui.horizontal(|ui| {
+    ui.vertical(|ui| {
+        // Layer visibility dropdown.
         let old = ui_state.current_layer;
         let selection = SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
         SidebarEnumDropdown::post_show(selection, &mut ui_state.current_layer);
         if old != ui_state.current_layer {
             events.viewed_layer_changed = Some(ui_state.current_layer);
         }
-        if button(ui, "Load Layer") {
-            let mut file_picker = egui_file::FileDialog::open_file(None);
-            file_picker.open();
-            ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
-        }
-        if button(ui, "Save Layer") {
-            let mut file_picker = egui_file::FileDialog::save_file(None);
-            file_picker.open();
-            ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
-        }
-        if button(ui, "Reset Layer") {
-            events.reset_layer_request = Some(ui_state.current_layer);
-        }
-        if button(ui, "Render Layer") {
-            let mut file_picker = egui_file::FileDialog::save_file(None);
-            file_picker.open();
-            ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
-        }
+        // Layer buttons.
+        ui.horizontal(|ui| {
+            button_action(ui, "Load Layer", || load_layer_clicked(ui_state));
+            button_action(ui, "Save Layer", || save_layer_clicked(ui_state));
+            button_action(ui, "Render Layer", || render_layer_clicked(ui_state));
+            button_action(ui, "Reset Layer", || reset_layer_clicked(ui_state, events));
+        });
     });
 }
 
 /// Create the current panel.
 fn create_current_panel(
     ui: &mut Ui,
-    config: &mut SessionConfig,
+    config: &mut AtlasGenConfig,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
-    // Panel heading and content.
+    // Panel heading.
     ui.heading(ui_panel.current_panel.get_heading());
     egui::ScrollArea::both().show(ui, |ui| {
+        // Panel inner.
         ui_panel.current_panel.show(ui, config, ui_state, events);
         // Previous/Next buttons and panel transitioning.
         ui.separator();
@@ -219,7 +217,7 @@ fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
 /// Handle the file dialog window if it is open. Perform configuration S/L if the user selected a file.
 fn handle_file_dialog(
     ctx: &Context,
-    config: &mut ResMut<SessionConfig>,
+    config: &mut ResMut<AtlasGenConfig>,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -231,18 +229,18 @@ fn handle_file_dialog(
         }
         if let Some(path) = file_dialog.path() {
             match mode {
-                FileDialogMode::LoadConfig => file_dialog_load_config(path, config, ui_panel, events), // TODO error handling
-                FileDialogMode::SaveConfig => file_dialog_save_config(path, config), // TODO error handling
-                FileDialogMode::LoadData(layer) => file_dialog_load_data(path, layer, config, events), // TODO error handling
-                FileDialogMode::SaveData(layer) => file_dialog_save_data(path, layer, events), // TODO error handling
-                FileDialogMode::RenderImage(layer) => file_dialog_render_image(path, layer, events), // TODO error handling
+                FileDialogMode::LoadConfig => file_dialog_load_config(path, config, ui_panel, events),
+                FileDialogMode::SaveConfig => file_dialog_save_config(path, config),
+                FileDialogMode::LoadData(layer) => file_dialog_load_data(path, layer, config, events),
+                FileDialogMode::SaveData(layer) => file_dialog_save_data(path, layer, events),
+                FileDialogMode::RenderImage(layer) => file_dialog_render_image(path, layer, events),
             };
         }
         ui_state.file_dialog = None;
     }
 }
 
-/// Set context for the file dialog to "saving" and show it.
+/// Set context for the file dialog to "saving config" and show it.
 fn save_config_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
@@ -250,7 +248,7 @@ fn save_config_clicked(ui_state: &mut UiState) {
     ui_state.file_dialog_mode = FileDialogMode::SaveConfig;
 }
 
-/// Set context for the file dialog to "loading" and show it.
+/// Set context for the file dialog to "loading config" and show it.
 fn load_config_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
     file_picker.open();
@@ -260,19 +258,48 @@ fn load_config_clicked(ui_state: &mut UiState) {
 
 /// Reset generator config to defaults.
 fn reset_config_clicked(
-    config: &mut ResMut<SessionConfig>,
+    config: &mut ResMut<AtlasGenConfig>,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
-    **config = SessionConfig::default();
+    **config = AtlasGenConfig::default();
     ui_panel.current_panel = default();
     events.world_model_changed = Some(config.general.world_model.clone());
+}
+
+// Set context for the file dialog to "loading layer" and show it.
+fn load_layer_clicked(ui_state: &mut UiState) {
+    let mut file_picker = egui_file::FileDialog::open_file(None);
+    file_picker.open();
+    ui_state.file_dialog = Some(file_picker);
+    ui_state.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
+}
+
+// Set context for the file dialog to "saving layer" and show it.
+fn save_layer_clicked(ui_state: &mut UiState) {
+    let mut file_picker = egui_file::FileDialog::save_file(None);
+    file_picker.open();
+    ui_state.file_dialog = Some(file_picker);
+    ui_state.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
+}
+
+// Set context for the file dialog to "rendering layer" and show it.
+fn render_layer_clicked(ui_state: &mut UiState) {
+    let mut file_picker = egui_file::FileDialog::save_file(None);
+    file_picker.open();
+    ui_state.file_dialog = Some(file_picker);
+    ui_state.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
+}
+
+// Reset layer data.
+fn reset_layer_clicked(ui_state: &mut UiState, events: &mut EventStruct) {
+    events.reset_layer_request = Some(ui_state.current_layer);
 }
 
 /// Load and overwrite configuration from a TOML file.
 fn file_dialog_load_config(
     path: &Path,
-    config: &mut ResMut<SessionConfig>,
+    config: &mut ResMut<AtlasGenConfig>,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
@@ -280,24 +307,31 @@ fn file_dialog_load_config(
         **config = res;
         events.world_model_changed = Some(config.general.world_model.clone());
         ui_panel.current_panel = default();
+    } else {
+        // TODO error window
     }
 }
 
 /// Save current configuration to a TOML file.
-fn file_dialog_save_config(path: &Path, config: &mut ResMut<SessionConfig>) {
-    save_config(config, path).unwrap()
+fn file_dialog_save_config(path: &Path, config: &mut ResMut<AtlasGenConfig>) {
+    if let Err(_err) = save_config(config, path) {
+        // TODO error window
+    }
 }
 
 /// Load a layer image and send an event.
 fn file_dialog_load_data(
     path: &Path,
     layer: MapDataLayer,
-    config: &mut ResMut<SessionConfig>,
+    config: &mut ResMut<AtlasGenConfig>,
     events: &mut EventStruct,
 ) {
     let (width, height) = config.general.world_model.get_dimensions();
-    let data = load_image(path, width, height).unwrap();
-    events.load_layer_request = Some((layer, data));
+    if let Ok(data) = load_image(path, width, height) {
+        events.load_layer_request = Some((layer, data));
+    } else {
+        // TODO error window
+    }
 }
 
 /// Send an event to save a layer image.

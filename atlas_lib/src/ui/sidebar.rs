@@ -6,15 +6,22 @@ use crate::ui::generic::UiEditableEnum;
 
 const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
 
+/// Something that can be edited via the sidebar UI.
 pub trait MakeUi {
     fn make_ui(&mut self, ui: &mut Ui);
 }
 
+/// A sidebar UI control w/ label that edits a value in a specific way.
+/// Designed to be placed inside a two column grid.
 pub trait SidebarControl<'u, 'v, T: ?Sized> {
+    /// Initialize this control.
     fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self;
 
+    /// Show this control and handle input. Return a numeric value
+    /// which means different things depending on the control.
     fn show(self, hint: Option<&str>) -> usize;
 
+    /// HACK ALERT! Some controls need to handle input in two stages.
     fn post_show(_result: usize, _value: &'v mut T) {}
 }
 
@@ -117,6 +124,7 @@ where
 }
 
 /// A Slider/TextBox combo for a numerical value with an extra button for a random value.
+/// Primary use case is for random seeds.
 pub struct SidebarSliderRandom<'u, 'v, T> {
     ui: &'u mut Ui,
     inner: egui::DragValue<'v>,
@@ -203,7 +211,7 @@ where
     }
 }
 
-/// A dropdown for an enum.
+/// A dropdown for an enum. The enum must have [`UiEditableEnum`] trait.
 pub struct SidebarEnumDropdown<'u, 'v, T> {
     ui: &'u mut Ui,
     selection: usize,
@@ -242,7 +250,7 @@ where
     }
 }
 
-/// A section for an enum with fields.
+/// A section for an enum with fields. The enum must have [`UiEditableEnum`] and [`MakeUi`] traits.
 pub struct SidebarEnumSection<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
@@ -290,7 +298,7 @@ where
     }
 }
 
-/// A section for a struct with fields.
+/// A section for a struct with fields. The struct must have [`MakeUi`] trait.
 pub struct SidebarStructSection<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
@@ -315,8 +323,7 @@ where
         let response = egui::CollapsingHeader::new(egui::RichText::new(self.label).heading())
             .default_open(true)
             .show(self.ui, |ui| {
-                egui::Grid::new(format!("{}_section_grid", self.label))
-                    .show(ui, |ui| self.value.make_ui(ui))
+                egui::Grid::new(format!("{}_section_grid", self.label)).show(ui, |ui| self.value.make_ui(ui))
             });
         self.ui.end_row();
         response

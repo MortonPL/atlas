@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::{prelude::*, utils::HashMap};
 
 use crate::{
-    config::{load_image_grey, BiomeConfig, SessionConfig},
+    config::{load_image_grey, AtlasGenConfig, BiomeConfig},
     map::MapDataLayer,
 };
 
@@ -140,7 +140,7 @@ pub fn make_image(width: u32, height: u32, data: Vec<u8>) -> Image {
         },
         bevy::render::render_resource::TextureDimension::D2,
         data,
-        bevy::render::render_resource::TextureFormat::Rgba8Unorm,
+        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
     )
 }
 
@@ -216,7 +216,7 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
 
 /// Convert logical layer data to a texture.
 /// For most cases, this functions the same as [`data_to_png`].
-pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &SessionConfig) -> Vec<u8> {
+pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &AtlasGenConfig) -> Vec<u8> {
     let data = data_layers
         .layers
         .get(&layer)
@@ -268,15 +268,15 @@ fn expand_monochrome(data: &[u8]) -> Vec<u8> {
     data.iter().flat_map(|x: &u8| [*x, *x, *x, 255]).collect()
 }
 
-pub fn fetch_climate(i: usize, config: &SessionConfig) -> &BiomeConfig {
-    if i > config.climate.climates.len() {
-        &config.climate.default_climate
+pub fn fetch_climate(i: usize, config: &AtlasGenConfig) -> &BiomeConfig {
+    if i > config.climate.biomes.len() {
+        &config.climate.default_biome
     } else {
-        &config.climate.climates[i]
+        &config.climate.biomes[i]
     }
 }
 
-fn climate_to_view(data: &[u8], config: &SessionConfig) -> Vec<u8> {
+fn climate_to_view(data: &[u8], config: &AtlasGenConfig) -> Vec<u8> {
     let fun = |x: &u8| {
         let climate = fetch_climate(*x as usize, config);
         [climate.color[0], climate.color[1], climate.color[2], 255]

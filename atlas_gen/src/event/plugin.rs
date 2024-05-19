@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{config::WorldModel, map::MapDataLayer};
 
-/// Plugin responsible for holding event data.
+/// Plugin responsible for holding event requests and their data.
 pub struct EventPlugin;
 
 impl Plugin for EventPlugin {
@@ -13,6 +13,12 @@ impl Plugin for EventPlugin {
     }
 }
 
+/// Global resource that hold event requests. All requests are `Option`s:
+/// `Some` means an event has been requested, `None` means nothing happened.
+/// These fields are checked by run condition systems in other plugins.
+///
+/// This way, we can request something to happen next frame, from any place in the code
+/// (as long as this struct can be accessed/is passed down).
 #[derive(Resource)]
 pub struct EventStruct {
     /// The world model in the config has been changed.
@@ -46,6 +52,7 @@ impl Default for EventStruct {
             reset_layer_request: Default::default(),
             regen_layer_request: Default::default(),
             generate_request: Default::default(),
+            // Load climate map on start.
             load_climatemap_request: Some(()),
         }
     }

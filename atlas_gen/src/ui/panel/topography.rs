@@ -3,29 +3,18 @@ use bevy_egui::egui::Ui;
 use atlas_lib::ui::sidebar::MakeUi;
 
 use crate::{
-    config::SessionConfig,
-    event::EventStruct,
+    config::{AtlasGenConfig, InfluenceShape},
     map::MapDataLayer,
-    ui::{
-        internal::UiState,
-        panel::{MainPanelContinents, MainPanelTemperature, MainPanelTransition, SidebarPanel},
-    },
+    ui::panel::{MainPanelContinents, MainPanelTemperature, MainPanelTransition, SidebarPanel},
 };
 
+/// Panel with topography generation settings.
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelTopography;
 
 impl SidebarPanel for MainPanelTopography {
-    fn show(
-        &mut self,
-        ui: &mut Ui,
-        config: &mut SessionConfig,
-        _ui_state: &mut UiState,
-        events: &mut EventStruct,
-    ) {
+    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasGenConfig) {
         config.topography.make_ui(ui);
-        self.button_influence(ui, events, &config.topography.influence_shape);
-        self.button_layer(ui, events);
     }
 
     fn get_heading(&self) -> &'static str {
@@ -34,6 +23,10 @@ impl SidebarPanel for MainPanelTopography {
 
     fn get_layer(&self) -> MapDataLayer {
         MapDataLayer::Topography
+    }
+
+    fn get_influence_shape<'b>(&self, config: &'b AtlasGenConfig) -> &'b InfluenceShape {
+        &config.topography.influence_shape
     }
 
     fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {

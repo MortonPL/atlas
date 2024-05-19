@@ -3,6 +3,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
+/// Derive a [`atlas_lib::ui::sidebar::MakeUi`] implementation for a struct using field attributes.
+/// NOTE: Baby's first derive macro, looks bad but does the job.
 #[proc_macro_derive(MakeUi, attributes(add, control, hint, name))]
 pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -80,6 +82,8 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Derive a [`atlas_lib::ui::sidebar::MakeUi`] implementation for an enum using variant attributes.
+/// NOTE: Baby's first derive macro, looks bad but does the job.
 #[proc_macro_derive(MakeUiEnum, attributes(empty))]
 pub fn make_ui_enum_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -117,6 +121,9 @@ pub fn make_ui_enum_derive(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Derive a [`atlas_lib::ui::UiEditableEnum`] implementation for an enum.
+/// NOTE: Enum variants should all be unit variants!
+/// NOTE: Baby's first derive macro, looks bad but does the job.
 #[proc_macro_derive(UiEditableEnum, attributes(invisible))]
 pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -178,6 +185,9 @@ pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Derive a [`atlas_lib::ui::UiEditableEnum`] implementation for an enum.
+/// NOTE: Enum variants should all be tuple variants!
+/// NOTE: Baby's first derive macro, looks bad but does the job.
 #[proc_macro_derive(UiEditableEnumWithFields)]
 pub fn ui_editable_enum_with_fields_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

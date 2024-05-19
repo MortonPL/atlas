@@ -1,18 +1,27 @@
 # TO-DO List
 
-- Lotsa error handling
+- High Priority
+  - Lotsa error handling
+  - Export world
 
-- Maybe loading should be moved back to each panel?
-- Reset current panel config button
+- Low Priority
+  - Make simple resource generator
+  - "From Image" setting for every layer
+  - Reset current panel config button
 
-- Preview gen: use an external palette file for topography coloring mode
-- "From Image" setting for every layer
-- Make simple province generator
-  - with resources
-- Improve climate generator
-  - Expand tropical rainforest/savanna up to higher temperature
-  - Hydro layer (rivers?)
+- Optional
+  - Maybe loading should be moved back to each panel?
+  - Preview gen: use an external palette file for topography coloring mode
+  - Improve climate generator
+    - Expand tropical rainforest/savanna up to higher temperature
+    - Montane/Alpine climate at high altitude?
+    - Hydro layer (rivers?)
 
 ## TO-DO List 2
 
 - Everything
+
+- High Priority
+  - Core app code: load world, ui (camera + config + playback control), config, map display
+  - New scenario generation
+  - Basic Polity (map grabbing) component

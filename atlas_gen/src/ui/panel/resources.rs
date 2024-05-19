@@ -1,28 +1,18 @@
+use atlas_lib::ui::sidebar::MakeUi;
 use bevy_egui::egui::Ui;
 
 use crate::{
-    config::SessionConfig,
-    event::EventStruct,
+    config::AtlasGenConfig,
     map::MapDataLayer,
-    ui::{
-        internal::UiState,
-        panel::{MainPanelClimate, MainPanelTransition, SidebarPanel},
-    },
+    ui::panel::{MainPanelClimate, MainPanelTransition, SidebarPanel},
 };
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelResources;
 
 impl SidebarPanel for MainPanelResources {
-    fn show(
-        &mut self,
-        ui: &mut Ui,
-        _config: &mut SessionConfig,
-        _ui_state: &mut UiState,
-        events: &mut EventStruct,
-    ) {
-        // TODO
-        self.button_layer(ui, events);
+    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasGenConfig) {
+        config.resources.make_ui(ui);
     }
 
     fn get_heading(&self) -> &'static str {

@@ -5,6 +5,8 @@ use atlas_lib::{ui::sidebar::*, MakeUi, MakeUiEnum, UiEditableEnum, UiEditableEn
 
 use crate::config::{CELSIUS_MAX, CELSIUS_MIN, PRECIP_MAX, PRECIP_MIN};
 
+const MAX_WORLD_SIZE: u32 = 1000;
+
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
@@ -35,7 +37,7 @@ impl Default for WorldModel {
 pub struct FlatWorldModel {
     #[name("World Size")]
     #[control(SidebarSliderN)]
-    #[add(clamp_range(100..=500))]
+    #[add(clamp_range(100..=MAX_WORLD_SIZE))]
     pub world_size: [u32; 2],
 }
 
@@ -47,22 +49,31 @@ impl Default for FlatWorldModel {
     }
 }
 
+/// How topography should be visualised in the map preview.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum TopographyDisplayMode {
+    /// Don't show topography at all.
     #[default]
     Nothing,
+    /// Altitude relative to 128 units (5100 metres).
     Absolute128,
+    /// Altitude relative to 255 units (10200 meters).
     Absolute255,
+    /// Altitude relative to the highest point on the map.
     Highest,
 }
 
+/// How map should be colored in the map preview.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum ColorDisplayMode {
+    /// Use color palette depending on topography.
     #[default]
     Topography,
+    /// Use climate colors (simplified).
     SimplifiedClimate,
+    /// Use climate colors.
     DetailedClimate,
 }
 
@@ -84,13 +95,14 @@ impl Default for NoiseAlgorithm {
     }
 }
 
+/// Fbm generic noise sampling parameters.
 #[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct FbmConfig {
     #[name("Seed")]
     #[control(SidebarSliderRandom)]
     #[add(speed(100.0))]
     pub seed: u32,
-    #[name("Detail")]
+    #[name("Detail (Octaves)")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=12))]
     #[add(speed(0.5))]
@@ -115,7 +127,7 @@ pub struct FbmConfig {
     #[add(clamp_range(-1.0..=1.0))]
     #[add(speed(0.1))]
     pub bias: f32,
-    #[name("Second Bias")]
+    #[name("Bias (Post Range)")]
     #[control(SidebarSlider)]
     #[add(clamp_range(-1.0..=1.0))]
     #[add(speed(0.1))]
@@ -146,7 +158,7 @@ impl Default for FbmConfig {
     }
 }
 
-/// Influence map type describes what shape should be generated for the influence map.
+/// What shape should be generated for the influence map.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
 #[serde(rename_all = "lowercase")]
 pub enum InfluenceShape {
@@ -164,14 +176,20 @@ impl Default for InfluenceShape {
     }
 }
 
+/// How influence values should affect data values.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
 pub enum InfluenceMode {
+    /// Influence < 1 will scale data down.
     #[default]
     ScaleDown,
+    /// Influence > 0 will scale data up.
     ScaleUp,
+    /// Influence > 0.5 will scale data up, influence < 0.5 will scale down.
     ScaleUpDown,
 }
 
+/// A circle defined by offset (from center) and radius. Value falloff
+/// from the center of the circle is controlled by "midpoint" settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceCircleConfig {
     #[name("Influence Mode")]
@@ -184,7 +202,7 @@ pub struct InfluenceCircleConfig {
     pub influence_strength: f32,
     #[name("Radius")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(1..=500))]
+    #[add(clamp_range(1..=MAX_WORLD_SIZE))]
     #[add(speed(10.0))]
     pub radius: u32,
     #[name("Offset")]
@@ -215,6 +233,9 @@ impl Default for InfluenceCircleConfig {
     }
 }
 
+/// A strip consisting of a fat line segment with two circles at the end.
+/// Both length and thickness of the line are controllable, and the segement can be offset (from map center) and rotated.
+/// Value falloff from the line segment is controlled by "midpoint" settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceStripConfig {
     #[name("Influence Mode")]
@@ -227,12 +248,12 @@ pub struct InfluenceStripConfig {
     pub influence_strength: f32,
     #[name("Thickness")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(1..=500))]
+    #[add(clamp_range(1..=MAX_WORLD_SIZE))]
     #[add(speed(10.0))]
     pub thickness: u32,
     #[name("Length")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(1..=500))]
+    #[add(clamp_range(1..=MAX_WORLD_SIZE))]
     #[add(speed(10.0))]
     pub length: u32,
     #[name("Angle")]
@@ -274,6 +295,7 @@ impl Default for InfluenceStripConfig {
     }
 }
 
+/// Data from fBm noise sampling.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceFbmConfig {
     #[name("Influence Mode")]
@@ -305,6 +327,7 @@ impl AsRef<NoiseAlgorithm> for InfluenceFbmConfig {
     }
 }
 
+/// Data from an external image.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct InfluenceImageConfig {
     #[name("Influence Mode")]
@@ -326,6 +349,8 @@ impl Default for InfluenceImageConfig {
     }
 }
 
+/// Specialised multi-segment lerp operating on latitude coordinates.
+/// HACK: Different type for temperature and precipitation, because clamp limits are different.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct LatitudinalTemperatureLerp {
     #[name("Value At South Pole")]
@@ -369,6 +394,8 @@ pub struct LatitudinalTemperatureLerp {
     pub non_linear_tropics: bool,
 }
 
+/// Specialised multi-segment lerp operating on latitude coordinates.
+/// HACK: Different type for temperature and precipitation, because clamp limits are different.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct LatitudinalPrecipitationLerp {
     #[name("Value At South Pole")]

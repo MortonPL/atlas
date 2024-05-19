@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use crate::config::SessionConfig;
+use crate::config::AtlasGenConfig;
 
 /// Plugin responsible for the generator configuration and I/O.
-pub struct ConfigPlugin;
+pub struct GenConfigPlugin;
 
-impl Plugin for ConfigPlugin {
+impl Plugin for GenConfigPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SessionConfig>();
+        app.init_resource::<AtlasGenConfig>();
     }
 }
