@@ -7,10 +7,8 @@
 - Low Priority
   - Make simple resource generator
   - "From Image" setting for every layer
-  - Reset current panel config button
 
 - Optional
-  - Maybe loading should be moved back to each panel?
   - Preview gen: use an external palette file for topography coloring mode
   - Improve climate generator
     - Expand tropical rainforest/savanna up to higher temperature

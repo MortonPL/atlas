@@ -19,14 +19,14 @@ use crate::{
 };
 
 /// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
-const SIDEBAR_WIDTH: f32 = 420.0;
+const SIDEBAR_WIDTH: f32 = 390.0;
 /// Minimum sidebar width in points.
-const SIDEBAR_MIN_WIDTH: f32 = 420.0;
+const SIDEBAR_MIN_WIDTH: f32 = 390.0;
 
 /// Minimum camera zoom as Z in world space (bad idea?).
 const MIN_CAMERA_ZOOM: f32 = 1.0;
 /// Maximum camera zoom as Z in world space (bad idea?).
-const MAX_CAMERA_ZOOM: f32 = 7.0;
+const MAX_CAMERA_ZOOM: f32 = 15.0;
 /// Mutliplier to scroll value.
 const CAMERA_ZOOM_SPEED: f32 = 0.05;
 
@@ -146,9 +146,11 @@ fn create_sidebar_head(
             button_action(ui, "Save Config", || save_config_clicked(ui_state));
             button_action(ui, "Load Config", || load_config_clicked(ui_state));
             button_action(ui, "Reset Config", || {
-                reset_config_clicked(config, ui_panel, events)
+                reset_config_clicked(config, ui_panel, events);
             });
-            // TODO Reset current panel
+            button_action(ui, "Reset Current Panel", || {
+                reset_panel_clicked(config, ui_panel, events);
+            });
         });
     });
 }
@@ -168,7 +170,7 @@ fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut 
             button_action(ui, "Load Layer", || load_layer_clicked(ui_state));
             button_action(ui, "Save Layer", || save_layer_clicked(ui_state));
             button_action(ui, "Render Layer", || render_layer_clicked(ui_state));
-            button_action(ui, "Reset Layer", || reset_layer_clicked(ui_state, events));
+            button_action(ui, "Clear Layer", || clear_layer_clicked(ui_state, events));
         });
     });
 }
@@ -267,6 +269,45 @@ fn reset_config_clicked(
     events.world_model_changed = Some(config.general.world_model.clone());
 }
 
+/// Reset a config from one panel to defaults, and reset relevant logic layers.
+fn reset_panel_clicked(
+    config: &mut ResMut<AtlasGenConfig>,
+    ui_panel: &UiStatePanel,
+    events: &mut EventStruct,
+) {
+    match ui_panel.current_panel.get_layer() {
+        MapDataLayer::Preview => {
+            config.general = default();
+            events.world_model_changed = Some(config.general.world_model.clone());
+        }
+        MapDataLayer::Continents => {
+            config.continents = default();
+            events.generate_request = Some((MapDataLayer::Continents, true));
+        }
+        MapDataLayer::Topography => {
+            config.topography = default();
+            events.generate_request = Some((MapDataLayer::Topography, true));
+        }
+        MapDataLayer::Temperature => {
+            config.temperature = default();
+            events.generate_request = Some((MapDataLayer::Temperature, true));
+        }
+        MapDataLayer::Precipitation => {
+            config.precipitation = default();
+            events.generate_request = Some((MapDataLayer::Precipitation, true));
+        }
+        MapDataLayer::Climate => {
+            config.climate = default();
+            events.generate_request = Some((MapDataLayer::Climate, false));
+        }
+        MapDataLayer::Resource => {
+            config.resources = default();
+            events.generate_request = Some((MapDataLayer::Resource, false));
+        }
+        _ => unreachable!(),
+    }
+}
+
 // Set context for the file dialog to "loading layer" and show it.
 fn load_layer_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
@@ -291,9 +332,9 @@ fn render_layer_clicked(ui_state: &mut UiState) {
     ui_state.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
 }
 
-// Reset layer data.
-fn reset_layer_clicked(ui_state: &mut UiState, events: &mut EventStruct) {
-    events.reset_layer_request = Some(ui_state.current_layer);
+// Clear layer data.
+fn clear_layer_clicked(ui_state: &mut UiState, events: &mut EventStruct) {
+    events.clear_layer_request = Some(ui_state.current_layer);
 }
 
 /// Load and overwrite configuration from a TOML file.

@@ -52,14 +52,16 @@ pub trait SidebarPanel {
     /// Create a "Generate Layer" button.
     fn button_layer(&self, ui: &mut Ui, events: &mut EventStruct) {
         if button(ui, "Generate Layer") {
-            events.generate_request = Some(self.get_layer());
+            events.generate_request = Some((self.get_layer(), false));
         }
     }
 
     /// Create a "Generate Influence Map" button.
     fn button_influence(&self, ui: &mut Ui, events: &mut EventStruct, influence: &InfluenceShape) {
         if !matches!(influence, InfluenceShape::None(_)) && button(ui, "Generate Influence Map") {
-            events.generate_request = self.get_layer().get_influence_layer();
+            if let Some(layer) = self.get_layer().get_influence_layer() {
+                events.generate_request = Some((layer, false));
+            }
         }
     }
 }

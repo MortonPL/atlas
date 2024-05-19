@@ -31,12 +31,12 @@ pub struct EventStruct {
     pub save_layer_request: Option<(MapDataLayer, Box<Path>)>,
     /// A map layer should be rendered to file.
     pub render_layer_request: Option<(MapDataLayer, Box<Path>)>,
-    /// A map layer should be reset to empty.
-    pub reset_layer_request: Option<MapDataLayer>,
+    /// A map layer should be cleared.
+    pub clear_layer_request: Option<MapDataLayer>,
     /// Some map layer textures should be regenerated.
     pub regen_layer_request: Option<Vec<MapDataLayer>>,
-    /// This map layer requests data generation.
-    pub generate_request: Option<MapDataLayer>,
+    /// This map layer requests data generation (should the influence layer be regenerated too?).
+    pub generate_request: Option<(MapDataLayer, bool)>,
     /// "climatemap.png" should be reloaded.
     pub load_climatemap_request: Option<()>,
 }
@@ -49,7 +49,7 @@ impl Default for EventStruct {
             load_layer_request: Default::default(),
             save_layer_request: Default::default(),
             render_layer_request: Default::default(),
-            reset_layer_request: Default::default(),
+            clear_layer_request: Default::default(),
             regen_layer_request: Default::default(),
             generate_request: Default::default(),
             // Load climate map on start.

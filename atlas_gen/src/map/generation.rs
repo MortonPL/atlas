@@ -31,8 +31,6 @@ pub fn generate(
         MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
         MapDataLayer::Resource => todo!(),  // TODO
-        MapDataLayer::Fertility => todo!(), // TODO
-        MapDataLayer::Richness => todo!(),  // TODO
         // Influence
         MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, layer),
         MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, layer),

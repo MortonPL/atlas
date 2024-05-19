@@ -46,7 +46,7 @@ impl SidebarPanel for MainPanelGeneral {
         }
 
         if button(ui, "Generate Preview") {
-            events.generate_request = Some(self.get_layer());
+            events.generate_request = Some((self.get_layer(), false));
         }
     }
 

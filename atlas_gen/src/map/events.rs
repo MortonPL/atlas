@@ -208,19 +208,20 @@ pub fn update_event_rendered(
 
 /// Run condition
 ///
-/// Check if "reset layer image" event needs handling.
-pub fn check_event_reset(events: Res<EventStruct>) -> bool {
-    events.reset_layer_request.is_some()
+/// Check if "clear layer image" event needs handling.
+pub fn check_event_clear(events: Res<EventStruct>) -> bool {
+    events.clear_layer_request.is_some()
 }
 
 /// Update system
 ///
-/// Reset/Invalidate layer data.
-pub fn update_event_reset(mut events: ResMut<EventStruct>, mut graphics: ResMut<MapGraphicsData>) {
-    let layer = events.reset_layer_request.take().expect("Always Some");
-    let layer = graphics.get_layer_mut(layer);
-    // Invalidate.
-    layer.invalid = true;
+/// Clear layer data.
+pub fn update_event_clear(mut events: ResMut<EventStruct>, mut logics: ResMut<MapLogicData>, mut graphics: ResMut<MapGraphicsData>) {
+    let layer = events.clear_layer_request.take().expect("Always Some");
+    let logic = logics.get_layer_mut(layer);
+    logic.fill(0);
+    let graphic = graphics.get_layer_mut(layer);
+    graphic.invalid = true;
     // Trigger material refresh.
     events.viewed_layer_changed = Some(graphics.current);
 }
@@ -240,9 +241,15 @@ pub fn update_event_generate(
     mut logics: ResMut<MapLogicData>,
     config: Res<AtlasGenConfig>,
 ) {
-    let layer = events.generate_request.take().expect("Always Some");
+    let (layer, regen_influence) = events.generate_request.take().expect("Always Some");
+    let mut regen_layers: Vec<MapDataLayer> = vec![];
+    if regen_influence {
+        if let Some(layer2) = layer.get_influence_layer() {
+            regen_layers.extend(generate(layer2, &mut logics, &config));
+        }
+    }
     // Run generation procedure based on generator type and layer.
-    let regen_layers = generate(layer, &mut logics, &config);
+    regen_layers.extend(generate(layer, &mut logics, &config));
     // Handle post generation.
     post_generation(layer, &mut logics, &mut events, &config, regen_layers);
 }

@@ -383,8 +383,8 @@ pub fn fill_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl 
 /// Fill an influence layer with specified shape (or noise algorithm).
 pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldModel) {
     match shape {
-        InfluenceShape::None(_) => unreachable!(),
-        InfluenceShape::FromImage(_) => unreachable!(),
+        InfluenceShape::None(_) => data.fill(0),
+        InfluenceShape::FromImage(_) => { /*Do nothing. */ },
         InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model),
         InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model),
         InfluenceShape::Fbm(x) => fill_with_algorithm(data, model, x),
