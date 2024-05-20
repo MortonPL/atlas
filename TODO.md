@@ -2,16 +2,15 @@
 
 - High Priority
   - Lotsa error handling
-  - Export world
 
 - Low Priority
   - Make simple resource generator
   - "From Image" setting for every layer
+  - Use a top menu instead of many buttons?
 
 - Optional
   - Preview gen: use an external palette file for topography coloring mode
   - Improve climate generator
-    - Expand tropical rainforest/savanna up to higher temperature
     - Montane/Alpine climate at high altitude?
     - Hydro layer (rivers?)
 

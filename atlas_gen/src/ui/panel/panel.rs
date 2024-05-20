@@ -8,15 +8,6 @@ use crate::{
     ui::{internal::UiState, panel::MainPanelGeneral},
 };
 
-/// Transition between sidebar panels.
-#[derive(Default, Clone, Copy, PartialEq)]
-pub enum MainPanelTransition {
-    #[default]
-    None,
-    Previous,
-    Next,
-}
-
 /// A sidebar page/panel.
 pub trait SidebarPanel {
     /// Get panel heading.
@@ -28,12 +19,9 @@ pub trait SidebarPanel {
     /// Create a config UI for this panel. Nothing shown by default.
     fn make_ui(&mut self, _ui: &mut Ui, _config: &mut AtlasGenConfig) {}
 
-    /// Handle transitioning to the previous or next panel.
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send>;
-
     /// Get influence shape from this panel's config. [`InfluenceShape::None`] by default.
     fn get_influence_shape<'b>(&self, _config: &'b AtlasGenConfig) -> &'b InfluenceShape {
-        &InfluenceShape::None(())
+        &InfluenceShape::None
     }
 
     /// Create UI for this panel.
@@ -58,7 +46,7 @@ pub trait SidebarPanel {
 
     /// Create a "Generate Influence Map" button.
     fn button_influence(&self, ui: &mut Ui, events: &mut EventStruct, influence: &InfluenceShape) {
-        if !matches!(influence, InfluenceShape::None(_)) && button(ui, "Generate Influence Map") {
+        if !matches!(influence, InfluenceShape::None) && button(ui, "Generate Influence Map") {
             if let Some(layer) = self.get_layer().get_influence_layer() {
                 events.generate_request = Some((layer, false));
             }

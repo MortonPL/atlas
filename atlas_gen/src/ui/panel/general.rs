@@ -1,4 +1,4 @@
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{RichText, Ui};
 
 use atlas_lib::ui::{button, sidebar::MakeUi, UiEditableEnum};
 
@@ -6,10 +6,7 @@ use crate::{
     config::{AtlasGenConfig, WorldModel},
     event::EventStruct,
     map::MapDataLayer,
-    ui::{
-        internal::UiState,
-        panel::{MainPanelContinents, MainPanelTransition, SidebarPanel},
-    },
+    ui::{internal::{FileDialogMode, UiState}, panel::SidebarPanel},
 };
 
 /// Panel with general world gen and preview settings.
@@ -21,7 +18,7 @@ impl SidebarPanel for MainPanelGeneral {
         &mut self,
         ui: &mut Ui,
         config: &mut AtlasGenConfig,
-        _ui_state: &mut UiState,
+        ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
         let old_world_model = config.general.world_model.self_as_index();
@@ -48,6 +45,13 @@ impl SidebarPanel for MainPanelGeneral {
         if button(ui, "Generate Preview") {
             events.generate_request = Some((self.get_layer(), false));
         }
+
+        if button(ui, RichText::new("Export World").heading()) {
+            let mut file_picker = egui_file::FileDialog::select_folder(None);
+            file_picker.open();
+            ui_state.file_dialog = Some(file_picker);
+            ui_state.file_dialog_mode = FileDialogMode::Export;
+        }
     }
 
     fn get_heading(&self) -> &'static str {
@@ -56,12 +60,5 @@ impl SidebarPanel for MainPanelGeneral {
 
     fn get_layer(&self) -> MapDataLayer {
         MapDataLayer::Preview
-    }
-
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
-        match transition {
-            MainPanelTransition::Next => Box::<MainPanelContinents>::default(),
-            _ => Box::new(*self),
-        }
     }
 }

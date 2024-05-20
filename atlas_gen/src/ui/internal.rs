@@ -15,7 +15,12 @@ use crate::{
     config::{load_config, load_image, save_config, AtlasGenConfig},
     event::EventStruct,
     map::MapDataLayer,
-    ui::panel::{MainPanelTransition, SidebarPanel},
+    ui::panel::SidebarPanel,
+};
+
+use super::panel::{
+    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources,
+    MainPanelTemperature, MainPanelTopography,
 };
 
 /// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
@@ -32,7 +37,7 @@ const CAMERA_ZOOM_SPEED: f32 = 0.05;
 
 /// Mode of operation for the generic file dialog.
 #[derive(Clone, Copy, Default)]
-enum FileDialogMode {
+pub enum FileDialogMode {
     /// Save generator configuration to TOML file.
     #[default]
     SaveConfig,
@@ -44,6 +49,8 @@ enum FileDialogMode {
     LoadData(MapDataLayer),
     /// Render this layer to a PNG file.
     RenderImage(MapDataLayer),
+    /// Export all layers.
+    Export,
 }
 
 /// Struct that contains only the UI-related state (no logic).
@@ -52,9 +59,9 @@ pub struct UiState {
     /// Size (in pixels) of the viewport, AKA window size - sidebar size.
     pub viewport_size: bevy::prelude::Vec2,
     /// All purpose file dialog. Some if open, None if closed.
-    file_dialog: Option<egui_file::FileDialog>,
+    pub file_dialog: Option<egui_file::FileDialog>,
     /// File dialog mode of operation. See [`FileDialogMode`].
-    file_dialog_mode: FileDialogMode,
+    pub file_dialog_mode: FileDialogMode,
     /// Currently viewed map layer.
     current_layer: MapDataLayer,
 }
@@ -80,9 +87,9 @@ pub fn create_ui(
     // |----------------|
     // | Layer View     |  <-- Layer dropdown and other visibility settings.
     // |----------------|
-    // | Panel-specific |  <-- Panel displaying current stage settings
-    // |                |      and "Previous"/"Next" buttons.
-    // |  Prev || Next  |
+    // | Panel Selection|  <-- Pseudo "tabs" for panels.
+    // |----------------|
+    // | Panel-specific |  <-- Panel displaying current stage settings.
     // |________________|
     egui::SidePanel::right("ui_root")
         .min_width(SIDEBAR_MIN_WIDTH)
@@ -91,6 +98,8 @@ pub fn create_ui(
             create_sidebar_head(ui, &mut config, ui_state, ui_panel, events);
             ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
             create_layer_view_settings(ui, ui_state, events);
+            ui.separator();
+            create_panel_tabs(ui, ui_state, ui_panel, events);
             ui.separator();
             create_current_panel(ui, &mut config, ui_state, ui_panel, events);
             // We've finished drawing the sidebar. Its size is now established
@@ -158,20 +167,57 @@ fn create_sidebar_head(
 /// Create sidebar settings for the layer display.
 fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut EventStruct) {
     ui.vertical(|ui| {
-        // Layer visibility dropdown.
         let old = ui_state.current_layer;
-        let selection = SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
-        SidebarEnumDropdown::post_show(selection, &mut ui_state.current_layer);
-        if old != ui_state.current_layer {
-            events.viewed_layer_changed = Some(ui_state.current_layer);
-        }
-        // Layer buttons.
-        ui.horizontal(|ui| {
-            button_action(ui, "Load Layer", || load_layer_clicked(ui_state));
-            button_action(ui, "Save Layer", || save_layer_clicked(ui_state));
-            button_action(ui, "Render Layer", || render_layer_clicked(ui_state));
-            button_action(ui, "Clear Layer", || clear_layer_clicked(ui_state, events));
+        // Layer visibility dropdown.
+        // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
+        ui.horizontal_wrapped(|ui| {
+            let selection =
+                SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
+            SidebarEnumDropdown::post_show(selection, &mut ui_state.current_layer);
+            // Trigger layer change event as needed.
+            if old != ui_state.current_layer {
+                events.viewed_layer_changed = Some(ui_state.current_layer);
+            }
+            // Layer manipulation buttons.
+            button_action(ui, "Load", || load_layer_clicked(ui_state));
+            button_action(ui, "Save", || save_layer_clicked(ui_state));
+            button_action(ui, "Render", || render_layer_clicked(ui_state));
+            button_action(ui, "Clear", || clear_layer_clicked(ui_state, events));
         });
+    });
+}
+
+/// Create tabs for switching panels.
+fn create_panel_tabs(
+    ui: &mut Ui,
+    ui_state: &mut UiState,
+    ui_panel: &mut UiStatePanel,
+    events: &mut EventStruct,
+) {
+    ui.horizontal_wrapped(|ui| {
+        let mut changed = true;
+        if button(ui, "General") {
+            ui_panel.current_panel = Box::new(MainPanelGeneral::default());
+        } else if button(ui, "Continents") {
+            ui_panel.current_panel = Box::new(MainPanelContinents::default());
+        } else if button(ui, "Topography") {
+            ui_panel.current_panel = Box::new(MainPanelTopography::default());
+        } else if button(ui, "Temperature") {
+            ui_panel.current_panel = Box::new(MainPanelTemperature::default());
+        } else if button(ui, "Precipitation") {
+            ui_panel.current_panel = Box::new(MainPanelPrecipitation::default());
+        } else if button(ui, "Climate") {
+            ui_panel.current_panel = Box::new(MainPanelClimate::default());
+        } else if button(ui, "Resources") {
+            ui_panel.current_panel = Box::new(MainPanelResources::default());
+        } else {
+            changed = false;
+        }
+        if changed {
+            let layer = ui_panel.current_panel.get_layer();
+            events.viewed_layer_changed = Some(layer);
+            ui_state.current_layer = layer;
+        }
     });
 }
 
@@ -185,24 +231,10 @@ fn create_current_panel(
 ) {
     // Panel heading.
     ui.heading(ui_panel.current_panel.get_heading());
+    // Panel inner.
     egui::ScrollArea::both().show(ui, |ui| {
-        // Panel inner.
         ui_panel.current_panel.show(ui, config, ui_state, events);
-        // Previous/Next buttons and panel transitioning.
-        ui.separator();
-        ui.horizontal(|ui| {
-            let transition = match (button(ui, "Previous"), button(ui, "Next")) {
-                (true, _) => MainPanelTransition::Previous,
-                (false, true) => MainPanelTransition::Next,
-                _ => MainPanelTransition::None,
-            };
-            ui_panel.current_panel = ui_panel.current_panel.transition(transition);
-            if transition != MainPanelTransition::None {
-                let layer = ui_panel.current_panel.get_layer();
-                events.viewed_layer_changed = Some(layer);
-                ui_state.current_layer = layer;
-            }
-        });
+        ui.separator(); // HACK! Again! Without it the scroll area isn't greedy.
     });
 }
 
@@ -236,6 +268,7 @@ fn handle_file_dialog(
                 FileDialogMode::LoadData(layer) => file_dialog_load_data(path, layer, config, events),
                 FileDialogMode::SaveData(layer) => file_dialog_save_data(path, layer, events),
                 FileDialogMode::RenderImage(layer) => file_dialog_render_image(path, layer, events),
+                FileDialogMode::Export => file_dialog_export(path, events),
             };
         }
         ui_state.file_dialog = None;
@@ -300,9 +333,9 @@ fn reset_panel_clicked(
             config.climate = default();
             events.generate_request = Some((MapDataLayer::Climate, false));
         }
-        MapDataLayer::Resource => {
+        MapDataLayer::Resources => {
             config.resources = default();
-            events.generate_request = Some((MapDataLayer::Resource, false));
+            events.generate_request = Some((MapDataLayer::Resources, false));
         }
         _ => unreachable!(),
     }
@@ -380,7 +413,12 @@ fn file_dialog_save_data(path: &Path, layer: MapDataLayer, events: &mut EventStr
     events.save_layer_request = Some((layer, path.into()));
 }
 
-/// Send and event to render a layer image.
+/// Send an event to render a layer image.
 fn file_dialog_render_image(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
     events.render_layer_request = Some((layer, path.into()));
+}
+
+/// Send an event to export all layers.
+fn file_dialog_export(path: &Path, events: &mut EventStruct) {
+    events.export_world_request = Some(path.into());
 }

@@ -26,7 +26,7 @@ pub struct GeneralConfig {
     #[control(SidebarSliderRandom)]
     #[add(speed(100.0))]
     pub seed: u32,
-    #[name("Tile Resolution")]
+    #[name("Tile Resolution [km]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(10.0..=200.0))]
     pub tile_resolution: f32,
@@ -66,7 +66,7 @@ pub struct ContinentsConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub sea_level: f32,
-    #[name("Algorithm")]
+    #[name("Noise Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
     #[name("Influence Shape")]
@@ -104,7 +104,7 @@ pub struct TopographyConfig {
     #[add(clamp_range(0..=7))]
     #[add(speed(0.5))]
     pub coastal_erosion: u8,
-    #[name("Algorithm")]
+    #[name("Noise Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
     #[name("Influence Shape")]
@@ -217,7 +217,7 @@ pub struct PrecipitationConfig {
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
     pub algorithm_strength: f32,
-    #[name("Algorithm")]
+    #[name("Noise Algorithm")]
     #[control(SidebarEnumSection)]
     pub algorithm: NoiseAlgorithm,
     #[name("Influence Map Type")]

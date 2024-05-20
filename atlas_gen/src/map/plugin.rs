@@ -7,15 +7,15 @@ use crate::{
     event::EventStruct,
     map::{
         events::{
-            check_event_changed, check_event_clear, check_event_climatemap, check_event_generate,
-            check_event_loaded, check_event_regen, check_event_rendered, check_event_saved,
-            check_event_world_model, update_event_changed, update_event_clear, update_event_climatemap,
-            update_event_generate, update_event_loaded, update_event_regen, update_event_rendered,
-            update_event_saved, update_event_world_model,
+            check_event_changed, check_event_clear, check_event_climatemap, check_event_export,
+            check_event_generate, check_event_loaded, check_event_regen, check_event_rendered,
+            check_event_saved, check_event_world_model, update_event_changed, update_event_clear,
+            update_event_climatemap, update_event_export, update_event_generate, update_event_loaded,
+            update_event_regen, update_event_rendered, update_event_saved, update_event_world_model,
         },
         internal::{
             make_image, spawn_default_globe, spawn_default_plane, MapGraphicsData, MapGraphicsLayer,
-            MapLogicData,
+            MapLogicData, MAP_DATA_LAYERS,
         },
     },
 };
@@ -37,7 +37,8 @@ impl Plugin for MapPlugin {
             .add_systems(Update, update_event_clear.run_if(check_event_clear))
             .add_systems(Update, update_event_regen.run_if(check_event_regen))
             .add_systems(Update, update_event_generate.run_if(check_event_generate))
-            .add_systems(Update, update_event_climatemap.run_if(check_event_climatemap));
+            .add_systems(Update, update_event_climatemap.run_if(check_event_climatemap))
+            .add_systems(Update, update_event_export.run_if(check_event_export));
     }
 }
 
@@ -51,7 +52,7 @@ pub enum MapDataLayer {
     Temperature,
     Precipitation,
     Climate,
-    Resource,
+    Resources,
     //#[invisible] // DEBUG
     RealTopography,
     //#[invisible] // DEBUG
@@ -72,7 +73,7 @@ impl MapDataLayer {
             MapDataLayer::Temperature => Some(MapDataLayer::TemperatureInfluence),
             MapDataLayer::Precipitation => Some(MapDataLayer::PrecipitationInfluence),
             MapDataLayer::Climate => None,
-            MapDataLayer::Resource => todo!(),
+            MapDataLayer::Resources => todo!(),
             MapDataLayer::RealTopography => None,
             MapDataLayer::TopographyFilter => None,
             MapDataLayer::ContinentsInfluence => Some(MapDataLayer::ContinentsInfluence),
@@ -82,24 +83,6 @@ impl MapDataLayer {
         }
     }
 }
-
-/// Array of all [`MapDataLayer`] variants.
-const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
-    MapDataLayer::Preview,
-    MapDataLayer::Continents,
-    MapDataLayer::Topography,
-    MapDataLayer::Temperature,
-    MapDataLayer::Precipitation,
-    MapDataLayer::Climate,
-    MapDataLayer::Resource,
-    MapDataLayer::RealTopography,
-    MapDataLayer::TopographyFilter,
-    // Influence
-    MapDataLayer::ContinentsInfluence,
-    MapDataLayer::TopographyInfluence,
-    MapDataLayer::TemperatureInfluence,
-    MapDataLayer::PrecipitationInfluence,
-];
 
 /// Startup system
 ///

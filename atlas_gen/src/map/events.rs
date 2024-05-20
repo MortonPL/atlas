@@ -1,13 +1,14 @@
 use bevy::prelude::*;
 
 use crate::{
-    config::{save_image, save_image_grey, AtlasGenConfig, WorldModel},
+    config::{save_config, save_image, save_image_grey, AtlasGenConfig, WorldModel},
     event::EventStruct,
     map::{
         generation::{after_generate, generate},
         internal::{
-            data_to_png, data_to_view, get_material, get_material_mut, make_image, png_to_data,
-            CurrentWorldModel, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
+            data_to_view, get_material, get_material_mut, make_image, CurrentWorldModel, MapGraphicsData,
+            MapLogicData, WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, CONFIG_NAME,
+            EXPORT_DATA_LAYERS, PREVIEW_NAME,
         },
         MapDataLayer,
     },
@@ -142,8 +143,6 @@ pub fn update_event_loaded(
     config: Res<AtlasGenConfig>,
 ) {
     let (layer, data) = events.load_layer_request.take().expect("Always Some");
-    // Convert image data to logic data.
-    let data = png_to_data(data, layer);
     // Assign data.
     logics.put_layer(layer, data);
     // Handle post generation.
@@ -166,9 +165,12 @@ pub fn update_event_saved(
     config: Res<AtlasGenConfig>,
 ) {
     let (layer, path) = events.render_layer_request.take().expect("Always Some");
-    let image = data_to_png(&logics, layer);
+    let data = logics.get_layer(layer);
     let (width, height) = config.general.world_model.get_dimensions();
-    save_image_grey(path, &image, width, height).unwrap(); // TODO error handling
+    match layer {
+        MapDataLayer::Preview => save_image(path, &data, width, height),
+        _ => save_image_grey(path, &data, width, height),
+    }.unwrap(); // TODO error handling
 }
 
 /// Run condition
@@ -216,7 +218,11 @@ pub fn check_event_clear(events: Res<EventStruct>) -> bool {
 /// Update system
 ///
 /// Clear layer data.
-pub fn update_event_clear(mut events: ResMut<EventStruct>, mut logics: ResMut<MapLogicData>, mut graphics: ResMut<MapGraphicsData>) {
+pub fn update_event_clear(
+    mut events: ResMut<EventStruct>,
+    mut logics: ResMut<MapLogicData>,
+    mut graphics: ResMut<MapGraphicsData>,
+) {
     let layer = events.clear_layer_request.take().expect("Always Some");
     let logic = logics.get_layer_mut(layer);
     logic.fill(0);
@@ -266,7 +272,43 @@ pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
 /// Reload climatemap.png.
 pub fn update_event_climatemap(mut events: ResMut<EventStruct>, mut logics: ResMut<MapLogicData>) {
     events.load_climatemap_request.take();
-    logics.load_climatemap();
+    logics.load_climatemap().unwrap(); // TODO error window
+}
+
+/// Run condition
+///
+/// Check if "export world" event needs handling.
+pub fn check_event_export(events: Res<EventStruct>) -> bool {
+    events.export_world_request.is_some()
+}
+
+/// Update system
+///
+/// Export the world: preview, all layers, config, and climate map.
+pub fn update_event_export(
+    mut events: ResMut<EventStruct>,
+    logics: ResMut<MapLogicData>,
+    config: Res<AtlasGenConfig>,
+) {
+    let base_path = events.export_world_request.take().expect("Always Some");
+    // Export data layers.
+    let (width, height) = config.general.world_model.get_dimensions();
+    for (layer, name) in EXPORT_DATA_LAYERS {
+        let data = logics.get_layer(layer);
+        let path = base_path.join(name);
+        save_image_grey(path, &data, width, height).unwrap(); // TODO error handling
+    }
+    // Export preview.
+    let preview = data_to_view(&logics, MapDataLayer::Preview, &config);
+    let path = base_path.join(PREVIEW_NAME);
+    save_image(path, &preview, width, height).unwrap(); // TODO error handling
+                                                        // Export climate map.
+    let climatemap = logics.get_climatemap();
+    let path = base_path.join(CLIMATEMAP_NAME);
+    save_image_grey(path, climatemap, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32).unwrap(); // TODO error handling
+                                                                                                // Export config.
+    let path = base_path.join(CONFIG_NAME);
+    save_config(&config, path).unwrap(); // TODO error handling
 }
 
 /// Helper function

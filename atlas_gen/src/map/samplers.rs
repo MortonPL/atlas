@@ -362,7 +362,7 @@ pub fn add_with_algorithm(
         NoiseAlgorithm::SuperSimplex(config) => {
             sample_add(data, FbmSampler::<SuperSimplex>::new(config), model, strength)
         }
-        NoiseAlgorithm::FromImage(_) => { /* Do nothing. */ }
+        NoiseAlgorithm::FromImage => { /* Do nothing. */ }
     }
 }
 
@@ -376,14 +376,14 @@ pub fn fill_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl 
         NoiseAlgorithm::SuperSimplex(config) => {
             sample_fill(data, FbmSampler::<SuperSimplex>::new(config), model)
         }
-        NoiseAlgorithm::FromImage(_) => { /* Do nothing. */ }
+        NoiseAlgorithm::FromImage => { /* Do nothing. */ }
     }
 }
 
 /// Fill an influence layer with specified shape (or noise algorithm).
 pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldModel) {
     match shape {
-        InfluenceShape::None(_) => data.fill(0),
+        InfluenceShape::None => data.fill(0),
         InfluenceShape::FromImage(_) => { /*Do nothing. */ },
         InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model),
         InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model),

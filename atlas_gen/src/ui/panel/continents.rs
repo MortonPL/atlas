@@ -5,7 +5,7 @@ use atlas_lib::ui::sidebar::MakeUi;
 use crate::{
     config::{AtlasGenConfig, InfluenceShape},
     map::MapDataLayer,
-    ui::panel::{MainPanelGeneral, MainPanelTopography, MainPanelTransition, SidebarPanel},
+    ui::panel::SidebarPanel,
 };
 
 /// Panel with continents generation settings.
@@ -27,13 +27,5 @@ impl SidebarPanel for MainPanelContinents {
 
     fn get_influence_shape<'b>(&self, config: &'b AtlasGenConfig) -> &'b InfluenceShape {
         &config.continents.influence_shape
-    }
-
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
-        match transition {
-            MainPanelTransition::None => Box::new(*self),
-            MainPanelTransition::Previous => Box::<MainPanelGeneral>::default(),
-            MainPanelTransition::Next => Box::<MainPanelTopography>::default(),
-        }
     }
 }

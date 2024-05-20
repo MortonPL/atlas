@@ -7,7 +7,7 @@ use crate::{
         TopographyDisplayMode, WorldModel,
     },
     map::{
-        internal::{fetch_climate, MapLogicData},
+        internal::{fetch_climate, MapLogicData, CLIMATEMAP_SIZE},
         samplers::{
             add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
             fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,
@@ -30,7 +30,7 @@ pub fn generate(
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
         MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
-        MapDataLayer::Resource => todo!(),  // TODO
+        MapDataLayer::Resources => todo!(), // TODO
         // Influence
         MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, layer),
         MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, layer),
@@ -322,13 +322,12 @@ fn generate_climate(
     let temp_data = logics.get_layer(MapDataLayer::Temperature);
     let prec_data = logics.get_layer(MapDataLayer::Precipitation);
     let len = config.climate.biomes.len() as u8;
-    if let Some(map) = logics.get_climatemap() {
-        // Use climate map.
-        for i in 0..clim_data.len() {
-            let map_index = prec_data[i] as usize * 255 + temp_data[i] as usize;
-            let climate = map[map_index];
-            clim_data[i] = if climate < len { climate } else { 0 };
-        }
+    // Use climate map.
+    let climatemap = logics.get_climatemap();
+    for i in 0..clim_data.len() {
+        let map_index = prec_data[i] as usize * CLIMATEMAP_SIZE + temp_data[i] as usize;
+        let climate = climatemap[map_index];
+        clim_data[i] = if climate < len { climate } else { 0 };
     }
     // Set new layer data.
     logics.put_layer(layer, clim_data);
@@ -418,7 +417,7 @@ fn handle_influence(
     config: impl AsRef<InfluenceShape>,
 ) {
     let (use_influence, influence_strength, influence_mode) = match config.as_ref() {
-        InfluenceShape::None(_) => (false, 0.0, Default::default()),
+        InfluenceShape::None => (false, 0.0, Default::default()),
         InfluenceShape::Circle(x) => (true, x.influence_strength, x.influence_mode),
         InfluenceShape::Strip(x) => (true, x.influence_strength, x.influence_mode),
         InfluenceShape::Fbm(x) => (true, x.influence_strength, x.influence_mode),

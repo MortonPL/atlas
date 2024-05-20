@@ -122,7 +122,6 @@ pub fn make_ui_enum_derive(input: TokenStream) -> TokenStream {
 }
 
 /// Derive a [`atlas_lib::ui::UiEditableEnum`] implementation for an enum.
-/// NOTE: Enum variants should all be unit variants!
 /// NOTE: Baby's first derive macro, looks bad but does the job.
 #[proc_macro_derive(UiEditableEnum, attributes(invisible))]
 pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
@@ -139,6 +138,8 @@ pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
 
     let mut len = variants.len();
     let mut idents = vec![];
+    let mut matched = vec![];
+    let mut default = vec![];
     let mut indices = vec![];
     let mut index: usize = 0;
     for variant in variants.into_iter() {
@@ -148,6 +149,13 @@ pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
                 is_invisible = true;
                 break;
             }
+        }
+        if variant.fields.is_empty() {
+            matched.push(TokenStream2::default());
+            default.push(TokenStream2::default());
+        } else {
+            matched.push(quote!((_)));
+            default.push(quote!((Default::default())));
         }
         idents.push(variant.ident);
         indices.push(if is_invisible { 9999 } else { index });
@@ -164,77 +172,13 @@ pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
 
             fn self_as_index(&self) -> usize {
                 match self {
-                    #(Self::#idents => #indices,)*
+                    #(Self::#idents #matched => #indices,)*
                 }
             }
 
             fn index_as_self(&self, idx: usize) -> Self {
                 match idx {
-                    #(#indices => Self::#idents,)*
-                    _ => panic!(),
-                }
-            }
-
-            fn index_to_str(idx: usize) -> &'static str {
-                match idx {
-                    #(#indices => stringify!(#idents),)*
-                    _ => panic!(),
-                }
-            }
-        }
-    })
-}
-
-/// Derive a [`atlas_lib::ui::UiEditableEnum`] implementation for an enum.
-/// NOTE: Enum variants should all be tuple variants!
-/// NOTE: Baby's first derive macro, looks bad but does the job.
-#[proc_macro_derive(UiEditableEnumWithFields)]
-pub fn ui_editable_enum_with_fields_derive(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
-    let enum_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    let variants = match ast.data {
-        syn::Data::Enum(e) => e.variants,
-        syn::Data::Struct(_) => unimplemented!(),
-        syn::Data::Union(_) => unimplemented!(),
-    };
-
-    let mut len = variants.len();
-    let mut idents = vec![];
-    let mut indices = vec![];
-    let mut index: usize = 0;
-    for variant in variants.into_iter() {
-        let mut is_invisible = false;
-        for attr in variant.attrs {
-            if attr.path().is_ident("invisible") {
-                is_invisible = true;
-                break;
-            }
-        }
-        idents.push(variant.ident);
-        indices.push(if is_invisible { 9999 } else { index });
-        if is_invisible {
-            len -= 1;
-        } else {
-            index += 1;
-        }
-    }
-
-    TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::UiEditableEnum for #enum_name #type_generics #where_clause {
-            const LEN: usize = #len;
-
-            fn self_as_index(&self) -> usize {
-                match self {
-                    #(Self::#idents(_) => #indices,)*
-                }
-            }
-
-            fn index_as_self(&self, idx: usize) -> Self {
-                match idx {
-                    #(#indices => Self::#idents(Default::default()),)*
+                    #(#indices => Self::#idents #default,)*
                     _ => panic!(),
                 }
             }

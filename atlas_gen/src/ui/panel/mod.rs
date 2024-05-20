@@ -12,9 +12,9 @@ mod topography;
 pub use general::*;
 pub use panel::*;
 
-use climate::*;
-use continents::*;
-use precipitation::*;
-use resources::*;
-use temperature::*;
-use topography::*;
+pub use climate::*;
+pub use continents::*;
+pub use precipitation::*;
+pub use resources::*;
+pub use temperature::*;
+pub use topography::*;

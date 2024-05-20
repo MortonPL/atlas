@@ -4,10 +4,7 @@ use crate::{
     config::AtlasGenConfig,
     event::EventStruct,
     map::MapDataLayer,
-    ui::{
-        internal::UiState,
-        panel::{MainPanelPrecipitation, MainPanelResources, MainPanelTransition, SidebarPanel},
-    },
+    ui::{internal::UiState, panel::SidebarPanel},
 };
 
 /// Panel with climate generation settings.
@@ -32,14 +29,6 @@ impl SidebarPanel for MainPanelClimate {
 
     fn get_layer(&self) -> MapDataLayer {
         MapDataLayer::Climate
-    }
-
-    fn transition(&self, transition: MainPanelTransition) -> Box<dyn SidebarPanel + Sync + Send> {
-        match transition {
-            MainPanelTransition::Previous => Box::<MainPanelPrecipitation>::default(),
-            MainPanelTransition::None => Box::new(*self),
-            MainPanelTransition::Next => Box::<MainPanelResources>::default(),
-        }
     }
 }
 

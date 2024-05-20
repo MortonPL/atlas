@@ -7,10 +7,52 @@ use crate::{
     map::MapDataLayer,
 };
 
-#[derive(Default, Resource)]
+pub const CONFIG_NAME: &str = "atlasgen.toml";
+pub const PREVIEW_NAME: &str = "preview.png";
+pub const CLIMATEMAP_NAME: &str = "climatemap.png";
+pub const CLIMATEMAP_SIZE: usize = 255;
+
+/// Array of all [`MapDataLayer`] variants.
+pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
+    MapDataLayer::Preview,
+    MapDataLayer::Continents,
+    MapDataLayer::Topography,
+    MapDataLayer::Temperature,
+    MapDataLayer::Precipitation,
+    MapDataLayer::Climate,
+    MapDataLayer::Resources,
+    MapDataLayer::RealTopography,
+    MapDataLayer::TopographyFilter,
+    // Influence
+    MapDataLayer::ContinentsInfluence,
+    MapDataLayer::TopographyInfluence,
+    MapDataLayer::TemperatureInfluence,
+    MapDataLayer::PrecipitationInfluence,
+];
+
+/// Array of all exportable [`MapDataLayer`]s.
+pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 6] = [
+    (MapDataLayer::Continents, "continents.png"),
+    (MapDataLayer::RealTopography, "realtopography.png"),
+    (MapDataLayer::Temperature, "temperature.png"),
+    (MapDataLayer::Precipitation, "precipitation.png"),
+    (MapDataLayer::Climate, "climate.png"),
+    (MapDataLayer::Resources, "resources.png"),
+];
+
+#[derive(Resource)]
 pub struct MapLogicData {
     layers: HashMap<MapDataLayer, Vec<u8>>,
-    climatemap: Option<Vec<u8>>,
+    climatemap: Vec<u8>,
+}
+
+impl Default for MapLogicData {
+    fn default() -> Self {
+        Self {
+            layers: Default::default(),
+            climatemap: vec![0u8; CLIMATEMAP_SIZE * CLIMATEMAP_SIZE],
+        }
+    }
 }
 
 impl MapLogicData {
@@ -46,12 +88,18 @@ impl MapLogicData {
         }
     }
 
-    pub fn get_climatemap(&self) -> Option<&[u8]> {
-        self.climatemap.as_deref()
+    pub fn get_climatemap(&self) -> &[u8] {
+        &self.climatemap
     }
 
-    pub fn load_climatemap(&mut self) {
-        self.climatemap = load_image_grey("climatemap.png", 255, 255).ok();
+    pub fn load_climatemap(&mut self) -> Result<(), crate::config::Error> {
+        let result = load_image_grey(CLIMATEMAP_NAME, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32);
+        if let Ok(vec) = result {
+            self.climatemap = vec;
+            Ok(())
+        } else {
+            result.map(|_| {})
+        }
     }
 }
 
@@ -162,39 +210,16 @@ pub fn get_material_mut<'a>(
         .expect("Material handle should be valid")
 }
 
-/// Import layer data from a PNG file.
-/// The underlying conversion may differ based on layer variant.
-///
-/// This function is the inverse of [`data_to_png`].
-pub fn png_to_data(data: Vec<u8>, layer: MapDataLayer) -> Vec<u8> {
-    match layer {
-        MapDataLayer::Preview => data,
-        MapDataLayer::Continents => continents_from_png(data),
-        MapDataLayer::ContinentsInfluence => extract_monochrome(data),
-        MapDataLayer::Topography => extract_monochrome(data),
-        MapDataLayer::TopographyInfluence => extract_monochrome(data),
-        MapDataLayer::Temperature => extract_monochrome(data),
-        MapDataLayer::TemperatureInfluence => extract_monochrome(data),
-        MapDataLayer::Precipitation => extract_monochrome(data),
-        MapDataLayer::PrecipitationInfluence => extract_monochrome(data),
-        MapDataLayer::Climate => extract_monochrome(data),
-        MapDataLayer::Resource => todo!(),  // TODO
-        MapDataLayer::RealTopography => extract_monochrome(data),
-        MapDataLayer::TopographyFilter => extract_monochrome(data),
-    }
-}
-
-/// Export layer data to a PNG file.
-/// The underlying conversion may differ based on layer variant.
-///
-/// This function is the inverse of [`png_to_data`].
-pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
+/// Convert logical layer data to a texture.
+/// For most cases, this just expands greyscale to grey RGBA.
+pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &AtlasGenConfig) -> Vec<u8> {
     let data = data_layers
         .layers
         .get(&layer)
         .expect("MapLogicData should map all layers");
     match layer {
         MapDataLayer::Preview => data.to_vec(),
+        MapDataLayer::Climate => climate_to_view(data, config),
         MapDataLayer::Continents => continents_to_png(data),
         MapDataLayer::ContinentsInfluence => expand_monochrome(data),
         MapDataLayer::Topography => expand_monochrome(data),
@@ -203,46 +228,10 @@ pub fn data_to_png(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
         MapDataLayer::TemperatureInfluence => expand_monochrome(data),
         MapDataLayer::Precipitation => expand_monochrome(data),
         MapDataLayer::PrecipitationInfluence => expand_monochrome(data),
-        MapDataLayer::Climate => expand_monochrome(data),
-        MapDataLayer::Resource => todo!(),  // TODO
+        MapDataLayer::Resources => expand_monochrome(data),
         MapDataLayer::RealTopography => expand_monochrome(data),
         MapDataLayer::TopographyFilter => expand_monochrome(data),
     }
-}
-
-/// Convert logical layer data to a texture.
-/// For most cases, this functions the same as [`data_to_png`].
-pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &AtlasGenConfig) -> Vec<u8> {
-    let data = data_layers
-        .layers
-        .get(&layer)
-        .expect("MapLogicData should map all layers");
-    match layer {
-        MapDataLayer::Climate => climate_to_view(data, config),
-        _ => data_to_png(data_layers, layer),
-    }
-}
-
-/// Convert an RGBA image to continents/ocean data.
-/// Data: Value <= 127 is ocean, value > 127 is continent.
-/// Image: Every ocean only has blue channel, every continent only green.
-/// When both channels are set, continents take priority.
-fn continents_from_png(data: Vec<u8>) -> Vec<u8> {
-    let fun = |x: &[u8]| {
-        if x[1] > 0 {
-            x[1] / 2 + 128
-        } else if x[2] > 0 {
-            x[2] / 2
-        } else {
-            255
-        }
-    };
-    data.chunks_exact(4).map(fun).collect()
-}
-
-/// Extract one channel from an RGBA image.
-fn extract_monochrome(data: Vec<u8>) -> Vec<u8> {
-    data.into_iter().step_by(4).collect()
 }
 
 /// Convert continents/ocean data to an RGBA image.

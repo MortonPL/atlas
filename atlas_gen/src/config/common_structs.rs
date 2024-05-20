@@ -1,7 +1,7 @@
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 
-use atlas_lib::{ui::sidebar::*, MakeUi, MakeUiEnum, UiEditableEnum, UiEditableEnumWithFields};
+use atlas_lib::{ui::sidebar::*, MakeUi, MakeUiEnum, UiEditableEnum};
 
 use crate::config::{CELSIUS_MAX, CELSIUS_MIN, PRECIP_MAX, PRECIP_MIN};
 
@@ -10,11 +10,13 @@ const MAX_WORLD_SIZE: u32 = 1000;
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
     #[empty]
+    #[invisible]
+    #[serde(skip)]
     Globe(()),
 }
 
@@ -79,14 +81,14 @@ pub enum ColorDisplayMode {
 
 /// Algorithm describes the noise algorithm that should be used to generate a layer,
 /// as well as its paramateres.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum NoiseAlgorithm {
     Perlin(FbmConfig),
     OpenSimplex(FbmConfig),
     SuperSimplex(FbmConfig),
     #[empty]
-    FromImage(()),
+    FromImage,
 }
 
 impl Default for NoiseAlgorithm {
@@ -159,11 +161,11 @@ impl Default for FbmConfig {
 }
 
 /// What shape should be generated for the influence map.
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnumWithFields)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum InfluenceShape {
     #[empty]
-    None(()),
+    None,
     Circle(InfluenceCircleConfig),
     Strip(InfluenceStripConfig),
     Fbm(InfluenceFbmConfig),
@@ -172,7 +174,7 @@ pub enum InfluenceShape {
 
 impl Default for InfluenceShape {
     fn default() -> Self {
-        Self::None(())
+        Self::None
     }
 }
 
