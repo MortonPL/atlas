@@ -1,5 +1,5 @@
 use bevy::{
-    app::{MainScheduleOrder, RunFixedUpdateLoop},
+    app::{AppExit, MainScheduleOrder, RunFixedUpdateLoop},
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseWheel,
@@ -51,6 +51,7 @@ fn update_ui(
     mut ui_state: ResMut<UiState>,
     mut ui_panel: ResMut<UiStatePanel>,
     mut events: ResMut<EventStruct>,
+    mut exit: EventWriter<AppExit>,
 ) {
     create_ui(
         contexts.ctx_mut(),
@@ -58,6 +59,7 @@ fn update_ui(
         &mut ui_state,
         &mut ui_panel,
         &mut events,
+        &mut exit,
     );
 }
 

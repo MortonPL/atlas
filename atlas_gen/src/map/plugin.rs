@@ -73,7 +73,7 @@ impl MapDataLayer {
             MapDataLayer::Temperature => Some(MapDataLayer::TemperatureInfluence),
             MapDataLayer::Precipitation => Some(MapDataLayer::PrecipitationInfluence),
             MapDataLayer::Climate => None,
-            MapDataLayer::Resources => todo!(),
+            MapDataLayer::Resources => None,
             MapDataLayer::RealTopography => None,
             MapDataLayer::TopographyFilter => None,
             MapDataLayer::ContinentsInfluence => Some(MapDataLayer::ContinentsInfluence),

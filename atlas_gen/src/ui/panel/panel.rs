@@ -11,6 +11,7 @@ use crate::{
 /// A sidebar page/panel.
 pub trait SidebarPanel {
     /// Get panel heading.
+    /// NOTE: Must be a unique string!
     fn get_heading(&self) -> &'static str;
 
     /// Get layer that should be displayed with this panel.
@@ -32,7 +33,9 @@ pub trait SidebarPanel {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        self.make_ui(ui, config);
+        bevy_egui::egui::Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+            self.make_ui(ui, config);
+        });
         self.button_influence(ui, events, self.get_influence_shape(config));
         self.button_layer(ui, events);
     }

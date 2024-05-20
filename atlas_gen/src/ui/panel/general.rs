@@ -1,4 +1,4 @@
-use bevy_egui::egui::{RichText, Ui};
+use bevy_egui::egui::Ui;
 
 use atlas_lib::ui::{button, sidebar::MakeUi, UiEditableEnum};
 
@@ -6,7 +6,7 @@ use crate::{
     config::{AtlasGenConfig, WorldModel},
     event::EventStruct,
     map::MapDataLayer,
-    ui::{internal::{FileDialogMode, UiState}, panel::SidebarPanel},
+    ui::{internal::UiState, panel::SidebarPanel},
 };
 
 /// Panel with general world gen and preview settings.
@@ -18,7 +18,7 @@ impl SidebarPanel for MainPanelGeneral {
         &mut self,
         ui: &mut Ui,
         config: &mut AtlasGenConfig,
-        ui_state: &mut UiState,
+        _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
         let old_world_model = config.general.world_model.self_as_index();
@@ -27,7 +27,9 @@ impl SidebarPanel for MainPanelGeneral {
             WorldModel::Globe(_) => [0, 0],
         };
 
-        config.general.make_ui(ui);
+        bevy_egui::egui::Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+            config.general.make_ui(ui);
+        });
 
         if config.general.world_model.self_as_index() != old_world_model {
             events.world_model_changed = Some(config.general.world_model.clone());
@@ -44,13 +46,6 @@ impl SidebarPanel for MainPanelGeneral {
 
         if button(ui, "Generate Preview") {
             events.generate_request = Some((self.get_layer(), false));
-        }
-
-        if button(ui, RichText::new("Export World").heading()) {
-            let mut file_picker = egui_file::FileDialog::select_folder(None);
-            file_picker.open();
-            ui_state.file_dialog = Some(file_picker);
-            ui_state.file_dialog_mode = FileDialogMode::Export;
         }
     }
 

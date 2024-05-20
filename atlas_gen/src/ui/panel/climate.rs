@@ -19,7 +19,7 @@ impl SidebarPanel for MainPanelClimate {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        show_biomes_readonly(ui, config, events);
+        self.show_biomes_readonly(ui, config, events);
         self.button_layer(ui, events);
     }
 
@@ -32,22 +32,21 @@ impl SidebarPanel for MainPanelClimate {
     }
 }
 
-// TODO Make biomes work with MakeUi nicely?
-fn show_biomes_readonly(ui: &mut Ui, config: &mut AtlasGenConfig, events: &mut EventStruct) {
-    if ui.button("Reload \"climatemap.png\"").clicked() {
-        events.load_climatemap_request = Some(());
-    }
-    egui::CollapsingHeader::new(egui::RichText::new("Climate list").heading())
-        .default_open(true)
-        .show(ui, |ui| {
+impl MainPanelClimate {
+    // TODO Make biomes work with MakeUi nicely?
+    fn show_biomes_readonly(&self, ui: &mut Ui, config: &mut AtlasGenConfig, events: &mut EventStruct) {
+        if ui.button("Reload \"climatemap.png\"").clicked() {
+            events.load_climatemap_request = Some(());
+        }
+        bevy_egui::egui::Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             for biome in &config.climate.biomes {
                 let color = egui::Color32::from_rgb(biome.color[0], biome.color[1], biome.color[2]);
                 ui.heading(egui::RichText::new(&biome.name).color(color));
-                egui::Grid::new(format!("{}_climate_grid", biome.name)).show(ui, |ui| {
-                    ui.label("Productivity");
-                    ui.label(biome.productivity.to_string());
-                    ui.end_row();
-                });
+                ui.end_row();
+                ui.label("Productivity");
+                ui.label(biome.productivity.to_string());
+                ui.end_row();
             }
         });
+    }
 }

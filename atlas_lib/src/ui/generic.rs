@@ -21,12 +21,14 @@ pub fn button(ui: &mut Ui, text: impl Into<WidgetText>) -> bool {
 }
 
 /// [`button`] that executes a function when clicked or returns default value when not.
+/// Additionally, [`bevy_egui::egui::Ui::close_menu`] is called.
 pub fn button_action<F, T>(ui: &mut Ui, text: impl Into<WidgetText>, fun: F) -> T
 where
     F: FnOnce() -> T,
     T: Default,
 {
     if ui.button(text).clicked() {
+        ui.close_menu();
         fun()
     } else {
         T::default()

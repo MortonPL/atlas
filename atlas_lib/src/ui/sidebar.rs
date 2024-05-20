@@ -272,16 +272,12 @@ where
     }
 
     fn show(self, hint: Option<&str>) -> usize {
-        let response = egui::CollapsingHeader::new(egui::RichText::new(self.label).heading())
-            .default_open(true)
-            .show(self.ui, |ui| {
-                egui::Grid::new(format!("{}_section_grid", self.label))
-                    .show(ui, |ui| Self::inner_show(ui, self.label, self.value))
-            });
-        self.ui.end_row();
-        response
-            .header_response
+        self.ui
+            .heading(self.label)
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+        self.ui.end_row();
+        Self::inner_show(self.ui, self.label, self.value);
+        self.ui.end_row();
         0
     }
 }
@@ -291,7 +287,7 @@ where
     T: UiEditableEnum + MakeUi,
 {
     fn inner_show(ui: &mut Ui, label: &'static str, value: &'v mut T) -> usize {
-        let result = SidebarEnumDropdown::new(ui, label, value).show(None); // TODO
+        let result = SidebarEnumDropdown::new(ui, label, value).show(Some("Select a variant"));
         SidebarEnumDropdown::post_show(result, value);
         value.make_ui(ui);
         0
@@ -320,15 +316,12 @@ where
     }
 
     fn show(self, hint: Option<&str>) -> usize {
-        let response = egui::CollapsingHeader::new(egui::RichText::new(self.label).heading())
-            .default_open(true)
-            .show(self.ui, |ui| {
-                egui::Grid::new(format!("{}_section_grid", self.label)).show(ui, |ui| self.value.make_ui(ui))
-            });
-        self.ui.end_row();
-        response
-            .header_response
+        self.ui
+            .heading(self.label)
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+        self.ui.end_row();
+        self.value.make_ui(self.ui);
+        self.ui.end_row();
         0
     }
 }

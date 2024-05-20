@@ -328,18 +328,12 @@ impl Sampler for LatitudinalSampler {
 }
 
 pub fn fill_latitudinal_temp(data: &mut [u8], model: &WorldModel, config: &LatitudinalTemperatureLerp) {
-    let sampler = match model {
-        WorldModel::Flat(x) => LatitudinalSampler::new_temp(config, x.world_size[1]),
-        WorldModel::Globe(_) => todo!(),
-    };
+    let sampler = LatitudinalSampler::new_temp(config, model.get_dimensions().1);
     sample_fill(data, sampler, model);
 }
 
 pub fn fill_latitudinal_precip(data: &mut [u8], model: &WorldModel, config: &LatitudinalPrecipitationLerp) {
-    let sampler = match model {
-        WorldModel::Flat(x) => LatitudinalSampler::new_precip(config, x.world_size[1]),
-        WorldModel::Globe(_) => todo!(),
-    };
+    let sampler = LatitudinalSampler::new_precip(config, model.get_dimensions().1);
     sample_fill(data, sampler, model);
 }
 

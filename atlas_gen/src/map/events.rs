@@ -167,10 +167,11 @@ pub fn update_event_saved(
     let (layer, path) = events.render_layer_request.take().expect("Always Some");
     let data = logics.get_layer(layer);
     let (width, height) = config.general.world_model.get_dimensions();
-    match layer {
+    let result = match layer {
         MapDataLayer::Preview => save_image(path, &data, width, height),
         _ => save_image_grey(path, &data, width, height),
-    }.unwrap(); // TODO error handling
+    };
+    events.error_window = result.err().map(|x| x.to_string());
 }
 
 /// Run condition
@@ -194,7 +195,8 @@ pub fn update_event_rendered(
     let layer = graphics.get_layer_mut(layer);
     // Don't try to save an invalid layer.
     if layer.invalid {
-        return; // TODO handle nicely
+        events.error_window = Some("Cannot render an invalid/uninitialized layer!".to_string());
+        return;
     }
     // Access the layer's material's texture.
     let material = get_material(&materials, &layer.material);
@@ -205,7 +207,8 @@ pub fn update_event_rendered(
     let image = images.get(image).expect("Image handle should be valid");
     // Save the texture with correct dimensions.
     let (width, height) = config.general.world_model.get_dimensions();
-    save_image(path, &image.data, width, height).unwrap(); // TODO error handling
+    let result = save_image(path, &image.data, width, height);
+    events.error_window = result.err().map(|x| x.to_string());
 }
 
 /// Run condition
@@ -272,7 +275,8 @@ pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
 /// Reload climatemap.png.
 pub fn update_event_climatemap(mut events: ResMut<EventStruct>, mut logics: ResMut<MapLogicData>) {
     events.load_climatemap_request.take();
-    logics.load_climatemap().unwrap(); // TODO error window
+    let result = logics.load_climatemap();
+    events.error_window = result.err().map(|x| x.to_string());
 }
 
 /// Run condition
@@ -296,19 +300,29 @@ pub fn update_event_export(
     for (layer, name) in EXPORT_DATA_LAYERS {
         let data = logics.get_layer(layer);
         let path = base_path.join(name);
-        save_image_grey(path, &data, width, height).unwrap(); // TODO error handling
+        let result = save_image_grey(path, &data, width, height);
+        events.error_window = result.err().map(|x| x.to_string());
     }
     // Export preview.
     let preview = data_to_view(&logics, MapDataLayer::Preview, &config);
     let path = base_path.join(PREVIEW_NAME);
-    save_image(path, &preview, width, height).unwrap(); // TODO error handling
-                                                        // Export climate map.
+    let result = save_image(path, &preview, width, height);
+    events.error_window = result.err().map(|x| x.to_string());
+    if events.error_window.is_some() {
+        return;
+    }
+    // Export climate map.
     let climatemap = logics.get_climatemap();
     let path = base_path.join(CLIMATEMAP_NAME);
-    save_image_grey(path, climatemap, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32).unwrap(); // TODO error handling
-                                                                                                // Export config.
+    let result = save_image_grey(path, climatemap, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32);
+    events.error_window = result.err().map(|x| x.to_string());
+    if events.error_window.is_some() {
+        return;
+    }
+    // Export config.
     let path = base_path.join(CONFIG_NAME);
-    save_config(&config, path).unwrap(); // TODO error handling
+    let result = save_config(&config, path);
+    events.error_window = result.err().map(|x| x.to_string());
 }
 
 /// Helper function

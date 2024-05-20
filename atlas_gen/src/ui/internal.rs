@@ -1,18 +1,17 @@
 use std::path::Path;
 
 use bevy::{
-    input::mouse::{MouseScrollUnit, MouseWheel},
-    prelude::*,
+    app::AppExit, input::mouse::{MouseScrollUnit, MouseWheel}, prelude::*
 };
-use bevy_egui::egui::{self, Context, Ui};
+use bevy_egui::egui::{self, Align2, Context, Ui};
 
 use atlas_lib::ui::{
-    button, button_action,
+    button_action,
     sidebar::{SidebarControl, SidebarEnumDropdown},
 };
 
 use crate::{
-    config::{load_config, load_image, save_config, AtlasGenConfig},
+    config::{load_config, load_image, load_image_grey, save_config, AtlasGenConfig},
     event::EventStruct,
     map::MapDataLayer,
     ui::panel::SidebarPanel,
@@ -24,9 +23,9 @@ use super::panel::{
 };
 
 /// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
-const SIDEBAR_WIDTH: f32 = 390.0;
+const SIDEBAR_WIDTH: f32 = 360.0;
 /// Minimum sidebar width in points.
-const SIDEBAR_MIN_WIDTH: f32 = 390.0;
+const SIDEBAR_MIN_WIDTH: f32 = 360.0;
 
 /// Minimum camera zoom as Z in world space (bad idea?).
 const MIN_CAMERA_ZOOM: f32 = 1.0;
@@ -59,11 +58,15 @@ pub struct UiState {
     /// Size (in pixels) of the viewport, AKA window size - sidebar size.
     pub viewport_size: bevy::prelude::Vec2,
     /// All purpose file dialog. Some if open, None if closed.
-    pub file_dialog: Option<egui_file::FileDialog>,
+    file_dialog: Option<egui_file::FileDialog>,
     /// File dialog mode of operation. See [`FileDialogMode`].
-    pub file_dialog_mode: FileDialogMode,
+    file_dialog_mode: FileDialogMode,
     /// Currently viewed map layer.
     current_layer: MapDataLayer,
+    /// Is the error popup window open?
+    error_window_open: bool,
+    /// Current error message.
+    error_message: String,
 }
 
 /// Extra struct (alongside [`UiState`]) that holds the current sidebar panel.
@@ -80,12 +83,13 @@ pub fn create_ui(
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
+    exit: &mut EventWriter<AppExit>,
 ) {
     // The UI is a resizeable sidebar fixed to the right window border.
     // __________________
-    // | Sidebar Head   |  <-- Title, "Save"/"Load"/"Reset" buttons.
+    // | Sidebar Head   |  <-- Title, menu bar.
     // |----------------|
-    // | Layer View     |  <-- Layer dropdown and other visibility settings.
+    // | Layer View     |  <-- Layer dropdown.
     // |----------------|
     // | Panel Selection|  <-- Pseudo "tabs" for panels.
     // |----------------|
@@ -95,7 +99,7 @@ pub fn create_ui(
         .min_width(SIDEBAR_MIN_WIDTH)
         .default_width(SIDEBAR_WIDTH)
         .show(ctx, |ui| {
-            create_sidebar_head(ui, &mut config, ui_state, ui_panel, events);
+            create_sidebar_head(ui, &mut config, ui_state, ui_panel, events, exit);
             ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
             create_layer_view_settings(ui, ui_state, events);
             ui.separator();
@@ -107,6 +111,7 @@ pub fn create_ui(
             adjust_viewport(ui, ui_state);
         });
     handle_file_dialog(ctx, &mut config, ui_state, ui_panel, events);
+    handle_error_window(ctx, ui_state, events);
 }
 
 /// Handle camera movement/zoom inputs.
@@ -148,17 +153,33 @@ fn create_sidebar_head(
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
+    exit: &mut EventWriter<AppExit>,
 ) {
     ui.vertical(|ui| {
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
-        ui.horizontal(|ui| {
-            button_action(ui, "Save Config", || save_config_clicked(ui_state));
-            button_action(ui, "Load Config", || load_config_clicked(ui_state));
-            button_action(ui, "Reset Config", || {
-                reset_config_clicked(config, ui_panel, events);
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                button_action(ui, "Import World", || { /* TODO */ });
+                button_action(ui, "Export World", || export_world_clicked(ui_state));
+                button_action(ui, "Exit", || exit.send(AppExit));
             });
-            button_action(ui, "Reset Current Panel", || {
-                reset_panel_clicked(config, ui_panel, events);
+            ui.menu_button("Edit", |ui| {
+                button_action(ui, "Reset Current Panel", || {
+                    reset_panel_clicked(config, ui_panel, events)
+                });
+            });
+            ui.menu_button("Config", |ui| {
+                button_action(ui, "Save Configuration", || save_config_clicked(ui_state));
+                button_action(ui, "Load Configuration", || load_config_clicked(ui_state));
+                button_action(ui, "Reset Configuration", || {
+                    reset_config_clicked(config, ui_panel, events)
+                });
+            });
+            ui.menu_button("Layer", |ui| {
+                button_action(ui, "Load Layer Data", || load_layer_clicked(ui_state));
+                button_action(ui, "Save Layer Data", || save_layer_clicked(ui_state));
+                button_action(ui, "Clear Layer Data", || clear_layer_clicked(ui_state, events));
+                button_action(ui, "Render Layer Image", || render_layer_clicked(ui_state));
             });
         });
     });
@@ -178,11 +199,6 @@ fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut 
             if old != ui_state.current_layer {
                 events.viewed_layer_changed = Some(ui_state.current_layer);
             }
-            // Layer manipulation buttons.
-            button_action(ui, "Load", || load_layer_clicked(ui_state));
-            button_action(ui, "Save", || save_layer_clicked(ui_state));
-            button_action(ui, "Render", || render_layer_clicked(ui_state));
-            button_action(ui, "Clear", || clear_layer_clicked(ui_state, events));
         });
     });
 }
@@ -194,25 +210,40 @@ fn create_panel_tabs(
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
-    ui.horizontal_wrapped(|ui| {
-        let mut changed = true;
-        if button(ui, "General") {
-            ui_panel.current_panel = Box::new(MainPanelGeneral::default());
-        } else if button(ui, "Continents") {
-            ui_panel.current_panel = Box::new(MainPanelContinents::default());
-        } else if button(ui, "Topography") {
-            ui_panel.current_panel = Box::new(MainPanelTopography::default());
-        } else if button(ui, "Temperature") {
-            ui_panel.current_panel = Box::new(MainPanelTemperature::default());
-        } else if button(ui, "Precipitation") {
-            ui_panel.current_panel = Box::new(MainPanelPrecipitation::default());
-        } else if button(ui, "Climate") {
-            ui_panel.current_panel = Box::new(MainPanelClimate::default());
-        } else if button(ui, "Resources") {
-            ui_panel.current_panel = Box::new(MainPanelResources::default());
-        } else {
-            changed = false;
-        }
+    ui.vertical(|ui| {
+        let mut changed = false;
+        egui::menu::bar(ui, |ui| {
+            changed |= button_action(ui, "General", || {
+                ui_panel.current_panel = Box::new(MainPanelGeneral::default());
+                true
+            });
+            changed |= button_action(ui, "Continents", || {
+                ui_panel.current_panel = Box::new(MainPanelContinents::default());
+                true
+            });
+            changed |= button_action(ui, "Topography", || {
+                ui_panel.current_panel = Box::new(MainPanelTopography::default());
+                true
+            });
+            changed |= button_action(ui, "Temperature", || {
+                ui_panel.current_panel = Box::new(MainPanelTemperature::default());
+                true
+            });
+        });
+        egui::menu::bar(ui, |ui| {
+            changed |= button_action(ui, "Precipitation", || {
+                ui_panel.current_panel = Box::new(MainPanelPrecipitation::default());
+                true
+            });
+            changed |= button_action(ui, "Climate", || {
+                ui_panel.current_panel = Box::new(MainPanelClimate::default());
+                true
+            });
+            changed |= button_action(ui, "Resources", || {
+                ui_panel.current_panel = Box::new(MainPanelResources::default());
+                true
+            });
+        });
         if changed {
             let layer = ui_panel.current_panel.get_layer();
             events.viewed_layer_changed = Some(layer);
@@ -264,7 +295,7 @@ fn handle_file_dialog(
         if let Some(path) = file_dialog.path() {
             match mode {
                 FileDialogMode::LoadConfig => file_dialog_load_config(path, config, ui_panel, events),
-                FileDialogMode::SaveConfig => file_dialog_save_config(path, config),
+                FileDialogMode::SaveConfig => file_dialog_save_config(path, config, events),
                 FileDialogMode::LoadData(layer) => file_dialog_load_data(path, layer, config, events),
                 FileDialogMode::SaveData(layer) => file_dialog_save_data(path, layer, events),
                 FileDialogMode::RenderImage(layer) => file_dialog_render_image(path, layer, events),
@@ -273,6 +304,31 @@ fn handle_file_dialog(
         }
         ui_state.file_dialog = None;
     }
+}
+
+/// Show the error window if there's an error.
+fn handle_error_window(ctx: &Context, ui_state: &mut UiState, events: &mut EventStruct) {
+    if let Some(error) = events.error_window.take() {
+        ui_state.error_message = error;
+        ui_state.error_window_open = true;
+    }
+    egui::Window::new("An error has occured")
+        .resizable(false)
+        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+        .open(&mut ui_state.error_window_open)
+        .collapsible(false)
+        .movable(false)
+        .show(ctx, |ui| {
+            ui.label(&ui_state.error_message);
+        });
+}
+
+/// Set context for the file dialog to "exporting world" and show it.
+fn export_world_clicked(ui_state: &mut UiState) {
+    let mut file_picker = egui_file::FileDialog::select_folder(None);
+    file_picker.open();
+    ui_state.file_dialog = Some(file_picker);
+    ui_state.file_dialog_mode = FileDialogMode::Export;
 }
 
 /// Set context for the file dialog to "saving config" and show it.
@@ -377,19 +433,20 @@ fn file_dialog_load_config(
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
 ) {
-    if let Ok(res) = load_config(path) {
-        **config = res;
-        events.world_model_changed = Some(config.general.world_model.clone());
-        ui_panel.current_panel = default();
-    } else {
-        // TODO error window
+    match load_config(path) {
+        Ok(data) => {
+            **config = data;
+            events.world_model_changed = Some(config.general.world_model.clone());
+            ui_panel.current_panel = default();
+        },
+        Err(err) => events.error_window = Some(err.to_string()),
     }
 }
 
 /// Save current configuration to a TOML file.
-fn file_dialog_save_config(path: &Path, config: &mut ResMut<AtlasGenConfig>) {
-    if let Err(_err) = save_config(config, path) {
-        // TODO error window
+fn file_dialog_save_config(path: &Path, config: &mut ResMut<AtlasGenConfig>, events: &mut EventStruct) {
+    if let Err(err) = save_config(config, path) {
+        events.error_window = Some(err.to_string());
     }
 }
 
@@ -401,11 +458,14 @@ fn file_dialog_load_data(
     events: &mut EventStruct,
 ) {
     let (width, height) = config.general.world_model.get_dimensions();
-    if let Ok(data) = load_image(path, width, height) {
-        events.load_layer_request = Some((layer, data));
-    } else {
-        // TODO error window
-    }
+    let result = match layer {
+        MapDataLayer::Preview => load_image(path, width, height),
+        _ => load_image_grey(path, width, height),
+    };
+    match result {
+        Ok(data) => events.load_layer_request = Some((layer, data)),
+        Err(err) => events.error_window = Some(err.to_string()),
+    };
 }
 
 /// Send an event to save a layer image.

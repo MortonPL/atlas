@@ -41,6 +41,8 @@ pub struct EventStruct {
     pub load_climatemap_request: Option<()>,
     /// The whole world should be exported to files.
     pub export_world_request: Option<Box<Path>>,
+    /// An error has occured, and a popup window should display it.
+    pub error_window: Option<String>,
 }
 
 impl Default for EventStruct {
@@ -57,6 +59,7 @@ impl Default for EventStruct {
             // Load climate map on start.
             load_climatemap_request: Some(()),
             export_world_request: Default::default(),
+            error_window: Default::default(),
         }
     }
 }
