@@ -149,14 +149,14 @@ impl AsRef<NoiseAlgorithm> for TopographyConfig {
 /// Config for the temperature generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct TemperatureConfig {
-    #[name("Temperature Latitudinal Settings [C]")]
-    #[control(SidebarStructSection)]
-    pub latitudinal: LatitudinalTemperatureLerp,
     #[name("Moist Adiabatic Lapse Rate [C/km]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10.0))]
     #[add(speed(0.1))]
     pub lapse_rate: f32,
+    #[name("Latitudinal Settings [C]")]
+    #[control(SidebarStructSection)]
+    pub latitudinal: LatitudinalTemperatureLerp,
     #[name("Noise Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
@@ -208,18 +208,18 @@ impl AsRef<NoiseAlgorithm> for TemperatureConfig {
 /// Config for the precipitation generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct PrecipitationConfig {
-    #[name("Precipitation Latitudinal Settings [mm]")]
-    #[control(SidebarStructSection)]
-    pub latitudinal: LatitudinalPrecipitationLerp,
-    #[name("Minimum Altitude for Precipitation Drop [m]")]
+    #[name("Altitude of Max Precipitation [m]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(ALTITUDE_MIN..=ALTITUDE_MAX))]
-    pub drop_off_point: f32,
+    pub amp_point: f32,
     #[name("Precipitation Drop [mm/m]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10.0))]
     #[add(speed(0.1))]
     pub drop_per_height: f32,
+    #[name("Latitudinal Settings [mm]")]
+    #[control(SidebarStructSection)]
+    pub latitudinal: LatitudinalPrecipitationLerp,
     #[name("Noise Strength")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
@@ -248,7 +248,7 @@ impl Default for PrecipitationConfig {
                 north_pole_value: 0.0,
                 non_linear_tropics: true,
             },
-            drop_off_point: 2000.0,
+            amp_point: 2000.0,
             drop_per_height: 1.5,
             algorithm_strength: 0.1,
             algorithm: Default::default(),

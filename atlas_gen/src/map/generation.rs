@@ -284,9 +284,8 @@ fn generate_precipitation(
     if !config.precipitation.drop_per_height.is_zero() {
         for i in 0..humi_data.len() {
             let altitude = topo_data[i] as f32 * 40.0;
-            if altitude > config.precipitation.drop_off_point {
-                let drop =
-                    (altitude - config.precipitation.drop_off_point) * config.precipitation.drop_per_height;
+            if altitude > config.precipitation.amp_point {
+                let drop = (altitude - config.precipitation.amp_point) * config.precipitation.drop_per_height;
                 let drop = precip_to_byte(precip_clamp(drop));
                 humi_data[i] = humi_data[i].saturating_sub(drop);
             }
