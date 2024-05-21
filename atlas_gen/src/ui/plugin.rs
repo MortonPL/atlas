@@ -52,7 +52,11 @@ fn update_ui(
     mut ui_panel: ResMut<UiStatePanel>,
     mut events: ResMut<EventStruct>,
     mut exit: EventWriter<AppExit>,
+    window: Query<&Window>,
 ) {
+    if !window.single().focused {
+        return;
+    }
     create_ui(
         contexts.ctx_mut(),
         config,
@@ -73,6 +77,9 @@ fn update_input(
     mut cameras: Query<&mut Transform, With<MainCamera>>,
     ui_state: Res<UiState>,
 ) {
+    if !window.single().focused {
+        return;
+    }
     handle_camera(
         kb,
         mouse_wheel,
@@ -89,7 +96,11 @@ fn update_viewport(
     settings: Res<bevy_egui::EguiSettings>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
     ui_state: Res<UiState>,
+    window: Query<&Window>,
 ) {
+    if !window.single().focused {
+        return;
+    }
     let viewport_size = ui_state.viewport_size * settings.scale_factor as f32;
     // Layout: viewport on the left, sidebar on the right. Together they take up the entire screen space.
     let mut camera = cameras.single_mut();

@@ -5,8 +5,40 @@ use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 use crate::config::{
     celsius_to_fraction, precip_to_fraction, FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceShape,
     InfluenceStripConfig, LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm,
-    WorldModel,
+    QuadPointLerp, WorldModel,
 };
+
+impl QuadPointLerp {
+    pub fn clone_precalc(&self) -> Self {
+        Self {
+            start: self.start,
+            midpoint: self.midpoint,
+            midpoint2: self.midpoint2,
+            end: self.end,
+            midpoint_position: self.midpoint_position,
+            midpoint2_position: self.midpoint2_position,
+            diff1: self.midpoint2_position - self.midpoint_position,
+            diff2: 1.0 - self.midpoint2_position,
+        }
+    }
+
+    /// Interpolate a value in [0; 1] range. NOTE: Self should have precalc'd diff1 and diff2!
+    pub fn lerp(&self, x: f32) -> f32 {
+        if x <= self.midpoint_position {
+            lerp(self.start..=self.midpoint, x / self.midpoint_position)
+        } else if x <= self.midpoint2_position {
+            lerp(
+                self.midpoint..=self.midpoint2,
+                (x - self.midpoint_position) / self.diff1,
+            )
+        } else {
+            lerp(
+                self.midpoint2..=self.end,
+                (x - self.midpoint2_position) / self.diff2,
+            )
+        }
+    }
+}
 
 trait Sampler {
     fn offset_origin(self, offset: Vec2) -> Self;
@@ -17,8 +49,7 @@ trait Sampler {
 struct CircleSampler {
     offset: Vec2,
     radius: f32,
-    midpoint: f32,
-    midpoint_value: f32,
+    midpoint: QuadPointLerp,
 }
 
 impl CircleSampler {
@@ -27,8 +58,7 @@ impl CircleSampler {
         Self {
             offset,
             radius: config.radius as f32,
-            midpoint: config.midpoint,
-            midpoint_value: config.midpoint_value,
+            midpoint: config.midpoint.clone_precalc(),
         }
     }
 }
@@ -39,15 +69,8 @@ impl Sampler for CircleSampler {
         let len = p.distance(self.offset);
         // Transform the distance as a fraction of radius.
         let norm = (len / self.radius).clamp(0.0, 1.0);
-        // Interpolate value using the midpoint and midpoint value.
-        if norm <= self.midpoint {
-            lerp(1.0..=self.midpoint_value, norm / self.midpoint)
-        } else {
-            lerp(
-                self.midpoint_value..=0.0,
-                (norm - self.midpoint) / (1.0 - self.midpoint),
-            )
-        }
+        // Interpolate value.
+        self.midpoint.lerp(norm)
     }
 
     fn offset_origin(mut self, offset: Vec2) -> Self {
@@ -67,8 +90,7 @@ struct StripSampler {
     length: f32,
     thickness: f32,
     slope_a: f32,
-    midpoint: f32,
-    midpoint_value: f32,
+    midpoint: QuadPointLerp,
 }
 
 impl StripSampler {
@@ -83,8 +105,7 @@ impl StripSampler {
             length: config.length as f32,
             thickness: config.thickness as f32,
             slope_a,
-            midpoint: config.midpoint,
-            midpoint_value: config.midpoint_value,
+            midpoint: config.midpoint.clone_precalc(),
         }
     }
 
@@ -145,15 +166,8 @@ impl Sampler for StripSampler {
                 norm = len / self.thickness;
             }
         }
-        // Interpolate value using the midpoint and midpoint value.
-        if norm <= self.midpoint {
-            lerp(1.0..=self.midpoint_value, norm / self.midpoint)
-        } else {
-            lerp(
-                self.midpoint_value..=0.0,
-                (norm - self.midpoint) / (1.0 - self.midpoint),
-            )
-        }
+        // Interpolate value.
+        self.midpoint.lerp(norm)
     }
 
     fn offset_origin(mut self, offset: Vec2) -> Self {
@@ -171,8 +185,7 @@ struct FbmSampler<N> {
     scale: f32,
     noise: Fbm<N>,
     bias: f32,
-    bias2: f32,
-    range: f32,
+    midpoint: QuadPointLerp,
 }
 
 impl<N> FbmSampler<N>
@@ -191,8 +204,7 @@ where
             scale: 1.0,
             noise,
             bias: config.bias,
-            bias2: config.bias2,
-            range: config.range,
+            midpoint: config.midpoint.clone_precalc(),
         }
     }
 }
@@ -203,9 +215,9 @@ where
 {
     fn sample(&self, p: Vec2) -> f32 {
         let xy = p / self.scale + self.origin;
-        let sample = (self.noise.get([xy.x as f64, xy.y as f64]) + 1.0) / 2.0;
-        (((sample as f32 + self.bias).clamp(0.0, 1.0) * self.range).clamp(0.0, 1.0) + self.bias2)
-            .clamp(0.0, 1.0)
+        let sample = (self.noise.get([xy.x as f64, xy.y as f64]) + 1.4) / 2.8;
+        // Interpolate value.
+        self.midpoint.lerp(((sample as f32).clamp(0.0, 1.0) + self.bias).clamp(0.0, 1.0))
     }
 
     fn offset_origin(self, _offset: Vec2) -> Self {
@@ -378,7 +390,7 @@ pub fn fill_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl 
 pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldModel) {
     match shape {
         InfluenceShape::None => data.fill(0),
-        InfluenceShape::FromImage(_) => { /*Do nothing. */ },
+        InfluenceShape::FromImage(_) => { /*Do nothing. */ }
         InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model),
         InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model),
         InfluenceShape::Fbm(x) => fill_with_algorithm(data, model, x),

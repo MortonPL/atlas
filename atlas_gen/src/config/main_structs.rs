@@ -5,7 +5,7 @@ use atlas_lib::{ui::sidebar::*, MakeUi};
 
 pub use crate::config::common_structs::*;
 
-use crate::config::climate_structs::make_default_biomes;
+use crate::config::{climate_structs::make_default_biomes, ALTITUDE_MAX, ALTITUDE_MIN};
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -30,9 +30,10 @@ pub struct GeneralConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(10.0..=200.0))]
     pub tile_resolution: f32,
-    #[name("Preview Topography Display")]
-    #[control(SidebarEnumDropdown)]
-    pub topo_display: TopographyDisplayMode,
+    #[name("Altitude Limit for Preview [m]")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(ALTITUDE_MIN..=ALTITUDE_MAX))]
+    pub topo_display: f32,
     #[name("Preview Color Display")]
     #[control(SidebarEnumDropdown)]
     pub color_display: ColorDisplayMode,
@@ -51,7 +52,7 @@ impl Default for GeneralConfig {
         Self {
             seed: rand::random(),
             tile_resolution: 100.0,
-            topo_display: Default::default(),
+            topo_display: 2600.0,
             color_display: Default::default(),
             height_levels: 10,
             world_model: Default::default(),
@@ -101,7 +102,7 @@ impl AsRef<NoiseAlgorithm> for ContinentsConfig {
 pub struct TopographyConfig {
     #[name("Coastal Erosion Range")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0..=7))]
+    #[add(clamp_range(0..=20))]
     #[add(speed(0.5))]
     pub coastal_erosion: u8,
     #[name("Noise Algorithm")]
@@ -117,8 +118,15 @@ impl Default for TopographyConfig {
         Self {
             coastal_erosion: 1,
             algorithm: NoiseAlgorithm::Perlin(FbmConfig {
-                bias: -0.2,
-                range: 0.2,
+                midpoint: QuadPointLerp {
+                    start: 0.0,
+                    midpoint: 0.1,
+                    midpoint2: 0.2,
+                    end: 0.4,
+                    midpoint_position: 0.70,
+                    midpoint2_position: 0.95,
+                    ..Default::default()
+                },
                 ..Default::default()
             }),
             influence_shape: Default::default(),
@@ -205,7 +213,7 @@ pub struct PrecipitationConfig {
     pub latitudinal: LatitudinalPrecipitationLerp,
     #[name("Minimum Altitude for Precipitation Drop [m]")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=10200.0))]
+    #[add(clamp_range(ALTITUDE_MIN..=ALTITUDE_MAX))]
     pub drop_off_point: f32,
     #[name("Precipitation Drop [mm/m]")]
     #[control(SidebarSlider)]

@@ -1,5 +1,12 @@
+// Temperature Unit (Meter).
+// Byte representation is 1 [u] = 40 [m].
+
+pub const ALTITUDE_MIN: f32 = 0.0;
+pub const ALTITUDE_MAX: f32 = 10200.0;
+pub const ALTITUDE_STEP: f32 = 40.0;
+
 // Temperature Unit (Celsius).
-// Byte representation is +1 u = +0.5 C, 100 u = 0 C.
+// Byte representation is +1 [u] = +0.5 [C], 100 [u] = 0 [C].
 
 pub const CELSIUS_MIN: f32 = -50.0;
 pub const CELSIUS_MAX: f32 = 77.5;
@@ -29,7 +36,7 @@ pub fn celsius_from_fraction(x: f32) -> f32 {
 }
 
 // Precipitation Unit (mm).
-// Byte representation is 1 u = 20mm.
+// Byte representation is 1 [u] = 20 [mm].
 
 pub const PRECIP_MIN: f32 = 0.0;
 pub const PRECIP_MAX: f32 = 5100.0;

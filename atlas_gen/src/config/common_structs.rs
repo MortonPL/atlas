@@ -51,21 +51,6 @@ impl Default for FlatWorldModel {
     }
 }
 
-/// How topography should be visualised in the map preview.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum TopographyDisplayMode {
-    /// Don't show topography at all.
-    #[default]
-    Nothing,
-    /// Altitude relative to 128 units (5100 metres).
-    Absolute128,
-    /// Altitude relative to 255 units (10200 meters).
-    Absolute255,
-    /// Altitude relative to the highest point on the map.
-    Highest,
-}
-
 /// How map should be colored in the map preview.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
@@ -129,16 +114,9 @@ pub struct FbmConfig {
     #[add(clamp_range(-1.0..=1.0))]
     #[add(speed(0.1))]
     pub bias: f32,
-    #[name("Bias (Post Range)")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(-1.0..=1.0))]
-    #[add(speed(0.1))]
-    pub bias2: f32,
-    #[name("Range")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.1..=10.0))]
-    #[add(speed(0.1))]
-    pub range: f32,
+    #[name("Midpoint Interpolation")]
+    #[control(SidebarStructSection)]
+    pub midpoint: QuadPointLerp,
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [f32; 2],
@@ -153,9 +131,70 @@ impl Default for FbmConfig {
             neatness: 2.0,
             roughness: 0.5,
             bias: 0.0,
-            bias2: 0.0,
-            range: 1.0,
+            midpoint: QuadPointLerp {
+                start: 0.0,
+                midpoint: 0.3333,
+                midpoint2: 0.6666,
+                end: 1.0,
+                midpoint_position: 0.3333,
+                midpoint2_position: 0.6666,
+                ..Default::default()
+            },
             offset: Default::default(),
+        }
+    }
+}
+
+/// Configuration for a three-segment lerper.
+#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct QuadPointLerp {
+    #[name("Start Value")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub start: f32,
+    #[name("Midpoint 1 Value")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub midpoint: f32,
+    #[name("Midpoint 2 Value")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub midpoint2: f32,
+    #[name("End Value")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub end: f32,
+    #[name("Midpoint 1 Position")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=0.99))]
+    #[add(speed(0.1))]
+    pub midpoint_position: f32,
+    #[name("Midpoint 2 Position")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=0.99))]
+    #[add(speed(0.1))]
+    pub midpoint2_position: f32,
+    #[serde(skip)]
+    pub diff1: f32,
+    #[serde(skip)]
+    pub diff2: f32,
+}
+
+impl Default for QuadPointLerp {
+    fn default() -> Self {
+        Self {
+            start: 1.0,
+            midpoint: 0.6666,
+            midpoint2: 0.3333,
+            end: 0.0,
+            midpoint_position: 0.3333,
+            midpoint2_position: 0.6666,
+            diff1: 0.0,
+            diff2: 0.0,
         }
     }
 }
@@ -210,16 +249,9 @@ pub struct InfluenceCircleConfig {
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [i32; 2],
-    #[name("Midpoint")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.01..=0.99))]
-    #[add(speed(0.1))]
-    pub midpoint: f32,
-    #[name("Midpoint Value")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub midpoint_value: f32,
+    #[name("Midpoint Interpolation")]
+    #[control(SidebarStructSection)]
+    pub midpoint: QuadPointLerp,
 }
 
 impl Default for InfluenceCircleConfig {
@@ -229,8 +261,7 @@ impl Default for InfluenceCircleConfig {
             influence_strength: 1.0,
             radius: 100,
             offset: Default::default(),
-            midpoint: 0.5,
-            midpoint_value: 0.5,
+            midpoint: Default::default(),
         }
     }
 }
@@ -269,16 +300,9 @@ pub struct InfluenceStripConfig {
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [i32; 2],
-    #[name("Midpoint")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.01..=0.99))]
-    #[add(speed(0.1))]
-    pub midpoint: f32,
-    #[name("Midpoint Value")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub midpoint_value: f32,
+    #[name("Midpoint Interpolation")]
+    #[control(SidebarStructSection)]
+    pub midpoint: QuadPointLerp,
 }
 
 impl Default for InfluenceStripConfig {
@@ -291,8 +315,7 @@ impl Default for InfluenceStripConfig {
             angle: 0,
             flip: false,
             offset: Default::default(),
-            midpoint: 0.5,
-            midpoint_value: 0.5,
+            midpoint: Default::default(),
         }
     }
 }

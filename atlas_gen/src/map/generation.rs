@@ -1,10 +1,9 @@
 use bevy::utils::petgraph::matrix_graph::Zero;
-use bevy_egui::egui::ecolor::{hsv_from_rgb, rgb_from_hsv};
 
 use crate::{
     config::{
         precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceShape, NoiseAlgorithm,
-        TopographyDisplayMode, WorldModel,
+        WorldModel, ALTITUDE_STEP,
     },
     map::{
         internal::{fetch_climate, MapLogicData, CLIMATEMAP_SIZE},
@@ -106,21 +105,15 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
 
     let climate_display = config.general.color_display;
     let height_levels = config.general.height_levels as f32;
-    let highest = match config.general.topo_display {
-        TopographyDisplayMode::Nothing => 0.0,
-        TopographyDisplayMode::Absolute128 => 128.0,
-        TopographyDisplayMode::Absolute255 => 255.0,
-        TopographyDisplayMode::Highest => {
-            *real_data.iter().max().expect("RealTopography must not be empty") as f32
-        }
-    };
+    let highest = (config.general.topo_display / ALTITUDE_STEP).floor();
+
     for i in 0..real_data.len() {
         let (r, g, b);
         if is_sea(cont_data[i]) {
             (r, g, b) = (0, 160, 255);
         } else {
             // Fetch preview color.
-            let mut rgb = match climate_display {
+            let rgb = match climate_display {
                 ColorDisplayMode::Topography => {
                     if real_data[i] < 5 {
                         [70, 180, 75]
@@ -146,20 +139,17 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
                 }
             }
             .map(|x| x as f32 / 255.0);
+            let mut v = 1.0;
             // Shift color value according to height.
             if !highest.is_zero() {
                 let height = real_data[i] as f32 / highest;
-                let (h, s, v) = hsv_from_rgb(rgb);
-                let v = v
-                    * (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels)
-                        .clamp(0.15, 0.85);
-                rgb = rgb_from_hsv((h, s, v));
+                v = (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels).clamp(0.2, 1.0);
             }
             // Set final color.
             (r, g, b) = (
-                (rgb[0] * 255.0) as u8,
-                (rgb[1] * 255.0) as u8,
-                (rgb[2] * 255.0) as u8,
+                (rgb[0] * v * 255.0) as u8,
+                (rgb[1] * v * 255.0) as u8,
+                (rgb[2] * v * 255.0) as u8,
             );
         }
         let j = i * 4;

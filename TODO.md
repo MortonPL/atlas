@@ -2,10 +2,10 @@
 
 - Low Priority
   - Make simple resource generator
-  - "From Image" setting for every layer
+  - Fix large headings making columns ugly in grid
 
 - Optional
-  - Don't draw UI when not visible / set low fps
+  - "From Image" setting for every layer
   - Preview gen: use an external palette file for topography coloring mode
   - Improve climate generator
     - Montane/Alpine climate at high altitude?
@@ -16,6 +16,6 @@
 - Everything
 
 - High Priority
-  - Core app code: load world, ui (camera + config + playback control), config, map display
+  - Core app code: load world, ui (camera zoom/movement + config + playback control), config, map display
   - New scenario generation
   - Basic Polity (map grabbing) component

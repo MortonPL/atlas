@@ -274,8 +274,8 @@ fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
     let window_size = ui.clip_rect().size();
     let ui_size = ui.max_rect().size();
     ui_state.viewport_size = Vec2 {
-        x: window_size.x - ui_size.x,
-        y: window_size.y,
+        x: (window_size.x - ui_size.x).max(1.0),
+        y: window_size.y.max(1.0),
     };
 }
 

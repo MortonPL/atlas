@@ -164,7 +164,7 @@ pub fn update_event_saved(
     logics: Res<MapLogicData>,
     config: Res<AtlasGenConfig>,
 ) {
-    let (layer, path) = events.render_layer_request.take().expect("Always Some");
+    let (layer, path) = events.save_layer_request.take().expect("Always Some");
     let data = logics.get_layer(layer);
     let (width, height) = config.general.world_model.get_dimensions();
     let result = match layer {
