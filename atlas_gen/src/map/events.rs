@@ -167,8 +167,8 @@ pub fn update_event_saved(
     let data = logics.get_layer(layer);
     let (width, height) = config.general.world_model.get_dimensions();
     let result = match layer {
-        MapDataLayer::Preview => save_image(path, &data, width, height),
-        _ => save_image_grey(path, &data, width, height),
+        MapDataLayer::Preview => save_image(path, data, width, height),
+        _ => save_image_grey(path, data, width, height),
     };
     events.error_window = result.err().map(|x| x.to_string());
 }
@@ -299,7 +299,7 @@ pub fn update_event_export(
     for (layer, name) in EXPORT_DATA_LAYERS {
         let data = logics.get_layer(layer);
         let path = base_path.join(name);
-        let result = save_image_grey(path, &data, width, height);
+        let result = save_image_grey(path, data, width, height);
         events.error_window = result.err().map(|x| x.to_string());
     }
     // Export preview.

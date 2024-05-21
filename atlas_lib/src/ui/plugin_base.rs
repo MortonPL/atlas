@@ -1,4 +1,3 @@
-use std::path::Path;
 use bevy::{
     app::{MainScheduleOrder, RunFixedUpdateLoop},
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
@@ -6,7 +5,11 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::{egui::{self, Align2, Context}, EguiPlugin};
+use bevy_egui::{
+    egui::{self, Align2, Context},
+    EguiPlugin,
+};
+use std::path::Path;
 
 use crate::domain::map::MapDataLayer;
 

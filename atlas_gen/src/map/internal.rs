@@ -1,4 +1,3 @@
-use std::f32::consts::FRAC_PI_2;
 use atlas_lib::{
     bevy::{
         ecs as bevy_ecs,
@@ -8,6 +7,7 @@ use atlas_lib::{
     },
     domain::map::MapDataLayer,
 };
+use std::f32::consts::FRAC_PI_2;
 
 use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig};
 

@@ -155,33 +155,33 @@ fn create_panel_tabs(
         let mut changed = false;
         egui::menu::bar(ui, |ui| {
             changed |= button_action(ui, "General", || {
-                ui_panel.current_panel = Box::new(MainPanelGeneral::default());
+                ui_panel.current_panel = Box::<MainPanelGeneral>::default();
                 true
             });
             changed |= button_action(ui, "Continents", || {
-                ui_panel.current_panel = Box::new(MainPanelContinents::default());
+                ui_panel.current_panel = Box::<MainPanelContinents>::default();
                 true
             });
             changed |= button_action(ui, "Topography", || {
-                ui_panel.current_panel = Box::new(MainPanelTopography::default());
+                ui_panel.current_panel = Box::<MainPanelTopography>::default();
                 true
             });
             changed |= button_action(ui, "Temperature", || {
-                ui_panel.current_panel = Box::new(MainPanelTemperature::default());
+                ui_panel.current_panel = Box::<MainPanelTemperature>::default();
                 true
             });
         });
         egui::menu::bar(ui, |ui| {
             changed |= button_action(ui, "Precipitation", || {
-                ui_panel.current_panel = Box::new(MainPanelPrecipitation::default());
+                ui_panel.current_panel = Box::<MainPanelPrecipitation>::default();
                 true
             });
             changed |= button_action(ui, "Climate", || {
-                ui_panel.current_panel = Box::new(MainPanelClimate::default());
+                ui_panel.current_panel = Box::<MainPanelClimate>::default();
                 true
             });
             changed |= button_action(ui, "Resources", || {
-                ui_panel.current_panel = Box::new(MainPanelResources::default());
+                ui_panel.current_panel = Box::<MainPanelResources>::default();
                 true
             });
         });

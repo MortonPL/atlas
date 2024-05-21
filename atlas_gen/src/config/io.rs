@@ -1,11 +1,10 @@
+use atlas_lib::{
+    png::{BitDepth, ColorType, Decoder, DecodingError, Encoder, EncodingError, SrgbRenderingIntent},
+    thiserror, toml,
+};
 use std::{
     fs::{self, File},
     path::Path,
-};
-use atlas_lib::{
-    png::{BitDepth, ColorType, Decoder, DecodingError, Encoder, EncodingError, SrgbRenderingIntent},
-    toml,
-    thiserror,
 };
 
 use crate::config::AtlasGenConfig;

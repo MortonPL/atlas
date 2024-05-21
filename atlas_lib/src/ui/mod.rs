@@ -1,5 +1,5 @@
 mod generic;
-pub mod sidebar;
 pub mod plugin_base;
+pub mod sidebar;
 
 pub use generic::*;
