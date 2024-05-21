@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use atlas_lib::bevy::prelude::*;
 
 mod config;
 mod event;
@@ -9,7 +9,7 @@ mod ui;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(config::GenConfigPlugin)
+        .add_plugins(config::ConfigPlugin)
         .add_plugins(event::EventPlugin)
         .add_plugins(ui::UiPlugin)
         .add_plugins(map::MapPlugin)

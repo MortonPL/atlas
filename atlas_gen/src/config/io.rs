@@ -3,7 +3,11 @@ use std::{
     path::Path,
 };
 
-use png::ColorType;
+use atlas_lib::{
+    png::{BitDepth, ColorType, Decoder, DecodingError, Encoder, EncodingError, SrgbRenderingIntent},
+    toml,
+    thiserror,
+};
 
 use crate::config::AtlasGenConfig;
 
@@ -18,9 +22,9 @@ pub enum Error {
     #[error("{0}")]
     Serde(#[from] toml::ser::Error),
     #[error("{0}")]
-    PngDecode(#[from] png::DecodingError),
+    PngDecode(#[from] DecodingError),
     #[error("{0}")]
-    PngEncode(#[from] png::EncodingError),
+    PngEncode(#[from] EncodingError),
     #[error("Image resolution {0}x{1} doesn't match world size {2}x{3}")]
     ResolutionMismatch(u32, u32, u32, u32),
     #[error("Image byte per pixel value is {0}, but only 4 is accepted")]
@@ -47,7 +51,7 @@ pub fn save_config(config: &AtlasGenConfig, path: impl AsRef<Path>) -> Result<()
 
 /// Load a generator image (layer) from a PNG file.
 pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec<u8>> {
-    let decoder = png::Decoder::new(File::open(path)?);
+    let decoder = Decoder::new(File::open(path)?);
     let mut reader = decoder.read_info()?;
     let info = reader.info();
 
@@ -61,7 +65,7 @@ pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec
     }
 
     match info.color_type {
-        png::ColorType::Rgba => Ok(()),
+        ColorType::Rgba => Ok(()),
         x => Err(Error::InvalidColorTypeRgba(x)),
     }?;
 
@@ -73,7 +77,7 @@ pub fn load_image(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec
 
 /// Load layer data from a greyscale PNG file.
 pub fn load_image_grey(path: impl AsRef<Path>, width: u32, height: u32) -> Result<Vec<u8>> {
-    let decoder = png::Decoder::new(File::open(path)?);
+    let decoder = Decoder::new(File::open(path)?);
     let mut reader = decoder.read_info()?;
     let info = reader.info();
 
@@ -87,7 +91,7 @@ pub fn load_image_grey(path: impl AsRef<Path>, width: u32, height: u32) -> Resul
     }
 
     match info.color_type {
-        png::ColorType::Grayscale => Ok(()),
+        ColorType::Grayscale => Ok(()),
         x => Err(Error::InvalidColorTypeGrey(x)),
     }?;
 
@@ -99,10 +103,10 @@ pub fn load_image_grey(path: impl AsRef<Path>, width: u32, height: u32) -> Resul
 
 /// Save a generator image (layer) to a PNG file.
 pub fn save_image(path: impl AsRef<Path>, data: &[u8], width: u32, height: u32) -> Result<()> {
-    let mut encoder = png::Encoder::new(File::create(path)?, width, height);
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-    encoder.set_srgb(png::SrgbRenderingIntent::AbsoluteColorimetric); // TODO check what that means
+    let mut encoder = Encoder::new(File::create(path)?, width, height);
+    encoder.set_color(ColorType::Rgba);
+    encoder.set_depth(BitDepth::Eight);
+    encoder.set_srgb(SrgbRenderingIntent::AbsoluteColorimetric); // TODO check what that means
     let mut writer = encoder.write_header()?;
     writer.write_image_data(data)?;
 
@@ -111,9 +115,9 @@ pub fn save_image(path: impl AsRef<Path>, data: &[u8], width: u32, height: u32) 
 
 /// Save layer data as a greyscale PNG file.
 pub fn save_image_grey(path: impl AsRef<Path>, data: &[u8], width: u32, height: u32) -> Result<()> {
-    let mut encoder = png::Encoder::new(File::create(path)?, width, height);
-    encoder.set_color(png::ColorType::Grayscale);
-    encoder.set_depth(png::BitDepth::Eight);
+    let mut encoder = Encoder::new(File::create(path)?, width, height);
+    encoder.set_color(ColorType::Grayscale);
+    encoder.set_depth(BitDepth::Eight);
     let mut writer = encoder.write_header()?;
     writer.write_image_data(data)?;
 

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use atlas_lib::{bevy::prelude::*, domain::map::MapDataLayer};
 
 use crate::{
     config::{save_config, save_image, save_image_grey, AtlasGenConfig, WorldModel},
@@ -10,7 +10,6 @@ use crate::{
             MapLogicData, WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, CONFIG_NAME,
             EXPORT_DATA_LAYERS, PREVIEW_NAME,
         },
-        MapDataLayer,
     },
 };
 

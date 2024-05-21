@@ -11,6 +11,11 @@
   - Improve climate generator
     - Montane/Alpine climate at high altitude?
     - Hydro layer (rivers?) (random noise vs simulation)
+    - Climates and climatemap for water
+
+- Super Optional
+  - Generalise everything? Noise, shapes, fromimage, latitude as samplers
+    - Any number of samplers for panel/layer
 
 ## TO-DO List 2
 

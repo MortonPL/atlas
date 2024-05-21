@@ -1,7 +1,10 @@
-use bevy::prelude::Resource;
-use serde::{Deserialize, Serialize};
-
-use atlas_lib::{ui::sidebar::*, MakeUi, MakeUiEnum, UiEditableEnum};
+use atlas_lib::{
+    bevy::{ecs as bevy_ecs, prelude::Resource},
+    bevy_egui,
+    serde_derive::{Deserialize, Serialize},
+    ui::{sidebar::*, UiEditableEnum},
+    MakeUi, MakeUiEnum, UiEditableEnum,
+};
 
 use crate::config::{CELSIUS_MAX, CELSIUS_MIN, PRECIP_MAX, PRECIP_MIN};
 
@@ -12,6 +15,7 @@ const MAX_WORLD_SIZE: u32 = 1000;
 /// behavior.
 #[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
     #[empty]
@@ -36,6 +40,7 @@ impl Default for WorldModel {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct FlatWorldModel {
     #[name("World Size")]
     #[control(SidebarSliderN)]
@@ -54,6 +59,7 @@ impl Default for FlatWorldModel {
 /// How map should be colored in the map preview.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
 pub enum ColorDisplayMode {
     /// Use color palette depending on topography.
     #[default]
@@ -68,6 +74,7 @@ pub enum ColorDisplayMode {
 /// as well as its paramateres.
 #[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
 pub enum NoiseAlgorithm {
     Perlin(FbmConfig),
     OpenSimplex(FbmConfig),
@@ -84,6 +91,7 @@ impl Default for NoiseAlgorithm {
 
 /// Fbm generic noise sampling parameters.
 #[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct FbmConfig {
     #[name("Seed")]
     #[control(SidebarSliderRandom)]
@@ -147,6 +155,7 @@ impl Default for FbmConfig {
 
 /// Configuration for a three-segment lerper.
 #[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct QuadPointLerp {
     #[name("Start Value")]
     #[control(SidebarSlider)]
@@ -202,6 +211,7 @@ impl Default for QuadPointLerp {
 /// What shape should be generated for the influence map.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
 pub enum InfluenceShape {
     #[empty]
     None,
@@ -219,6 +229,8 @@ impl Default for InfluenceShape {
 
 /// How influence values should affect data values.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
 pub enum InfluenceMode {
     /// Influence < 1 will scale data down.
     #[default]
@@ -232,6 +244,7 @@ pub enum InfluenceMode {
 /// A circle defined by offset (from center) and radius. Value falloff
 /// from the center of the circle is controlled by "midpoint" settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct InfluenceCircleConfig {
     #[name("Influence Mode")]
     #[control(SidebarEnumDropdown)]
@@ -270,6 +283,7 @@ impl Default for InfluenceCircleConfig {
 /// Both length and thickness of the line are controllable, and the segement can be offset (from map center) and rotated.
 /// Value falloff from the line segment is controlled by "midpoint" settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct InfluenceStripConfig {
     #[name("Influence Mode")]
     #[control(SidebarEnumDropdown)]
@@ -322,6 +336,7 @@ impl Default for InfluenceStripConfig {
 
 /// Data from fBm noise sampling.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct InfluenceFbmConfig {
     #[name("Influence Mode")]
     #[control(SidebarEnumDropdown)]
@@ -354,6 +369,7 @@ impl AsRef<NoiseAlgorithm> for InfluenceFbmConfig {
 
 /// Data from an external image.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct InfluenceImageConfig {
     #[name("Influence Mode")]
     #[control(SidebarEnumDropdown)]
@@ -377,6 +393,7 @@ impl Default for InfluenceImageConfig {
 /// Specialised multi-segment lerp operating on latitude coordinates.
 /// HACK: Different type for temperature and precipitation, because clamp limits are different.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct LatitudinalTemperatureLerp {
     #[name("Value At South Pole")]
     #[control(SidebarSlider)]
@@ -422,6 +439,7 @@ pub struct LatitudinalTemperatureLerp {
 /// Specialised multi-segment lerp operating on latitude coordinates.
 /// HACK: Different type for temperature and precipitation, because clamp limits are different.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct LatitudinalPrecipitationLerp {
     #[name("Value At South Pole")]
     #[control(SidebarSlider)]

@@ -1,11 +1,12 @@
-use bevy_egui::egui::Ui;
-
-use atlas_lib::ui::{button, sidebar::MakeUi, UiEditableEnum};
+use atlas_lib::{
+    bevy_egui::egui::{Grid, Ui},
+    domain::map::MapDataLayer,
+    ui::{button, sidebar::MakeUi, UiEditableEnum},
+};
 
 use crate::{
     config::{AtlasGenConfig, WorldModel},
     event::EventStruct,
-    map::MapDataLayer,
     ui::{internal::UiState, panel::SidebarPanel},
 };
 
@@ -27,7 +28,7 @@ impl SidebarPanel for MainPanelGeneral {
             WorldModel::Globe(_) => [0, 0],
         };
 
-        bevy_egui::egui::Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             config.general.make_ui(ui);
         });
 

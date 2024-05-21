@@ -1,7 +1,10 @@
-use bevy::prelude::Resource;
-use serde_derive::{Deserialize, Serialize};
-
-use atlas_lib::{ui::sidebar::*, MakeUi};
+use atlas_lib::{
+    bevy::{ecs as bevy_ecs, prelude::*},
+    bevy_egui,
+    serde_derive::{Deserialize, Serialize},
+    ui::sidebar::*,
+    MakeUi,
+};
 
 pub use crate::config::common_structs::*;
 
@@ -9,6 +12,7 @@ use crate::config::{climate_structs::make_default_biomes, ALTITUDE_MAX, ALTITUDE
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct AtlasGenConfig {
     pub general: GeneralConfig,
     pub continents: ContinentsConfig,
@@ -21,11 +25,8 @@ pub struct AtlasGenConfig {
 
 /// Config for the general map settings.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
-    #[name("World Seed")]
-    #[control(SidebarSliderRandom)]
-    #[add(speed(100.0))]
-    pub seed: u32,
     #[name("Tile Resolution [km]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(10.0..=200.0))]
@@ -50,7 +51,6 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            seed: rand::random(),
             tile_resolution: 100.0,
             topo_display: 2600.0,
             color_display: Default::default(),
@@ -62,6 +62,7 @@ impl Default for GeneralConfig {
 
 /// Config for the continents generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct ContinentsConfig {
     #[name("Sea Level")]
     #[control(SidebarSlider)]
@@ -99,6 +100,7 @@ impl AsRef<NoiseAlgorithm> for ContinentsConfig {
 
 /// Config for the topography (heightmap) generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct TopographyConfig {
     #[name("Coastal Erosion Range")]
     #[control(SidebarSlider)]
@@ -148,6 +150,7 @@ impl AsRef<NoiseAlgorithm> for TopographyConfig {
 
 /// Config for the temperature generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct TemperatureConfig {
     #[name("Moist Adiabatic Lapse Rate [C/km]")]
     #[control(SidebarSlider)]
@@ -207,6 +210,7 @@ impl AsRef<NoiseAlgorithm> for TemperatureConfig {
 
 /// Config for the precipitation generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct PrecipitationConfig {
     #[name("Altitude of Max Precipitation [m]")]
     #[control(SidebarSlider)]
@@ -271,6 +275,7 @@ impl AsRef<NoiseAlgorithm> for PrecipitationConfig {
 
 /// Config for the climate generation.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct ClimateConfig {
     pub biomes: Vec<BiomeConfig>,
     #[serde(skip)]
@@ -293,6 +298,7 @@ impl Default for ClimateConfig {
 
 /// A single climate biome.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct BiomeConfig {
     pub name: String,
     pub color: [u8; 3],
@@ -302,4 +308,5 @@ pub struct BiomeConfig {
 
 /// Config for the resource generation.
 #[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
 pub struct ResourcesConfig {}

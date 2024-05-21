@@ -1,8 +1,11 @@
 use std::path::Path;
 
-use bevy::prelude::*;
+use atlas_lib::{
+    bevy::{ecs as bevy_ecs, prelude::*},
+    domain::map::MapDataLayer,
+};
 
-use crate::{config::WorldModel, map::MapDataLayer};
+use crate::config::WorldModel;
 
 /// Plugin responsible for holding event requests and their data.
 pub struct EventPlugin;

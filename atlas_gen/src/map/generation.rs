@@ -1,4 +1,4 @@
-use bevy::utils::petgraph::matrix_graph::Zero;
+use atlas_lib::{bevy::utils::petgraph::matrix_graph::Zero, domain::map::MapDataLayer};
 
 use crate::{
     config::{
@@ -11,7 +11,6 @@ use crate::{
             add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
             fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,
         },
-        MapDataLayer,
     },
 };
 

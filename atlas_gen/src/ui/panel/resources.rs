@@ -1,7 +1,5 @@
-use atlas_lib::ui::sidebar::MakeUi;
-use bevy_egui::egui::Ui;
-
-use crate::{config::AtlasGenConfig, map::MapDataLayer, ui::panel::SidebarPanel};
+use crate::{config::AtlasGenConfig, ui::panel::SidebarPanel};
+use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::MakeUi};
 
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelResources;

@@ -1,10 +1,7 @@
-use bevy_egui::egui::Ui;
-
-use atlas_lib::ui::sidebar::MakeUi;
+use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::MakeUi};
 
 use crate::{
     config::{AtlasGenConfig, InfluenceShape},
-    map::MapDataLayer,
     ui::panel::SidebarPanel,
 };
 

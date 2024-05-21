@@ -1,10 +1,12 @@
-use atlas_lib::ui::button;
-use bevy_egui::egui::Ui;
+use atlas_lib::{
+    bevy_egui::egui::{Grid, Ui},
+    domain::map::MapDataLayer,
+    ui::button,
+};
 
 use crate::{
     config::{AtlasGenConfig, InfluenceShape},
     event::EventStruct,
-    map::MapDataLayer,
     ui::{internal::UiState, panel::MainPanelGeneral},
 };
 
@@ -33,7 +35,7 @@ pub trait SidebarPanel {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        bevy_egui::egui::Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             self.make_ui(ui, config);
         });
         self.button_influence(ui, events, self.get_influence_shape(config));

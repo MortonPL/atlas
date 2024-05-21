@@ -1,6 +1,4 @@
-use bevy::prelude::*;
-
-use atlas_lib::UiEditableEnum;
+use atlas_lib::bevy::prelude::*;
 
 use crate::{
     config::AtlasGenConfig,
@@ -39,48 +37,6 @@ impl Plugin for MapPlugin {
             .add_systems(Update, update_event_generate.run_if(check_event_generate))
             .add_systems(Update, update_event_climatemap.run_if(check_event_climatemap))
             .add_systems(Update, update_event_export.run_if(check_event_export));
-    }
-}
-
-/// A map layer containing some sort of data.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiEditableEnum)]
-pub enum MapDataLayer {
-    #[default]
-    Preview,
-    Continents,
-    Topography,
-    Temperature,
-    Precipitation,
-    Climate,
-    Resources,
-    //#[invisible] // DEBUG
-    RealTopography,
-    //#[invisible] // DEBUG
-    TopographyFilter,
-    // Influence
-    ContinentsInfluence,
-    TopographyInfluence,
-    TemperatureInfluence,
-    PrecipitationInfluence,
-}
-
-impl MapDataLayer {
-    pub fn get_influence_layer(&self) -> Option<Self> {
-        match self {
-            MapDataLayer::Preview => None,
-            MapDataLayer::Continents => Some(MapDataLayer::ContinentsInfluence),
-            MapDataLayer::Topography => Some(MapDataLayer::TopographyInfluence),
-            MapDataLayer::Temperature => Some(MapDataLayer::TemperatureInfluence),
-            MapDataLayer::Precipitation => Some(MapDataLayer::PrecipitationInfluence),
-            MapDataLayer::Climate => None,
-            MapDataLayer::Resources => None,
-            MapDataLayer::RealTopography => None,
-            MapDataLayer::TopographyFilter => None,
-            MapDataLayer::ContinentsInfluence => Some(MapDataLayer::ContinentsInfluence),
-            MapDataLayer::TopographyInfluence => Some(MapDataLayer::TopographyInfluence),
-            MapDataLayer::TemperatureInfluence => Some(MapDataLayer::TemperatureInfluence),
-            MapDataLayer::PrecipitationInfluence => Some(MapDataLayer::PrecipitationInfluence),
-        }
     }
 }
 

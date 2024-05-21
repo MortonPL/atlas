@@ -167,7 +167,7 @@ pub fn ui_editable_enum_derive(input: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::UiEditableEnum for #enum_name #type_generics #where_clause {
+        impl #impl_generics UiEditableEnum for #enum_name #type_generics #where_clause {
             const LEN: usize = #len;
 
             fn self_as_index(&self) -> usize {

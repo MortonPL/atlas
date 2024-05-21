@@ -4,3 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+atlas_lib = { path = "../atlas_lib" }     # inhouse common library

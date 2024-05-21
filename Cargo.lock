@@ -308,17 +308,7 @@ name = "atlas_gen"
 version = "0.1.0"
 dependencies = [
  "atlas_lib",
- "bevy",
- "bevy_egui",
- "egui_file",
  "noise",
- "png",
- "rand 0.8.5",
- "serde",
- "serde_derive",
- "serde_with",
- "thiserror",
- "toml",
 ]
 
 [[package]]
@@ -326,11 +316,15 @@ name = "atlas_lib"
 version = "0.1.0"
 dependencies = [
  "atlas_macro",
+ "bevy",
  "bevy_egui",
+ "egui_file",
+ "png",
  "rand 0.8.5",
  "serde",
  "serde_derive",
  "serde_with",
+ "thiserror",
  "toml",
 ]
 
@@ -346,6 +340,9 @@ dependencies = [
 [[package]]
 name = "atlas_sim"
 version = "0.1.0"
+dependencies = [
+ "atlas_lib",
+]
 
 [[package]]
 name = "atomic-waker"

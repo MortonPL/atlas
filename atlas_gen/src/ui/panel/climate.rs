@@ -1,9 +1,11 @@
-use bevy_egui::egui::{self, Ui};
+use atlas_lib::{
+    bevy_egui::egui::{self, Grid, Ui},
+    domain::map::MapDataLayer,
+};
 
 use crate::{
     config::AtlasGenConfig,
     event::EventStruct,
-    map::MapDataLayer,
     ui::{internal::UiState, panel::SidebarPanel},
 };
 
@@ -38,7 +40,7 @@ impl MainPanelClimate {
         if ui.button("Reload \"climatemap.png\"").clicked() {
             events.load_climatemap_request = Some(());
         }
-        bevy_egui::egui::Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             for biome in &config.climate.biomes {
                 let color = egui::Color32::from_rgb(biome.color[0], biome.color[1], biome.color[2]);
                 ui.heading(egui::RichText::new(&biome.name).color(color));

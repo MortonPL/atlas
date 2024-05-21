@@ -1,11 +1,16 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::{prelude::*, utils::HashMap};
-
-use crate::{
-    config::{load_image_grey, AtlasGenConfig, BiomeConfig},
-    map::MapDataLayer,
+use atlas_lib::{
+    bevy::{
+        ecs as bevy_ecs,
+        prelude::*,
+        render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+        utils::HashMap,
+    },
+    domain::map::MapDataLayer,
 };
+
+use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig};
 
 pub const CONFIG_NAME: &str = "atlasgen.toml";
 pub const PREVIEW_NAME: &str = "preview.png";
@@ -181,14 +186,14 @@ pub fn spawn_default_plane(commands: &mut Commands, meshes: &mut Assets<Mesh>, g
 /// Create a new texture.
 pub fn make_image(width: u32, height: u32, data: Vec<u8>) -> Image {
     Image::new(
-        bevy::render::render_resource::Extent3d {
+        Extent3d {
             width,
             height,
             depth_or_array_layers: 1,
         },
-        bevy::render::render_resource::TextureDimension::D2,
+        TextureDimension::D2,
         data,
-        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+        TextureFormat::Rgba8UnormSrgb,
     )
 }
 

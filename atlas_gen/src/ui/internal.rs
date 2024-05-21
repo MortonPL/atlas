@@ -1,25 +1,24 @@
 use std::path::Path;
 
-use bevy::{
-    app::AppExit, input::mouse::{MouseScrollUnit, MouseWheel}, prelude::*
-};
-use bevy_egui::egui::{self, Align2, Context, Ui};
-
-use atlas_lib::ui::{
-    button_action,
-    sidebar::{SidebarControl, SidebarEnumDropdown},
+use atlas_lib::{
+    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
+    bevy_egui::egui::{self, Context, Ui},
+    domain::map::MapDataLayer,
+    egui_file,
+    ui::{
+        button_action,
+        plugin_base::{FileDialogMode, HandleErrorWindow, HandleFileDialog, UiStateBase},
+        sidebar::{SidebarControl, SidebarEnumDropdown},
+    },
 };
 
 use crate::{
     config::{load_config, load_image, load_image_grey, save_config, AtlasGenConfig},
     event::EventStruct,
-    map::MapDataLayer,
-    ui::panel::SidebarPanel,
-};
-
-use super::panel::{
-    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources,
-    MainPanelTemperature, MainPanelTopography,
+    ui::panel::{
+        MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources,
+        MainPanelTemperature, MainPanelTopography, SidebarPanel,
+    },
 };
 
 /// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
@@ -27,46 +26,12 @@ const SIDEBAR_WIDTH: f32 = 360.0;
 /// Minimum sidebar width in points.
 const SIDEBAR_MIN_WIDTH: f32 = 360.0;
 
-/// Minimum camera zoom as Z in world space (bad idea?).
-const MIN_CAMERA_ZOOM: f32 = 1.0;
-/// Maximum camera zoom as Z in world space (bad idea?).
-const MAX_CAMERA_ZOOM: f32 = 15.0;
-/// Mutliplier to scroll value.
-const CAMERA_ZOOM_SPEED: f32 = 0.05;
-
-/// Mode of operation for the generic file dialog.
-#[derive(Clone, Copy, Default)]
-pub enum FileDialogMode {
-    /// Save generator configuration to TOML file.
-    #[default]
-    SaveConfig,
-    /// Load generator configuration to TOML file.
-    LoadConfig,
-    /// Save this layer data to PNG file.
-    SaveData(MapDataLayer),
-    /// Load this layer data from PNG file.
-    LoadData(MapDataLayer),
-    /// Render this layer to a PNG file.
-    RenderImage(MapDataLayer),
-    /// Export all layers.
-    Export,
-}
-
 /// Struct that contains only the UI-related state (no logic).
 #[derive(Default, Resource)]
 pub struct UiState {
-    /// Size (in pixels) of the viewport, AKA window size - sidebar size.
-    pub viewport_size: bevy::prelude::Vec2,
-    /// All purpose file dialog. Some if open, None if closed.
-    file_dialog: Option<egui_file::FileDialog>,
-    /// File dialog mode of operation. See [`FileDialogMode`].
-    file_dialog_mode: FileDialogMode,
     /// Currently viewed map layer.
     current_layer: MapDataLayer,
-    /// Is the error popup window open?
-    error_window_open: bool,
-    /// Current error message.
-    error_message: String,
+    pub base: UiStateBase,
 }
 
 /// Extra struct (alongside [`UiState`]) that holds the current sidebar panel.
@@ -79,7 +44,7 @@ pub struct UiStatePanel {
 /// Add the entire UI.
 pub fn create_ui(
     ctx: &Context,
-    mut config: ResMut<AtlasGenConfig>,
+    config: &mut AtlasGenConfig,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -99,57 +64,33 @@ pub fn create_ui(
         .min_width(SIDEBAR_MIN_WIDTH)
         .default_width(SIDEBAR_WIDTH)
         .show(ctx, |ui| {
-            create_sidebar_head(ui, &mut config, ui_state, ui_panel, events, exit);
+            create_sidebar_head(ui, config, ui_state, ui_panel, events, exit);
             ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
             create_layer_view_settings(ui, ui_state, events);
             ui.separator();
             create_panel_tabs(ui, ui_state, ui_panel, events);
             ui.separator();
-            create_current_panel(ui, &mut config, ui_state, ui_panel, events);
+            create_current_panel(ui, config, ui_state, ui_panel, events);
             // We've finished drawing the sidebar. Its size is now established
             // and we can calculate the viewport size.
             adjust_viewport(ui, ui_state);
         });
-    handle_file_dialog(ctx, &mut config, ui_state, ui_panel, events);
-    handle_error_window(ctx, ui_state, events);
-}
-
-/// Handle camera movement/zoom inputs.
-pub fn handle_camera(
-    kb: Res<Input<KeyCode>>,
-    mut mouse_wheel: EventReader<MouseWheel>,
-    window: &Window,
-    camera: &mut Mut<Transform>,
-    ui_state: &UiState,
-) {
-    let mut scroll = 0.0;
-    // Don't scroll with mouse if it's not inside the viewport.
-    if let Some(event) = mouse_wheel.read().next() {
-        if let Some(cursor) = window.cursor_position() {
-            if (cursor[0] <= ui_state.viewport_size[0]) && (cursor[1] <= ui_state.viewport_size[1]) {
-                match event.unit {
-                    MouseScrollUnit::Line => scroll = event.y,
-                    MouseScrollUnit::Pixel => scroll = event.y * 2.0,
-                }
-            }
-        }
+    // Handle file dialog.
+    let mut handler = FileDialogHandler::new(events, config);
+    handler.handle(ctx, &mut ui_state.base);
+    // Handle error window.
+    if let Some(error) = events.error_window.take() {
+        ui_state.base.error_message = error;
+        ui_state.base.error_window_open = true;
     }
-    let mut z = camera.translation.z;
-    // Zoom in.
-    if kb.pressed(KeyCode::Equals) || (scroll > 0.0) {
-        z *= 1.0f32 - CAMERA_ZOOM_SPEED * (1.0 + scroll);
-    // Zoom out.
-    } else if kb.pressed(KeyCode::Minus) || (scroll < 0.0) {
-        z *= 1.0f32 + CAMERA_ZOOM_SPEED * (1.0 - scroll);
-    }
-    // Apply new Z to the camera.
-    camera.translation.z = z.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
+    let mut handler = ErrorWindowHandler::new();
+    handler.handle(ctx, &mut ui_state.base);
 }
 
 /// Create the top part of the sidebar with configuration S/L.
 fn create_sidebar_head(
     ui: &mut Ui,
-    config: &mut ResMut<AtlasGenConfig>,
+    config: &mut AtlasGenConfig,
     ui_state: &mut UiState,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
@@ -273,97 +214,45 @@ fn create_current_panel(
 fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
     let window_size = ui.clip_rect().size();
     let ui_size = ui.max_rect().size();
-    ui_state.viewport_size = Vec2 {
+    ui_state.base.viewport_size = Vec2 {
         x: (window_size.x - ui_size.x).max(1.0),
         y: window_size.y.max(1.0),
     };
-}
-
-/// Handle the file dialog window if it is open. Perform configuration S/L if the user selected a file.
-fn handle_file_dialog(
-    ctx: &Context,
-    config: &mut ResMut<AtlasGenConfig>,
-    ui_state: &mut UiState,
-    ui_panel: &mut UiStatePanel,
-    events: &mut EventStruct,
-) {
-    let mode = ui_state.file_dialog_mode;
-    if let Some(file_dialog) = &mut ui_state.file_dialog {
-        if !file_dialog.show(ctx).selected() {
-            return;
-        }
-        if let Some(path) = file_dialog.path() {
-            match mode {
-                FileDialogMode::LoadConfig => file_dialog_load_config(path, config, ui_panel, events),
-                FileDialogMode::SaveConfig => file_dialog_save_config(path, config, events),
-                FileDialogMode::LoadData(layer) => file_dialog_load_data(path, layer, config, events),
-                FileDialogMode::SaveData(layer) => file_dialog_save_data(path, layer, events),
-                FileDialogMode::RenderImage(layer) => file_dialog_render_image(path, layer, events),
-                FileDialogMode::Export => file_dialog_export(path, events),
-            };
-        }
-        ui_state.file_dialog = None;
-    }
-}
-
-/// Show the error window if there's an error.
-fn handle_error_window(ctx: &Context, ui_state: &mut UiState, events: &mut EventStruct) {
-    if let Some(error) = events.error_window.take() {
-        ui_state.error_message = error;
-        ui_state.error_window_open = true;
-    }
-    egui::Window::new("An error has occured")
-        .resizable(false)
-        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-        .open(&mut ui_state.error_window_open)
-        .collapsible(false)
-        .movable(false)
-        .show(ctx, |ui| {
-            ui.label(&ui_state.error_message);
-        });
 }
 
 /// Set context for the file dialog to "exporting world" and show it.
 fn export_world_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
     file_picker.open();
-    ui_state.file_dialog = Some(file_picker);
-    ui_state.file_dialog_mode = FileDialogMode::Export;
+    ui_state.base.file_dialog = Some(file_picker);
+    ui_state.base.file_dialog_mode = FileDialogMode::ExportGen;
 }
 
 /// Set context for the file dialog to "saving config" and show it.
 fn save_config_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
-    ui_state.file_dialog = Some(file_picker);
-    ui_state.file_dialog_mode = FileDialogMode::SaveConfig;
+    ui_state.base.file_dialog = Some(file_picker);
+    ui_state.base.file_dialog_mode = FileDialogMode::SaveGenConfig;
 }
 
 /// Set context for the file dialog to "loading config" and show it.
 fn load_config_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
     file_picker.open();
-    ui_state.file_dialog = Some(file_picker);
-    ui_state.file_dialog_mode = FileDialogMode::LoadConfig;
+    ui_state.base.file_dialog = Some(file_picker);
+    ui_state.base.file_dialog_mode = FileDialogMode::LoadGenConfig;
 }
 
 /// Reset generator config to defaults.
-fn reset_config_clicked(
-    config: &mut ResMut<AtlasGenConfig>,
-    ui_panel: &mut UiStatePanel,
-    events: &mut EventStruct,
-) {
-    **config = AtlasGenConfig::default();
+fn reset_config_clicked(config: &mut AtlasGenConfig, ui_panel: &mut UiStatePanel, events: &mut EventStruct) {
+    *config = AtlasGenConfig::default();
     ui_panel.current_panel = default();
     events.world_model_changed = Some(config.general.world_model.clone());
 }
 
 /// Reset a config from one panel to defaults, and reset relevant logic layers.
-fn reset_panel_clicked(
-    config: &mut ResMut<AtlasGenConfig>,
-    ui_panel: &UiStatePanel,
-    events: &mut EventStruct,
-) {
+fn reset_panel_clicked(config: &mut AtlasGenConfig, ui_panel: &UiStatePanel, events: &mut EventStruct) {
     match ui_panel.current_panel.get_layer() {
         MapDataLayer::Preview => {
             config.general = default();
@@ -401,24 +290,24 @@ fn reset_panel_clicked(
 fn load_layer_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
     file_picker.open();
-    ui_state.file_dialog = Some(file_picker);
-    ui_state.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
+    ui_state.base.file_dialog = Some(file_picker);
+    ui_state.base.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
 }
 
 // Set context for the file dialog to "saving layer" and show it.
 fn save_layer_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
-    ui_state.file_dialog = Some(file_picker);
-    ui_state.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
+    ui_state.base.file_dialog = Some(file_picker);
+    ui_state.base.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
 }
 
 // Set context for the file dialog to "rendering layer" and show it.
 fn render_layer_clicked(ui_state: &mut UiState) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
-    ui_state.file_dialog = Some(file_picker);
-    ui_state.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
+    ui_state.base.file_dialog = Some(file_picker);
+    ui_state.base.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
 }
 
 // Clear layer data.
@@ -426,59 +315,75 @@ fn clear_layer_clicked(ui_state: &mut UiState, events: &mut EventStruct) {
     events.clear_layer_request = Some(ui_state.current_layer);
 }
 
-/// Load and overwrite configuration from a TOML file.
-fn file_dialog_load_config(
-    path: &Path,
-    config: &mut ResMut<AtlasGenConfig>,
-    ui_panel: &mut UiStatePanel,
-    events: &mut EventStruct,
-) {
-    match load_config(path) {
-        Ok(data) => {
-            **config = data;
-            events.world_model_changed = Some(config.general.world_model.clone());
-            ui_panel.current_panel = default();
-        },
-        Err(err) => events.error_window = Some(err.to_string()),
+/// A handler implementation for the egui file dialog.
+pub struct FileDialogHandler<'a> {
+    pub events: &'a mut EventStruct,
+    pub config: &'a mut AtlasGenConfig,
+}
+
+impl<'a> FileDialogHandler<'a> {
+    fn new(events: &'a mut EventStruct, config: &'a mut AtlasGenConfig) -> Self {
+        Self { events, config }
     }
 }
 
-/// Save current configuration to a TOML file.
-fn file_dialog_save_config(path: &Path, config: &mut ResMut<AtlasGenConfig>, events: &mut EventStruct) {
-    if let Err(err) = save_config(config, path) {
-        events.error_window = Some(err.to_string());
+impl<'a> HandleFileDialog for FileDialogHandler<'a> {
+    fn load_gen_config(&mut self, path: &Path) {
+        match load_config(path) {
+            Ok(data) => {
+                *self.config = data;
+                self.events.world_model_changed = Some(self.config.general.world_model.clone());
+            }
+            Err(err) => self.events.error_window = Some(err.to_string()),
+        }
+    }
+
+    fn save_gen_config(&mut self, path: &Path) {
+        if let Err(err) = save_config(self.config, path) {
+            self.events.error_window = Some(err.to_string());
+        }
+    }
+
+    fn load_sim_config(&mut self, _path: &Path) {
+        unreachable!()
+    }
+
+    fn save_sim_config(&mut self, _path: &Path) {
+        unreachable!()
+    }
+
+    fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer) {
+        let (width, height) = self.config.general.world_model.get_dimensions();
+        let result = match layer {
+            MapDataLayer::Preview => load_image(path, width, height),
+            _ => load_image_grey(path, width, height),
+        };
+        match result {
+            Ok(data) => self.events.load_layer_request = Some((layer, data)),
+            Err(err) => self.events.error_window = Some(err.to_string()),
+        };
+    }
+
+    fn save_layer_data(&mut self, path: &Path, layer: MapDataLayer) {
+        self.events.save_layer_request = Some((layer, path.into()));
+    }
+
+    fn render_image(&mut self, path: &Path, layer: MapDataLayer) {
+        self.events.render_layer_request = Some((layer, path.into()));
+    }
+
+    fn export_gen(&mut self, path: &Path) {
+        self.events.export_world_request = Some(path.into());
     }
 }
 
-/// Load a layer image and send an event.
-fn file_dialog_load_data(
-    path: &Path,
-    layer: MapDataLayer,
-    config: &mut ResMut<AtlasGenConfig>,
-    events: &mut EventStruct,
-) {
-    let (width, height) = config.general.world_model.get_dimensions();
-    let result = match layer {
-        MapDataLayer::Preview => load_image(path, width, height),
-        _ => load_image_grey(path, width, height),
-    };
-    match result {
-        Ok(data) => events.load_layer_request = Some((layer, data)),
-        Err(err) => events.error_window = Some(err.to_string()),
-    };
+/// A handler for error window. Doesn't need to override anything.
+pub struct ErrorWindowHandler;
+
+impl ErrorWindowHandler {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
-/// Send an event to save a layer image.
-fn file_dialog_save_data(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
-    events.save_layer_request = Some((layer, path.into()));
-}
-
-/// Send an event to render a layer image.
-fn file_dialog_render_image(path: &Path, layer: MapDataLayer, events: &mut EventStruct) {
-    events.render_layer_request = Some((layer, path.into()));
-}
-
-/// Send an event to export all layers.
-fn file_dialog_export(path: &Path, events: &mut EventStruct) {
-    events.export_world_request = Some(path.into());
-}
+impl HandleErrorWindow for ErrorWindowHandler {}

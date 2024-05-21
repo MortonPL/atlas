@@ -1,5 +1,7 @@
-use bevy::{math::Vec2, utils::petgraph::matrix_graph::Zero};
-use bevy_egui::egui::lerp;
+use atlas_lib::{
+    bevy::{math::Vec2, utils::petgraph::matrix_graph::Zero},
+    bevy_egui::egui::lerp,
+};
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::config::{
@@ -217,7 +219,8 @@ where
         let xy = p / self.scale + self.origin;
         let sample = (self.noise.get([xy.x as f64, xy.y as f64]) + 1.4) / 2.8;
         // Interpolate value.
-        self.midpoint.lerp(((sample as f32).clamp(0.0, 1.0) + self.bias).clamp(0.0, 1.0))
+        self.midpoint
+            .lerp(((sample as f32).clamp(0.0, 1.0) + self.bias).clamp(0.0, 1.0))
     }
 
     fn offset_origin(self, _offset: Vec2) -> Self {
