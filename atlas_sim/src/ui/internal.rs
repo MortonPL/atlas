@@ -1,6 +1,5 @@
-use atlas_lib::bevy::ecs as bevy_ecs;
 use atlas_lib::{
-    bevy::{app::AppExit, prelude::*},
+    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
     bevy_egui::egui::Context,
     ui::plugin_base::UiStateBase,
 };

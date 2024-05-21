@@ -1,7 +1,7 @@
 mod internal;
 
-use atlas_lib::bevy::{app::AppExit, prelude::*};
 use atlas_lib::{
+    bevy::{app::AppExit, prelude::*},
     bevy_egui::EguiContexts,
     ui::plugin_base::{UiPluginBase, UiUpdate},
 };

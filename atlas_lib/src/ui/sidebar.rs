@@ -1,5 +1,4 @@
 use std::{marker::PhantomData, ops::RangeInclusive};
-
 use bevy_egui::egui::{self, Ui};
 
 use crate::ui::generic::UiEditableEnum;

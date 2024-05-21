@@ -1,5 +1,4 @@
 use std::f32::consts::FRAC_PI_2;
-
 use atlas_lib::{
     bevy::{
         ecs as bevy_ecs,

@@ -1,5 +1,4 @@
 use std::path::Path;
-
 use bevy::{
     app::{MainScheduleOrder, RunFixedUpdateLoop},
     core_pipeline::tonemapping::{DebandDither, Tonemapping},

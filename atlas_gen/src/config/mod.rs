@@ -3,9 +3,18 @@ mod common_structs;
 mod conversions;
 mod io;
 mod main_structs;
-mod plugin;
 
 pub use conversions::*;
 pub use io::*;
 pub use main_structs::*;
-pub use plugin::*;
+
+use atlas_lib::bevy::prelude::*;
+
+/// Plugin responsible for the generator configuration and I/O.
+pub struct ConfigPlugin;
+
+impl Plugin for ConfigPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AtlasGenConfig>();
+    }
+}

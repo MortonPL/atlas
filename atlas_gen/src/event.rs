@@ -1,5 +1,4 @@
 use std::path::Path;
-
 use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     domain::map::MapDataLayer,
