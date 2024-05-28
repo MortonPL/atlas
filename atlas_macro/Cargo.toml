@@ -2,6 +2,13 @@
 name = "atlas_macro"
 version = "0.1.0"
 edition = "2021"
+description = "A crate with procedural macros for the Atlas project"
+
+readme.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
 
 [lib]
 proc-macro = true

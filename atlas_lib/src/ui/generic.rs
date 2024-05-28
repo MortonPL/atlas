@@ -1,4 +1,4 @@
-use bevy_egui::egui::{Ui, WidgetText};
+use bevy_egui::egui::{self, Align2, Context, Ui, WidgetText};
 
 /// An enum that can be changed via dropdown.
 pub trait UiEditableEnum {
@@ -33,4 +33,18 @@ where
     } else {
         T::default()
     }
+}
+
+/// Show a popup window.
+pub fn window<F, T>(ctx: &Context, title: &str, open: &mut bool, add_content: F)
+where
+    F: FnOnce(&mut Ui) -> T,
+{
+    egui::Window::new(title)
+        .resizable(false)
+        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+        .open(open)
+        .collapsible(false)
+        .movable(false)
+        .show(ctx, add_content);
 }

@@ -2,6 +2,13 @@
 name = "atlas_lib"
 version = "0.1.0"
 edition = "2021"
+description = "A shared library for the Atlas project"
+
+readme.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
 
 [dependencies]
 atlas_macro = { path = "../atlas_macro" } # inhouse procedural macros

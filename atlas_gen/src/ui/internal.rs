@@ -9,6 +9,7 @@ use atlas_lib::{
         button_action,
         plugin_base::{FileDialogMode, HandleErrorWindow, HandleFileDialog, UiStateBase},
         sidebar::{SidebarControl, SidebarEnumDropdown},
+        window,
     },
 };
 
@@ -31,7 +32,8 @@ const SIDEBAR_MIN_WIDTH: f32 = 360.0;
 pub struct UiState {
     /// Currently viewed map layer.
     current_layer: MapDataLayer,
-    pub base: UiStateBase,
+    /// Is the about window open?
+    about_open: bool,
 }
 
 /// Extra struct (alongside [`UiState`]) that holds the current sidebar panel.
@@ -46,6 +48,7 @@ pub fn create_ui(
     ctx: &Context,
     config: &mut AtlasGenConfig,
     ui_state: &mut UiState,
+    ui_base: &mut UiStateBase,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
     exit: &mut EventWriter<AppExit>,
@@ -64,7 +67,7 @@ pub fn create_ui(
         .min_width(SIDEBAR_MIN_WIDTH)
         .default_width(SIDEBAR_WIDTH)
         .show(ctx, |ui| {
-            create_sidebar_head(ui, config, ui_state, ui_panel, events, exit);
+            create_sidebar_head(ui, config, ui_state, ui_base, ui_panel, events, exit);
             ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
             create_layer_view_settings(ui, ui_state, events);
             ui.separator();
@@ -73,18 +76,27 @@ pub fn create_ui(
             create_current_panel(ui, config, ui_state, ui_panel, events);
             // We've finished drawing the sidebar. Its size is now established
             // and we can calculate the viewport size.
-            adjust_viewport(ui, ui_state);
+            adjust_viewport(ui, ui_base);
         });
     // Handle file dialog.
     let mut handler = FileDialogHandler::new(events, config);
-    handler.handle(ctx, &mut ui_state.base);
+    handler.handle(ctx, ui_base);
     // Handle error window.
     if let Some(error) = events.error_window.take() {
-        ui_state.base.error_message = error;
-        ui_state.base.error_window_open = true;
+        ui_base.error_message = error;
+        ui_base.error_window_open = true;
     }
     let mut handler = ErrorWindowHandler::new();
-    handler.handle(ctx, &mut ui_state.base);
+    handler.handle(ctx, ui_base);
+    // Handle about window.
+    window(ctx, "About", &mut ui_state.about_open, |ui| {
+        ui.heading("Atlas Map Generator");
+        ui.label(env!("CARGO_PKG_DESCRIPTION"));
+        ui.separator();
+        ui.label(format!("Authors: {}", env!("CARGO_PKG_AUTHORS")));
+        ui.label(format!("Version: {}", env!("CARGO_PKG_VERSION")));
+        ui.label(format!("Home Page: {}", env!("CARGO_PKG_HOMEPAGE")));
+    });
 }
 
 /// Create the top part of the sidebar with configuration S/L.
@@ -92,6 +104,7 @@ fn create_sidebar_head(
     ui: &mut Ui,
     config: &mut AtlasGenConfig,
     ui_state: &mut UiState,
+    ui_base: &mut UiStateBase,
     ui_panel: &mut UiStatePanel,
     events: &mut EventStruct,
     exit: &mut EventWriter<AppExit>,
@@ -100,8 +113,7 @@ fn create_sidebar_head(
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                button_action(ui, "Import World", || { /* TODO */ });
-                button_action(ui, "Export World", || export_world_clicked(ui_state));
+                button_action(ui, "Export World", || export_world_clicked(ui_base));
                 button_action(ui, "Exit", || exit.send(AppExit));
             });
             ui.menu_button("Edit", |ui| {
@@ -110,18 +122,23 @@ fn create_sidebar_head(
                 });
             });
             ui.menu_button("Config", |ui| {
-                button_action(ui, "Save Configuration", || save_config_clicked(ui_state));
-                button_action(ui, "Load Configuration", || load_config_clicked(ui_state));
+                button_action(ui, "Save Configuration", || save_config_clicked(ui_base));
+                button_action(ui, "Load Configuration", || load_config_clicked(ui_base));
                 button_action(ui, "Reset Configuration", || {
                     reset_config_clicked(config, ui_panel, events)
                 });
             });
             ui.menu_button("Layer", |ui| {
-                button_action(ui, "Load Layer Data", || load_layer_clicked(ui_state));
-                button_action(ui, "Save Layer Data", || save_layer_clicked(ui_state));
+                button_action(ui, "Load Layer Data", || load_layer_clicked(ui_state, ui_base));
+                button_action(ui, "Save Layer Data", || save_layer_clicked(ui_state, ui_base));
                 button_action(ui, "Clear Layer Data", || clear_layer_clicked(ui_state, events));
-                button_action(ui, "Render Layer Image", || render_layer_clicked(ui_state));
+                button_action(ui, "Render Layer Image", || {
+                    render_layer_clicked(ui_state, ui_base)
+                });
             });
+            ui.menu_button("Help", |ui| {
+                button_action(ui, "About", || ui_state.about_open = true);
+            })
         });
     });
 }
@@ -180,10 +197,12 @@ fn create_panel_tabs(
                 ui_panel.current_panel = Box::<MainPanelClimate>::default();
                 true
             });
+            /* TODO
             changed |= button_action(ui, "Resources", || {
                 ui_panel.current_panel = Box::<MainPanelResources>::default();
                 true
             });
+            */
         });
         if changed {
             let layer = ui_panel.current_panel.get_layer();
@@ -211,37 +230,37 @@ fn create_current_panel(
 }
 
 /// Adjust viewport size to not overlap the sidebar.
-fn adjust_viewport(ui: &mut Ui, ui_state: &mut UiState) {
+fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
     let window_size = ui.clip_rect().size();
     let ui_size = ui.max_rect().size();
-    ui_state.base.viewport_size = Vec2 {
+    ui_base.viewport_size = Vec2 {
         x: (window_size.x - ui_size.x).max(1.0),
         y: window_size.y.max(1.0),
     };
 }
 
 /// Set context for the file dialog to "exporting world" and show it.
-fn export_world_clicked(ui_state: &mut UiState) {
+fn export_world_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
     file_picker.open();
-    ui_state.base.file_dialog = Some(file_picker);
-    ui_state.base.file_dialog_mode = FileDialogMode::ExportGen;
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::ExportGen;
 }
 
 /// Set context for the file dialog to "saving config" and show it.
-fn save_config_clicked(ui_state: &mut UiState) {
+fn save_config_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
-    ui_state.base.file_dialog = Some(file_picker);
-    ui_state.base.file_dialog_mode = FileDialogMode::SaveGenConfig;
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::SaveGenConfig;
 }
 
 /// Set context for the file dialog to "loading config" and show it.
-fn load_config_clicked(ui_state: &mut UiState) {
+fn load_config_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
     file_picker.open();
-    ui_state.base.file_dialog = Some(file_picker);
-    ui_state.base.file_dialog_mode = FileDialogMode::LoadGenConfig;
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::LoadGenConfig;
 }
 
 /// Reset generator config to defaults.
@@ -287,27 +306,27 @@ fn reset_panel_clicked(config: &mut AtlasGenConfig, ui_panel: &UiStatePanel, eve
 }
 
 // Set context for the file dialog to "loading layer" and show it.
-fn load_layer_clicked(ui_state: &mut UiState) {
+fn load_layer_clicked(ui_state: &mut UiState, ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
     file_picker.open();
-    ui_state.base.file_dialog = Some(file_picker);
-    ui_state.base.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::LoadData(ui_state.current_layer);
 }
 
 // Set context for the file dialog to "saving layer" and show it.
-fn save_layer_clicked(ui_state: &mut UiState) {
+fn save_layer_clicked(ui_state: &mut UiState, ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
-    ui_state.base.file_dialog = Some(file_picker);
-    ui_state.base.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::SaveData(ui_state.current_layer);
 }
 
 // Set context for the file dialog to "rendering layer" and show it.
-fn render_layer_clicked(ui_state: &mut UiState) {
+fn render_layer_clicked(ui_state: &mut UiState, ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
-    ui_state.base.file_dialog = Some(file_picker);
-    ui_state.base.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::RenderImage(ui_state.current_layer);
 }
 
 // Clear layer data.

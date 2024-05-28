@@ -13,10 +13,11 @@ pub enum MapDataLayer {
     Temperature,
     Precipitation,
     Climate,
+    #[invisible] // TODO
     Resources,
-    //#[invisible] // DEBUG
+    #[invisible]
     RealTopography,
-    //#[invisible] // DEBUG
+    #[invisible]
     TopographyFilter,
     // Influence
     ContinentsInfluence,

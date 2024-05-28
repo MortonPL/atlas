@@ -7,6 +7,12 @@ members = [
 ]
 resolver = "2"
 
+package.readme = "README.md"
+package.rust-version = "1.56"
+package.license = "MIT"
+package.authors = ["Bartłomiej \"Morton\" Moroz"]
+package.homepage = "https://github.com/MortonPL/atlas"
+
 [profile.release]
 opt-level = 3
 debug = false

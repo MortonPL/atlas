@@ -5,13 +5,10 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::{
-    egui::{self, Align2, Context},
-    EguiPlugin,
-};
+use bevy_egui::{egui::Context, EguiPlugin};
 use std::path::Path;
 
-use crate::domain::map::MapDataLayer;
+use crate::{domain::map::MapDataLayer, ui::window};
 
 /// Minimum camera zoom as Z in world space (bad idea?).
 const MIN_CAMERA_ZOOM: f32 = 1.0;
@@ -121,15 +118,14 @@ pub trait HandleFileDialog {
 pub trait HandleErrorWindow {
     /// Show the error window if there's an error.
     fn handle(&mut self, ctx: &Context, ui_state: &mut UiStateBase) {
-        egui::Window::new("An error has occured")
-            .resizable(false)
-            .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-            .open(&mut ui_state.error_window_open)
-            .collapsible(false)
-            .movable(false)
-            .show(ctx, |ui| {
+        window(
+            ctx,
+            "An error has occured",
+            &mut ui_state.error_window_open,
+            |ui| {
                 ui.label(&ui_state.error_message);
-            });
+            },
+        );
     }
 }
 

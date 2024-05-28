@@ -122,12 +122,12 @@ pub struct FbmConfig {
     #[add(clamp_range(-1.0..=1.0))]
     #[add(speed(0.1))]
     pub bias: f32,
-    #[name("Midpoint Interpolation")]
-    #[control(SidebarStructSection)]
-    pub midpoint: QuadPointLerp,
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [f32; 2],
+    #[name("Quad Point Interpolation")]
+    #[control(SidebarStructSection)]
+    pub midpoint: QuadPointLerp,
 }
 
 impl Default for FbmConfig {
@@ -162,12 +162,12 @@ pub struct QuadPointLerp {
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
     pub start: f32,
-    #[name("Midpoint 1 Value")]
+    #[name("Point 2 Value")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
     pub midpoint: f32,
-    #[name("Midpoint 2 Value")]
+    #[name("Point 3 Value")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
@@ -177,12 +177,12 @@ pub struct QuadPointLerp {
     #[add(clamp_range(0.0..=1.0))]
     #[add(speed(0.1))]
     pub end: f32,
-    #[name("Midpoint 1 Position")]
+    #[name("Point 2 Position")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=0.99))]
     #[add(speed(0.1))]
     pub midpoint_position: f32,
-    #[name("Midpoint 2 Position")]
+    #[name("Point 3 Position")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=0.99))]
     #[add(speed(0.1))]
@@ -262,7 +262,7 @@ pub struct InfluenceCircleConfig {
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [i32; 2],
-    #[name("Midpoint Interpolation")]
+    #[name("Quad Point Interpolation")]
     #[control(SidebarStructSection)]
     pub midpoint: QuadPointLerp,
 }
@@ -314,7 +314,7 @@ pub struct InfluenceStripConfig {
     #[name("Offset")]
     #[control(SidebarSliderN)]
     pub offset: [i32; 2],
-    #[name("Midpoint Interpolation")]
+    #[name("Quad Point Interpolation")]
     #[control(SidebarStructSection)]
     pub midpoint: QuadPointLerp,
 }
