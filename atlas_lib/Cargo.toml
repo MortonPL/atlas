@@ -22,3 +22,4 @@ serde_derive = "1.0.164"                  # "
 serde_with = "3.0.0"                      # "
 thiserror = "1.0.53"                      # convenient error handling
 toml = "0.7.4"                            # serde for TOML
+winit = "0.28.7"                          # HACK to set runtime app icon

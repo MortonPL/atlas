@@ -104,7 +104,7 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
 
     let climate_display = config.general.color_display;
     let height_levels = config.general.height_levels as f32;
-    let highest = (config.general.topo_display / ALTITUDE_STEP).floor();
+    let highest = (config.general.altitude_limit / ALTITUDE_STEP).floor();
 
     for i in 0..real_data.len() {
         let (r, g, b);

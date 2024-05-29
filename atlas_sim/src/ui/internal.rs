@@ -7,13 +7,12 @@ use atlas_lib::{
 use crate::{config::AtlasSimConfig, event::EventStruct};
 
 #[derive(Default, Resource)]
-pub struct UiState {
-    base: UiStateBase,
-}
+pub struct UiState {}
 
 pub fn create_ui(
     ctx: &mut Context,
     config: &mut AtlasSimConfig,
+    ui_base: &mut UiStateBase,
     ui_state: &mut UiState,
     events: &mut EventStruct,
     exit: &mut EventWriter<AppExit>,

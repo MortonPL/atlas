@@ -13,3 +13,6 @@ homepage.workspace = true
 [dependencies]
 atlas_lib = { path = "../atlas_lib" }     # inhouse common library
 noise = "0.8.2"                           # noise generation
+
+[build-dependencies]
+winresource = "0.1.17"                    # set resource icon

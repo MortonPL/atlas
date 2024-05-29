@@ -34,15 +34,15 @@ pub struct GeneralConfig {
     #[name("Altitude Limit for Preview [m]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(ALTITUDE_MIN..=ALTITUDE_MAX))]
-    pub topo_display: f32,
-    #[name("Preview Color Display")]
-    #[control(SidebarEnumDropdown)]
-    pub color_display: ColorDisplayMode,
+    pub altitude_limit: f32,
     #[name("Preview Height Levels")]
     #[control(SidebarSlider)]
     #[add(clamp_range(3..=100))]
     #[add(speed(0.1))]
     pub height_levels: u32,
+    #[name("Preview Color Display")]
+    #[control(SidebarEnumDropdown)]
+    pub color_display: ColorDisplayMode,
     #[name("World Model")]
     #[control(SidebarEnumSection)]
     pub world_model: WorldModel,
@@ -52,7 +52,7 @@ impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
             tile_resolution: 100.0,
-            topo_display: 2600.0,
+            altitude_limit: 2600.0,
             color_display: Default::default(),
             height_levels: 10,
             world_model: Default::default(),

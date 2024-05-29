@@ -2,7 +2,7 @@
 
 ## Window Layout
 
-[Screenshot - Window]()
+![Screenshot - Window](atlasgen_screenshot.png)
 
 The application layout consists of two parts: map viewport (to the left) and sidebar (to the right).
 The sidebar is divided into three parts: title & menu bar, panel tabs and current panel.
@@ -77,13 +77,73 @@ Displays a window with information about the program.
 
 ### Noise Algorithm
 
+This program uses two dimensional fractal noise as the basis of the generation process, with sample data
+scaled to [0.0; 1.0] range.
+There are 3 base noise algorithms available:
+
+* Perlin
+* OpenSimplex
+* SuperSimplex
+* FromImage - a special case. No data is generated, useful for when users supply exisitng data and don't want it to be overriden.
+
+The following parameters can be used to customize generation output:
+
+* Seed - the seed of random numbers. Changing the seed gives completely different results,
+* Detail (number of octaves) - number of layers of noise overlaid on top of each other. Affects the overall level of detail.
+  High level of zoom (low scale) requires higher detail for good results. High detail makes generation slower,
+* Scale (frequency) - frequency of sampling. High scale gives more zoomed out results,
+* Neatness (lacunarity) - multiplier to frequency for consecutive layers of noise. Small changes give different results,
+  large increase will make shapes less defined,
+* Roughness (persistance) - power of amplitude for consecutive layers of noise. Low values give blurry shapes, high values give
+  rough, high contrast shapes but also increase value,
+* Bias - offset to the output *value* in [-1.0; 1.0] range,
+* Offset - horizontal and vertical offset of the output. Offset should be scaled when frequency and lacunarity is changed.
+
 ### Interpolation
+
+Output (in [0.0; 1.0] range) can be further modifed using three segment (four control point) linear interpolation.
+The start and end points have fixed position of 0.1 and 1.0 respectively, while two middle points can be freely moved on the X axis.
+Value (Y axis) can be customized for all 4 points. This allows great flexibility in manipulating output ranges and distributions, i.e.:
+
+* Scaling values,
+* Reversing values,
+* Creating steep slopes,
+* Approximating nonlinear transformations.
+
+### Latitudinal Interpolation
+
+Temperature and precipitation use noise algorithms only as supplementary (optional) source of data. The main source of data for these layers
+is latitude (map position on Y axis) based linear interpolation, with 9 fixed control points loosely based on circles of lattitude:
+
+* Equator (0 degrees),
+* Tropics (23 degrees),
+* Temperate zones (46 degrees),
+* Arctic/Antarctic (69 degrees),
+* Poles (90 degrees),
+
+An additional custom seeting is available, "Non-Linear Tropic Bias". When enabled, the interpolation between equator and tropics
+becomes non-linear (in favor of tropics) which may produce better results when creating dry tropical deserts.
 
 ### Influence Shape
 
 ## Panel Tabs
 
 ### General
+
+Configuration for the map in general as well as preview.
+
+The following can be configured:
+
+* Tile resolution - Controls the side length of a map tile, in kilometers. Doesn't affect generation in any way, but is used in the Atlas simulator,
+* Altitude limit for preview - Controls the altitude maximum for preview altitude shading. If above 0, tiles will become darker as they come closer to the maximum,
+* Preview height levels - Controls how many discrete shading levels should be shown in the preview,
+* Preview color display - Controls how the tiles are colored when generating previews:
+  * Topography - altitude based color palette (green-yellow-brown-grey),
+  * Simplified climate - climate (biome) based color palette, using simplified biome colors,
+  * Detailed climate - climate (biome) based color palette.
+
+* World model - Currently only flat (rectangular) world model is available,
+  * World size - Horizontal and vertical size (in tiles) of the flat world.
 
 ### Continents
 
@@ -121,6 +181,7 @@ The following can be configured:
 * Moist adiabatic lapse rate (MALR) - Controls how much temperature lowers as altitude rises.
   Expressed in Celsius per kilometer,
 * Latitudinal settings (values in degrees Celsisus),
+* Noise strength - Scales down noise algorithm output,
 * Standard noise algorithm with quad point interpolation,
 * Standard influence shape.
 
@@ -135,6 +196,7 @@ The following can be configures:
   Expressed in meters,
 * Precipitation drop - Controls how much precipitation lowers as altitude rises. Expressed in milimeters per meter,
 * Latitudinal settings (values in mm),
+* Noise strength - Scales down noise algorithm output,
 * Standard noise algorithm with quad point interpolation,
 * Standard influence shape.
 
