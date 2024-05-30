@@ -14,7 +14,7 @@ use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig};
 pub const CONFIG_NAME: &str = "atlasgen.toml";
 pub const PREVIEW_NAME: &str = "preview.png";
 pub const CLIMATEMAP_NAME: &str = "climatemap.png";
-pub const CLIMATEMAP_SIZE: usize = 255;
+pub const CLIMATEMAP_SIZE: usize = 256;
 
 /// Array of all [`MapDataLayer`] variants.
 pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [

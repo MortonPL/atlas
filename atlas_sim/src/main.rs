@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use atlas_lib::bevy::prelude::*;
 
 mod config;

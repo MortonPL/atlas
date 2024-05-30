@@ -250,7 +250,7 @@ impl Default for PrecipitationConfig {
                 north_temperate_value: 1800.0,
                 north_arctic_value: 300.0,
                 north_pole_value: 0.0,
-                non_linear_tropics: true,
+                non_linear_tropics: false,
             },
             amp_point: 2000.0,
             drop_per_height: 1.5,

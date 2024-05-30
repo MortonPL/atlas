@@ -121,8 +121,8 @@ is latitude (map position on Y axis) based linear interpolation, with 9 fixed co
 * Arctic/Antarctic (69 degrees),
 * Poles (90 degrees),
 
-An additional custom seeting is available, "Non-Linear Tropic Bias". When enabled, the interpolation between equator and tropics
-becomes non-linear (in favor of tropics) which may produce better results when creating dry tropical deserts.
+An additional custom seeting is available, "Non-Linear Tropic Bias". When enabled, the interpolation between tropics and temperate zones
+becomes non-linear (in favor of tropics) which might produce better results when creating dry tropical deserts.
 
 ### Influence Shape
 
