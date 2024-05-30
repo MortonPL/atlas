@@ -126,6 +126,25 @@ becomes non-linear (in favor of tropics) which may produce better results when c
 
 ### Influence Shape
 
+Each layer can be optionally affected by a special layer called the "influence" map. It is a separate layer
+which can scale map data up or down, with intensity controlled by "Influence Strength" setting, depending on chosen mode:
+
+* Scale down - influence values below 1.0 will scale data at that point down.
+  This can be used to erase features outside the point of interest, i.e. to remove land at map corners,
+* Scale up - influence values above 0.0 will scale data up. This can be used to emphasize features of specific locations,
+* Scale down / up - influence values above 0.5 will scale data up, while below 0.5 will scale data down. This is a combination
+  of the previous two modes.
+
+Influence map can be generated in many ways:
+
+* None - influence map is not applied,
+* Circle - creates a circle defined by position (offset from map center) and radius. Points inside the circle
+  have assigned value equal distance from circle center divided by its radius,
+* Strip - creates a segment with a circle at each end. The following parameters are available: Segment center (offset from map center),
+  segment length, angle between the segment and horizontal axis, segment thickness (also circle radius),
+* Fbm - standard noise algorithm with interpolation,
+* FromImage - influence map is preserved as is, i.e. when loaded from file.
+
 ## Panel Tabs
 
 ### General
