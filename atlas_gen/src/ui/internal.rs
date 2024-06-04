@@ -113,6 +113,7 @@ fn create_sidebar_head(
         ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
+                button_action(ui, "Import World", || import_world_clicked(ui_base));
                 button_action(ui, "Export World", || export_world_clicked(ui_base));
                 button_action(ui, "Exit", || exit.send(AppExit));
             });
@@ -237,6 +238,14 @@ fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
         x: (window_size.x - ui_size.x).max(1.0),
         y: window_size.y.max(1.0),
     };
+}
+
+/// Set context for the file dialog to "exporting world" and show it.
+fn import_world_clicked(ui_base: &mut UiStateBase) {
+    let mut file_picker = egui_file::FileDialog::select_folder(None);
+    file_picker.open();
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::ImportGen;
 }
 
 /// Set context for the file dialog to "exporting world" and show it.
@@ -393,6 +402,10 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
 
     fn export_gen(&mut self, path: &Path) {
         self.events.export_world_request = Some(path.into());
+    }
+    
+    fn import_gen(&mut self, path: &Path) {
+        self.events.import_world_request = Some(path.into());
     }
 }
 

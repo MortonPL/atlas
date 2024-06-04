@@ -35,6 +35,8 @@ pub enum FileDialogMode {
     LoadData(MapDataLayer),
     /// Render this layer to a PNG file.
     RenderImage(MapDataLayer),
+    /// Import all layers.
+    ImportGen,
     /// Export all layers.
     ExportGen,
 }
@@ -97,6 +99,7 @@ pub trait HandleFileDialog {
                     FileDialogMode::LoadData(layer) => self.load_layer_data(path, layer),
                     FileDialogMode::SaveData(layer) => self.save_layer_data(path, layer),
                     FileDialogMode::RenderImage(layer) => self.render_image(path, layer),
+                    FileDialogMode::ImportGen => self.import_gen(path),
                     FileDialogMode::ExportGen => self.export_gen(path),
                 };
             }
@@ -111,6 +114,7 @@ pub trait HandleFileDialog {
     fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer);
     fn save_layer_data(&mut self, path: &Path, layer: MapDataLayer);
     fn render_image(&mut self, path: &Path, layer: MapDataLayer);
+    fn import_gen(&mut self, path: &Path);
     fn export_gen(&mut self, path: &Path);
 }
 
@@ -163,13 +167,15 @@ fn update_input(
     let mut camera = cameras.single_mut();
 
     let mut scroll = 0.0;
-    // Don't scroll with mouse if it's not inside the viewport.
+    // Don't scroll with mouse if it's not inside the viewport or if a dialog is open.
     if let Some(event) = mouse_wheel.read().next() {
-        if let Some(cursor) = window.cursor_position() {
-            if (cursor[0] <= ui_state.viewport_size[0]) && (cursor[1] <= ui_state.viewport_size[1]) {
-                match event.unit {
-                    MouseScrollUnit::Line => scroll = event.y,
-                    MouseScrollUnit::Pixel => scroll = event.y * 2.0,
+        if ui_state.file_dialog.is_none() {
+            if let Some(cursor) = window.cursor_position() {
+                if (cursor[0] <= ui_state.viewport_size[0]) && (cursor[1] <= ui_state.viewport_size[1]) {
+                    match event.unit {
+                        MouseScrollUnit::Line => scroll = event.y,
+                        MouseScrollUnit::Pixel => scroll = event.y * 2.0,
+                    }
                 }
             }
         }

@@ -9,6 +9,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [255, 0, 255],
             simple_color: [255, 0, 255],
             productivity: 1.0,
+            habitability: 1.0,
         },
         BiomeConfig {
             // 1
@@ -16,6 +17,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [225, 245, 250],
             simple_color: [225, 245, 250],
             productivity: 0.1, // TODO find good value
+            habitability: 0.0,
         },
         BiomeConfig {
             // 2
@@ -23,6 +25,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [170, 185, 190],
             simple_color: [225, 245, 250],
             productivity: 0.1, // TODO find good value
+            habitability: 0.1,
         },
         BiomeConfig {
             // 3
@@ -30,6 +33,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [145, 160, 160],
             simple_color: [225, 245, 250],
             productivity: 0.1, // TODO find good value
+            habitability: 0.1,
         },
         BiomeConfig {
             // 4
@@ -37,6 +41,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [140, 195, 175],
             simple_color: [140, 195, 175],
             productivity: 0.1, // TODO find good value
+            habitability: 0.3,
         },
         BiomeConfig {
             // 5
@@ -44,6 +49,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [90, 195, 155],
             simple_color: [140, 195, 175],
             productivity: 0.1, // TODO find good value
+            habitability: 0.3,
         },
         BiomeConfig {
             // 6
@@ -51,6 +57,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [90, 170, 140],
             simple_color: [90, 170, 140],
             productivity: 0.1, // TODO find good value
+            habitability: 0.7,
         },
         BiomeConfig {
             // 7
@@ -58,6 +65,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [40, 140, 100],
             simple_color: [90, 170, 140],
             productivity: 0.1, // TODO find good value
+            habitability: 0.7,
         },
         BiomeConfig {
             // 8
@@ -65,6 +73,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [160, 155, 140],
             simple_color: [185, 175, 140],
             productivity: 0.1, // TODO find good value
+            habitability: 0.1,
         },
         BiomeConfig {
             // 9
@@ -72,6 +81,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [185, 175, 140],
             simple_color: [185, 175, 140],
             productivity: 0.1, // TODO find good value
+            habitability: 0.3,
         },
         BiomeConfig {
             // 10
@@ -79,6 +89,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [180, 190, 130],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
+            habitability: 0.7,
         },
         BiomeConfig {
             // 11
@@ -86,6 +97,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [150, 190, 130],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
+            habitability: 0.8,
         },
         BiomeConfig {
             // 12
@@ -93,6 +105,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [90, 200, 75],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
+            habitability: 1.0,
         },
         BiomeConfig {
             // 13
@@ -100,6 +113,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [50, 185, 65],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
+            habitability: 1.0,
         },
         BiomeConfig {
             // 14
@@ -107,6 +121,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [0, 180, 50],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
+            habitability: 0.9,
         },
         BiomeConfig {
             // 15
@@ -114,6 +129,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [90, 230, 45],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
+            habitability: 0.9,
         },
         BiomeConfig {
             // 16
@@ -121,6 +137,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [30, 255, 0],
             simple_color: [25, 210, 0],
             productivity: 0.1, // TODO find good value
+            habitability: 0.9,
         },
         BiomeConfig {
             // 17
@@ -128,6 +145,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [25, 210, 0],
             simple_color: [25, 210, 0],
             productivity: 0.1, // TODO find good value
+            habitability: 0.9,
         },
         BiomeConfig {
             // 18
@@ -135,6 +153,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [130, 210, 0],
             simple_color: [130, 210, 0],
             productivity: 0.1, // TODO find good value
+            habitability: 1.0,
         },
         BiomeConfig {
             // 19
@@ -142,6 +161,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [180, 210, 45],
             simple_color: [130, 210, 0],
             productivity: 0.1, // TODO find good value
+            habitability: 0.8,
         },
         BiomeConfig {
             // 20
@@ -149,6 +169,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [225, 220, 55],
             simple_color: [225, 220, 55],
             productivity: 0.1, // TODO find good value
+            habitability: 0.2,
         },
         BiomeConfig {
             // 21
@@ -156,6 +177,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [220, 195, 80],
             simple_color: [225, 220, 55],
             productivity: 0.1, // TODO find good value
+            habitability: 0.1,
         },
         BiomeConfig {
             // 22
@@ -163,6 +185,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [155, 180, 0],
             simple_color: [25, 210, 0],
             productivity: 0.1, // TODO find good value
+            habitability: 0.5,
         },
         BiomeConfig {
             // 23
@@ -170,6 +193,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [255, 215, 0],
             simple_color: [225, 220, 55],
             productivity: 0.1, // TODO find good value
+            habitability: 0.0,
         },
     ]
 }

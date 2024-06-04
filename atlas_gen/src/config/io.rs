@@ -27,6 +27,8 @@ pub enum Error {
     ResolutionMismatch(u32, u32, u32, u32),
     #[error("Image byte per pixel value is {0}, but only 4 is accepted")]
     InvalidBytePerPixel(usize),
+    #[error("Image byte per pixel value is {0}, but only 1 is accepted")]
+    InvalidBytePerPixelGrey(usize),
     #[error("Image color type is not greyscale")]
     InvalidColorTypeGrey(ColorType),
     #[error("Image color type is not RGBA")]
@@ -85,7 +87,7 @@ pub fn load_image_grey(path: impl AsRef<Path>, width: u32, height: u32) -> Resul
 
     let bypp = info.bytes_per_pixel();
     if bypp != 1 {
-        return Err(Error::InvalidBytePerPixel(bypp));
+        return Err(Error::InvalidBytePerPixelGrey(bypp));
     }
 
     match info.color_type {

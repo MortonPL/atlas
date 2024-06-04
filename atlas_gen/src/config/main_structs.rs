@@ -3,7 +3,8 @@ use atlas_lib::{
     bevy_egui,
     serde_derive::{Deserialize, Serialize},
     ui::sidebar::*,
-    MakeUi,
+    ui::UiEditableEnum,
+    MakeUi, UiEditableEnum,
 };
 
 pub use crate::config::common_structs::*;
@@ -27,17 +28,13 @@ pub struct AtlasGenConfig {
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
-    #[name("Tile Resolution [km]")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(10.0..=200.0))]
-    pub tile_resolution: f32,
     #[name("Altitude Limit for Preview [m]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(ALTITUDE_MIN..=ALTITUDE_MAX))]
     pub altitude_limit: f32,
     #[name("Preview Height Levels")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(3..=100))]
+    #[add(clamp_range(0..=100))]
     #[add(speed(0.1))]
     pub height_levels: u32,
     #[name("Preview Color Display")]
@@ -51,7 +48,6 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            tile_resolution: 100.0,
             altitude_limit: 2600.0,
             color_display: Default::default(),
             height_levels: 10,
@@ -178,13 +174,13 @@ impl Default for TemperatureConfig {
         Self {
             latitudinal: LatitudinalTemperatureLerp {
                 north_pole_value: -50.0,
-                north_arctic_value: 0.0,
-                north_temperate_value: 12.0,
-                north_tropic_value: 22.0,
+                north_arctic_value: -15.0,
+                north_temperate_value: 11.0,
+                north_tropic_value: 23.0,
                 equator_value: 30.0,
-                south_tropic_value: 22.0,
-                south_temperate_value: 12.0,
-                south_arctic_value: 0.0,
+                south_tropic_value: 23.0,
+                south_temperate_value: 11.0,
+                south_arctic_value: -15.0,
                 south_pole_value: -50.0,
                 non_linear_tropics: false,
             },
@@ -277,6 +273,12 @@ impl AsRef<NoiseAlgorithm> for PrecipitationConfig {
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct ClimateConfig {
+    #[serde(skip)]
+    #[name("Preview Mode")]
+    #[control(SidebarEnumDropdown)]
+    pub preview_mode: ClimatePreviewMode,
+    #[name("")]
+    #[control(SidebarStructList)]
     pub biomes: Vec<BiomeConfig>,
     #[serde(skip)]
     pub default_biome: BiomeConfig,
@@ -285,24 +287,51 @@ pub struct ClimateConfig {
 impl Default for ClimateConfig {
     fn default() -> Self {
         Self {
+            preview_mode: ClimatePreviewMode::DetailedColor,
             default_biome: BiomeConfig {
                 name: "Default Biome".to_string(),
                 color: [255, 0, 255],
                 simple_color: [255, 0, 255],
                 productivity: 1.0,
+                habitability: 1.0,
             },
             biomes: make_default_biomes(),
         }
     }
 }
 
+#[derive(Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
+pub enum ClimatePreviewMode {
+    SimplifiedColor,
+    #[default]
+    DetailedColor,
+    Habitability,
+}
+
 /// A single climate biome.
-#[derive(Debug, Default, Deserialize, Resource, Serialize)]
+#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct BiomeConfig {
+    #[name("Name")]
+    #[control(SidebarHeader)]
     pub name: String,
+    #[name("Color")]
+    #[control(SidebarColor)]
     pub color: [u8; 3],
+    #[name("Color (Simplified View)")]
+    #[control(SidebarColor)]
     pub simple_color: [u8; 3],
+    #[name("Habitability")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
+    pub habitability: f32,
+    #[name("Productivity")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    #[add(speed(0.1))]
     pub productivity: f32, // TODO: replace with per-job-yield (farming/plantation-farming/hunting-gathering/herding/woodcutting).
 }
 

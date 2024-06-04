@@ -1,7 +1,10 @@
 use atlas_lib::{bevy::prelude::*, domain::map::MapDataLayer};
 
 use crate::{
-    config::{save_config, save_image, save_image_grey, AtlasGenConfig, WorldModel},
+    config::{
+        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, AtlasGenConfig,
+        WorldModel,
+    },
     event::EventStruct,
     map::{
         generation::{after_generate, generate},
@@ -276,6 +279,84 @@ pub fn update_event_climatemap(mut events: ResMut<EventStruct>, mut logics: ResM
     events.load_climatemap_request.take();
     let result = logics.load_climatemap();
     events.error_window = result.err().map(|x| x.to_string());
+}
+
+/// Run condition
+///
+/// Check if "import world" event needs handling.
+pub fn check_event_import(events: Res<EventStruct>) -> bool {
+    events.import_world_request.is_some()
+}
+
+/// Update system
+///
+/// Import the world: preview, all layers, config, and climate map.
+pub fn update_event_import(
+    mut events: ResMut<EventStruct>,
+    mut logics: ResMut<MapLogicData>,
+    mut config: ResMut<AtlasGenConfig>,
+    mut map: Query<&mut Transform, With<WorldMapMesh>>,
+) {
+    let base_path = events.import_world_request.take().expect("Always Some");
+    // Import config.
+    let path = base_path.join(CONFIG_NAME);
+    match load_config(path) {
+        Ok(data) => {
+            *config = data;
+            events.world_model_changed = Some(config.general.world_model.clone());
+        }
+        Err(error) => {
+            events.error_window = Some(error.to_string());
+            return;
+        }
+    }
+    // Import data layers.
+    let (width, height) = config.general.world_model.get_dimensions();
+    let mut regen_layers = vec![];
+    for (layer, name) in EXPORT_DATA_LAYERS {
+        let path = base_path.join(name);
+        match load_image_grey(path, width, height) {
+            Ok(data) => {
+                logics.put_layer(layer, data);
+                regen_layers.push(layer);
+            }
+            Err(error) => {
+                events.error_window = Some(error.to_string());
+                return;
+            }
+        };
+    }
+    // Import preview.
+    let path = base_path.join(PREVIEW_NAME);
+    match load_image(path, width, height) {
+        Ok(data) => logics.put_layer(MapDataLayer::Preview, data),
+        Err(error) => {
+            events.error_window = Some(error.to_string());
+            return;
+        }
+    };
+    regen_layers.push(MapDataLayer::Preview);
+    // Import climate map.
+    let path = base_path.join(CLIMATEMAP_NAME);
+    match load_image_grey(path, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32) {
+        Ok(data) => logics.set_climatemap(data),
+        Err(error) => {
+            events.error_window = Some(error.to_string());
+            return;
+        }
+    };
+    // Resize if needed.
+    let mut map_tran = map.single_mut();
+    match &config.general.world_model {
+        WorldModel::Flat(x) => {
+            map_tran.scale.x = x.world_size[0] as f32 / 100.0;
+            map_tran.scale.z = x.world_size[1] as f32 / 100.0;
+            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
+        }
+        WorldModel::Globe(_) => { /* TODO */ }
+    }
+    // Refresh layers.
+    events.regen_layer_request = Some(regen_layers);
 }
 
 /// Run condition

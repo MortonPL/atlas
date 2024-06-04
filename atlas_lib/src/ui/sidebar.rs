@@ -210,6 +210,69 @@ where
     }
 }
 
+/// A fake control for a header.
+pub struct SidebarHeader<'u, 'v, T> {
+    ui: &'u mut Ui,
+    value: &'v T,
+}
+
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarHeader<'u, 'v, T>
+where
+    &'v T: Into<bevy_egui::egui::RichText>,
+{
+    fn new(ui: &'u mut Ui, _label: &'static str, value: &'v mut T) -> Self {
+        Self { ui, value }
+    }
+
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.heading(self.value);
+        self.ui.end_row();
+        0
+    }
+}
+
+/// A color picker for an RGB value.
+pub struct SidebarColor<'u, 'v, T> {
+    ui: &'u mut Ui,
+    value: &'v mut [u8; 3],
+    label: &'static str,
+    __: PhantomData<T>,
+}
+
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarColor<'u, 'v, T>
+where
+    T: AsRgb,
+{
+    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+        Self {
+            ui,
+            value: value.as_rgb(),
+            label,
+            __: PhantomData,
+        }
+    }
+
+    fn show(self, hint: Option<&str>) -> usize {
+        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
+        self.ui.label(self.label).on_hover_text_at_pointer(hint);
+        self.ui
+            .color_edit_button_srgb(self.value)
+            .on_hover_text_at_pointer(hint);
+        self.ui.end_row();
+        0
+    }
+}
+
+trait AsRgb {
+    fn as_rgb(&mut self) -> &mut [u8; 3];
+}
+
+impl AsRgb for [u8; 3] {
+    fn as_rgb(&mut self) -> &mut [u8; 3] {
+        self
+    }
+}
+
 /// A dropdown for an enum. The enum must have [`UiEditableEnum`] trait.
 pub struct SidebarEnumDropdown<'u, 'v, T> {
     ui: &'u mut Ui,
@@ -298,7 +361,6 @@ pub struct SidebarStructSection<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
     label: &'static str,
-    __: PhantomData<&'v T>,
 }
 
 impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructSection<'u, 'v, T>
@@ -306,12 +368,7 @@ where
     T: MakeUi,
 {
     fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
-        Self {
-            ui,
-            value,
-            label,
-            __: PhantomData,
-        }
+        Self { ui, value, label }
     }
 
     fn show(self, hint: Option<&str>) -> usize {
@@ -322,5 +379,43 @@ where
         self.value.make_ui(self.ui);
         self.ui.end_row();
         0
+    }
+}
+
+/// A list of structs. The struct must have [`MakeUi`] trait.
+pub struct SidebarStructList<'u, 'v, T> {
+    ui: &'u mut Ui,
+    value: &'v mut T,
+}
+
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructList<'u, 'v, T>
+where
+    T: AsVector,
+    T::Item: MakeUi,
+{
+    fn new(ui: &'u mut Ui, _label: &'static str, value: &'v mut T) -> Self {
+        Self { ui, value }
+    }
+
+    fn show(self, _hint: Option<&str>) -> usize {
+        for element in self.value.as_vec() {
+            element.make_ui(self.ui);
+            self.ui.end_row();
+        }
+        0
+    }
+}
+
+trait AsVector {
+    type Item;
+
+    fn as_vec(&mut self) -> &mut Vec<Self::Item>;
+}
+
+impl<T> AsVector for std::vec::Vec<T> {
+    type Item = T;
+
+    fn as_vec(&mut self) -> &mut Vec<Self::Item> {
+        self
     }
 }

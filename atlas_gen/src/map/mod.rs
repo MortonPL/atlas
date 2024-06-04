@@ -10,10 +10,10 @@ use crate::{
     event::EventStruct,
     map::{
         events::{
-            check_event_changed, check_event_clear, check_event_climatemap, check_event_export,
+            check_event_changed, check_event_clear, check_event_climatemap, check_event_export, check_event_import,
             check_event_generate, check_event_loaded, check_event_regen, check_event_rendered,
             check_event_saved, check_event_world_model, update_event_changed, update_event_clear,
-            update_event_climatemap, update_event_export, update_event_generate, update_event_loaded,
+            update_event_climatemap, update_event_export, update_event_import, update_event_generate, update_event_loaded,
             update_event_regen, update_event_rendered, update_event_saved, update_event_world_model,
         },
         internal::{
@@ -41,6 +41,7 @@ impl Plugin for MapPlugin {
             .add_systems(Update, update_event_regen.run_if(check_event_regen))
             .add_systems(Update, update_event_generate.run_if(check_event_generate))
             .add_systems(Update, update_event_climatemap.run_if(check_event_climatemap))
+            .add_systems(Update, update_event_import.run_if(check_event_import))
             .add_systems(Update, update_event_export.run_if(check_event_export));
     }
 }

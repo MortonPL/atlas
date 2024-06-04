@@ -9,6 +9,9 @@ from math import floor
 DO_TEMP = False
 DO_PRE = False
 
+DEF_TEMP = 10
+DEF_PRE = 1000
+
 TARGET_WIDTH = 1000
 TAGRET_HEIGHT = 500
 
@@ -16,24 +19,22 @@ WIDTH = 360 * 6
 HEIGHT = 180 * 6
 
 def convert_tmp(tmp: pd.DataFrame) -> pd.DataFrame:
-    new = pd.DataFrame(0, index=range(HEIGHT), columns=range(WIDTH))
-    count = pd.DataFrame(0, index=range(HEIGHT), columns=range(WIDTH))
+    new = pd.DataFrame(DEF_TEMP, index=range(HEIGHT), columns=range(WIDTH))
     for _, row in tmp.iterrows():
         lat, long = -(row[0] - 90.0), (row[1] + 180.0)
         y, x = floor((lat / 180) * HEIGHT), floor((long / 360) * WIDTH)
         avg = row[2:].mean()
-        count.iloc[y, x] += 1
-        new.iloc[y, x] += (avg - new.iloc[y, x]) / count.iloc[y, x]
+        new.iloc[y, x] = avg
     new = new.applymap(lambda x: round(x * 2 + 100))
     return new
 
 def convert_pre(pre: pd.DataFrame) -> pd.DataFrame:
-    new = pd.DataFrame(0, index=range(HEIGHT), columns=range(WIDTH))
+    new = pd.DataFrame(DEF_PRE, index=range(HEIGHT), columns=range(WIDTH))
     for _, row in pre.iterrows():
         lat, long = -(row[0] - 90.0), (row[1] + 180.0)
         y, x = floor((lat / 180) * HEIGHT), floor((long / 360) * WIDTH)
         total = row[2:14].sum()
-        new.iloc[y, x] += total
+        new.iloc[y, x] = total
     new = new.applymap(lambda x: min(round(x / 20), 255))
     return new
 

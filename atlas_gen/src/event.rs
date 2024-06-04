@@ -41,6 +41,8 @@ pub struct EventStruct {
     pub generate_request: Option<(MapDataLayer, bool)>,
     /// "climatemap.png" should be reloaded.
     pub load_climatemap_request: Option<()>,
+    /// The whole world should be imported from files.
+    pub import_world_request: Option<Box<Path>>,
     /// The whole world should be exported to files.
     pub export_world_request: Option<Box<Path>>,
     /// An error has occured, and a popup window should display it.
@@ -60,6 +62,7 @@ impl Default for EventStruct {
             generate_request: Default::default(),
             // Load climate map on start.
             load_climatemap_request: Some(()),
+            import_world_request: Default::default(),
             export_world_request: Default::default(),
             error_window: Default::default(),
         }

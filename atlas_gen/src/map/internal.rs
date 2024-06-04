@@ -9,7 +9,7 @@ use atlas_lib::{
 };
 use std::f32::consts::FRAC_PI_2;
 
-use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig};
+use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig, ClimatePreviewMode};
 
 pub const CONFIG_NAME: &str = "atlasgen.toml";
 pub const PREVIEW_NAME: &str = "preview.png";
@@ -35,8 +35,9 @@ pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
 ];
 
 /// Array of all exportable [`MapDataLayer`]s.
-pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 6] = [
+pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 7] = [
     (MapDataLayer::Continents, "continents.png"),
+    (MapDataLayer::Topography, "topography.png"),
     (MapDataLayer::RealTopography, "realtopography.png"),
     (MapDataLayer::Temperature, "temperature.png"),
     (MapDataLayer::Precipitation, "precipitation.png"),
@@ -104,6 +105,10 @@ impl MapLogicData {
         } else {
             result.map(|_| {})
         }
+    }
+
+    pub fn set_climatemap(&mut self, vec: Vec<u8>) {
+        self.climatemap = vec;
     }
 }
 
@@ -266,9 +271,28 @@ pub fn fetch_climate(i: usize, config: &AtlasGenConfig) -> &BiomeConfig {
 }
 
 fn climate_to_view(data: &[u8], config: &AtlasGenConfig) -> Vec<u8> {
-    let fun = |x: &u8| {
-        let climate = fetch_climate(*x as usize, config);
-        [climate.color[0], climate.color[1], climate.color[2], 255]
-    };
-    data.iter().flat_map(fun).collect()
+    match config.climate.preview_mode {
+        ClimatePreviewMode::SimplifiedColor => {
+            let fun = |x: &u8| {
+                let climate = fetch_climate(*x as usize, config);
+                [climate.simple_color[0], climate.simple_color[1], climate.simple_color[2], 255]
+            };
+            data.iter().flat_map(fun).collect()
+        }
+        ClimatePreviewMode::DetailedColor => {
+            let fun = |x: &u8| {
+                let climate = fetch_climate(*x as usize, config);
+                [climate.color[0], climate.color[1], climate.color[2], 255]
+            };
+            data.iter().flat_map(fun).collect()
+        }
+        ClimatePreviewMode::Habitability => {
+            let fun = |x: &u8| {
+                let climate = fetch_climate(*x as usize, config);
+                let value = (climate.habitability * 255f32) as u8;
+                [value, value, value, 255]
+            };
+            data.iter().flat_map(fun).collect()
+        }
+    }
 }

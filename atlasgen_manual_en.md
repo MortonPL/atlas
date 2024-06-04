@@ -11,10 +11,25 @@ The sidebar is divided into three parts: title & menu bar, panel tabs and curren
 
 ### File
 
+#### Import World
+
+Displays a folder dialog. When a directory is chosen, the following data
+is loaded from that directory from files:
+
+* configuration - `atlasgen.toml`,
+* preview layer - `preview.png`,
+* continental layer - `continents.png`,
+* initial topography layer - `topography.png`,
+* final topography layer (with sea cutoff and coastal erosion applied) - `realtopography.png`,
+* temperature layer - `temperature.png`,
+* precipitation layer - `precipitation.png`,
+* climate layer - `climate.png`,
+* climate map - `climatemap.png`.
+
 #### Export World
 
-Displays a folder dialog. When a directory is chosen, the configuration,
-some data layers and climate map are saved as files in that directory.
+Displays a folder dialog. When a directory is chosen, world data is saved as files
+in that directory. See previous action "Import World" for a list of all relevant files.
 
 #### Exit
 
@@ -48,7 +63,7 @@ Resets the application configuration data to their default values.
 #### Load Layer Data
 
 Displays a file dialog. When a file is chosen and it is in the correct image format
-(PNG 8-bit RGB color sRGB for the map preview, PNG 8-bit greyscale otherwise) and has matching resolution,
+(PNG 8-bit RGBA color sRGB for the map preview, PNG 8-bit greyscale otherwise) and has matching resolution,
 data of the currently viewed map layer will be replaced with that in the image.
 
 #### Save Layer Data
@@ -65,7 +80,7 @@ Clears (batch sets to 0) data of the currently viewed map layer.
 
 Displays a file dialog. When a file name is entered or an exisiting file is chosen,
 the preview of the currently viewed map layer will be saved to that path as an image.
-The image format will be PNG 8-bit RGB color sRGB.
+The image format will be PNG 8-bit RGBA color sRGB.
 
 ### Help
 
@@ -153,7 +168,6 @@ Configuration for the map in general as well as preview.
 
 The following can be configured:
 
-* Tile resolution - Controls the side length of a map tile, in kilometers. Doesn't affect generation in any way, but is used in the Atlas simulator,
 * Altitude limit for preview - Controls the altitude maximum for preview altitude shading. If above 0, tiles will become darker as they come closer to the maximum,
 * Preview height levels - Controls how many discrete shading levels should be shown in the preview,
 * Preview color display - Controls how the tiles are colored when generating previews:
@@ -229,16 +243,26 @@ based on temperature at precipitation at that location. The exact mapping is con
 * Vertical axis - precipitation, from top to bottom,
 * Value at point - index of a biome in the biome list.
 
-Note: the biome list is currently only editable via config file.
+There are three preview modes for this layer:
 
-Each biome has a name and two color schemes: one for simplified preview (with "similar" biomes sharing colors)
-and one for detailed (unique for each biome).
+* Simplified color,
+* Detailed color,
+* Habitability.
+
+Each biome has a name and the following properties:
+
+* Color - Color to use for this climate in the detailed climate preview mode. Each biome should have a unique color,
+* Color (simplified view) - Color to use in the simplified climate preview mode. Similar biomes should share colors,
+* Habitability - Measures how habitable this biome is for humans, with 0.0 meaning unhabitable, and 1.0 meaning perfect conditions. This setting is only used by the simulator,
+* Productivity - Overall agricultural productivity of this biome. This setting is only used by the simulator.
+
+Note: adding or removing biomes from the list is possible only via config file.
 
 ## Tips
 
 * No configuration changes will take effect until you press the "Generate Layer" button for the respective panels.
 * Numerical input boxes also act like sliders. Dragging on horizontal axis will decrease or increase value.
 * You can drag the edge of the sidebar to adjust its width.
-* You can zoom in our out of the map using `+`/`-` keys or mouse wheel.
+* You can zoom in our out of the map using the mouse wheel.
 * If you prefer to work with text files over the GUI, you can save the default configuration and edit its TOML file,
   then load it in Atlas and just generate layers.

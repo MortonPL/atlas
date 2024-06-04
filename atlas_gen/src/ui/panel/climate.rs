@@ -1,7 +1,4 @@
-use atlas_lib::{
-    bevy_egui::egui::{self, Grid, Ui},
-    domain::map::MapDataLayer,
-};
+use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::MakeUi};
 
 use crate::{
     config::AtlasGenConfig,
@@ -21,8 +18,16 @@ impl SidebarPanel for MainPanelClimate {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        self.show_biomes_readonly(ui, config, events);
+        if ui.button("Reload \"climatemap.png\"").clicked() {
+            events.load_climatemap_request = Some(());
+        }
+
+        self.make_ui(ui, config);
         self.button_layer(ui, events);
+    }
+
+    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasGenConfig) {
+        config.climate.make_ui(ui);
     }
 
     fn get_heading(&self) -> &'static str {
@@ -31,24 +36,5 @@ impl SidebarPanel for MainPanelClimate {
 
     fn get_layer(&self) -> MapDataLayer {
         MapDataLayer::Climate
-    }
-}
-
-impl MainPanelClimate {
-    // TODO Make biomes work with MakeUi nicely?
-    fn show_biomes_readonly(&self, ui: &mut Ui, config: &mut AtlasGenConfig, events: &mut EventStruct) {
-        if ui.button("Reload \"climatemap.png\"").clicked() {
-            events.load_climatemap_request = Some(());
-        }
-        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
-            for biome in &config.climate.biomes {
-                let color = egui::Color32::from_rgb(biome.color[0], biome.color[1], biome.color[2]);
-                ui.heading(egui::RichText::new(&biome.name).color(color));
-                ui.end_row();
-                ui.label("Productivity");
-                ui.label(biome.productivity.to_string());
-                ui.end_row();
-            }
-        });
     }
 }
