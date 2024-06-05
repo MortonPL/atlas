@@ -25,7 +25,7 @@ impl SidebarPanel for MainPanelGeneral {
         let old_world_model = config.general.world_model.self_as_index();
         let old = match &config.general.world_model {
             WorldModel::Flat(x) => x.world_size,
-            WorldModel::Globe(_) => [0, 0],
+            WorldModel::Globe(x) => x.world_size,
         };
 
         Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
@@ -42,7 +42,11 @@ impl SidebarPanel for MainPanelGeneral {
                     events.world_model_changed = Some(WorldModel::Flat(x.clone()));
                 }
             }
-            WorldModel::Globe(_) => {}
+            WorldModel::Globe(x) => {
+                if old != x.world_size {
+                    events.world_model_changed = Some(WorldModel::Globe(x.clone()));
+                }
+            }
         }
 
         if button(ui, "Generate Preview") {

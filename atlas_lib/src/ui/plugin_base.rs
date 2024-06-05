@@ -16,6 +16,10 @@ const MIN_CAMERA_ZOOM: f32 = 1.0;
 const MAX_CAMERA_ZOOM: f32 = 15.0;
 /// Mutliplier to scroll value.
 const CAMERA_ZOOM_SPEED: f32 = 0.05;
+/// Mutliplier to drag value.
+const CAMERA_DRAG_SPEED: f32 = 12.0;
+/// Multiplier to rotation value.
+const CAMERA_ROTATE_SPEED: f32 = 0.2;
 
 /// Mode of operation for the generic file dialog.
 #[derive(Clone, Copy, Default)]
@@ -54,6 +58,36 @@ pub struct UiStateBase {
     pub error_window_open: bool,
     /// Current error message.
     pub error_message: String,
+    pub camera: UiCameraData,
+}
+
+#[derive(Resource)]
+pub struct UiCameraData {
+    /// Saved screen space mouse position.
+    pub vec: Vec2,
+    /// Saved zoom value.
+    pub zoom: f32,
+    /// Saved camera translation.
+    pub vec2: Vec3,
+    /// Saved model rotation.
+    pub saved_rotation: Quat,
+    /// Target model rotation.
+    pub rotation: Quat,
+    /// Should the mouse motion mean rotation, or dragging?
+    pub rotate_mode: bool,
+}
+
+impl Default for UiCameraData {
+    fn default() -> Self {
+        Self {
+            vec: Default::default(),
+            zoom: 5.0,
+            vec2: Default::default(),
+            saved_rotation: Default::default(),
+            rotation: Default::default(),
+            rotate_mode: false,
+        }
+    }
 }
 
 /// Plugin with base UI setup and input handling, but no contentts.
@@ -139,7 +173,7 @@ pub trait HandleErrorWindow {
 fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+            transform: Transform::from_xyz(0.0, 0.0, -5.0).looking_to(-Vec3::Z, Vec3::Y),
             tonemapping: Tonemapping::None,
             dither: DebandDither::Disabled,
             ..default()
@@ -154,40 +188,78 @@ fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
 ///
 /// Handle user input.
 fn update_input(
-    kb: Res<Input<KeyCode>>,
+    mouse_button: Res<Input<MouseButton>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     window: Query<&Window>,
     mut cameras: Query<&mut Transform, With<MainCamera>>,
-    ui_state: Res<UiStateBase>,
+    mut ui_state: ResMut<UiStateBase>,
 ) {
     let window = window.single();
     if !window.focused {
         return;
     }
-    let mut camera = cameras.single_mut();
-
-    let mut scroll = 0.0;
     // Don't scroll with mouse if it's not inside the viewport or if a dialog is open.
+    if let Some(cursor) = window.cursor_position() {
+        if (cursor[0] > ui_state.viewport_size[0])
+            || (cursor[1] > ui_state.viewport_size[1])
+            || ui_state.file_dialog.is_some()
+        {
+            return;
+        }
+    }
+    let mut camera = cameras.single_mut();
+    // Get zoom value.
+    let mut scroll = 0.0;
     if let Some(event) = mouse_wheel.read().next() {
-        if ui_state.file_dialog.is_none() {
-            if let Some(cursor) = window.cursor_position() {
-                if (cursor[0] <= ui_state.viewport_size[0]) && (cursor[1] <= ui_state.viewport_size[1]) {
-                    match event.unit {
-                        MouseScrollUnit::Line => scroll = event.y,
-                        MouseScrollUnit::Pixel => scroll = event.y * 2.0,
-                    }
-                }
+        match event.unit {
+            MouseScrollUnit::Line => scroll = event.y,
+            MouseScrollUnit::Pixel => scroll = event.y * 2.0,
+        }
+    }
+    let mut z = ui_state.camera.zoom;
+    // Zoom in.
+    if scroll > 0.0 {
+        z *= 1.0f32 - CAMERA_ZOOM_SPEED * (1.0 + scroll);
+    // Zoom out.
+    } else if scroll < 0.0 {
+        z *= 1.0f32 + CAMERA_ZOOM_SPEED * (1.0 - scroll);
+    }
+    ui_state.camera.zoom = z.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
+    camera.translation.z = ui_state.camera.zoom;
+
+    // Handle rotation/move
+    if ui_state.camera.rotate_mode {
+        camera.translation.x = 0.0;
+        camera.translation.y = 0.0;
+        if mouse_button.just_pressed(MouseButton::Right) {
+            if let Some(position) = window.cursor_position() {
+                ui_state.camera.vec = position;
+                ui_state.camera.saved_rotation = ui_state.camera.rotation;
+            }
+        } else if mouse_button.pressed(MouseButton::Right) {
+            if let Some(position) = window.cursor_position() {
+                let delta = (position - ui_state.camera.vec) / ui_state.viewport_size;
+                let speed = CAMERA_ROTATE_SPEED * camera.translation.z / MAX_CAMERA_ZOOM;
+                let yaw = Quat::from_rotation_y(-delta.x * speed);
+                let pitch = Quat::from_rotation_x(-delta.y * speed);
+                ui_state.camera.rotation = yaw * ui_state.camera.rotation;
+                ui_state.camera.rotation = pitch * ui_state.camera.rotation;
+            }
+        }
+    } else {
+        ui_state.camera.rotation = Quat::default();
+        if mouse_button.just_pressed(MouseButton::Right) {
+            if let Some(position) = window.cursor_position() {
+                ui_state.camera.vec = position;
+                ui_state.camera.vec2 = camera.translation;
+            }
+        } else if mouse_button.pressed(MouseButton::Right) {
+            if let Some(position) = window.cursor_position() {
+                let delta = (position - ui_state.camera.vec) / ui_state.viewport_size;
+                let speed = CAMERA_DRAG_SPEED * camera.translation.z / MAX_CAMERA_ZOOM;
+                camera.translation.x = ui_state.camera.vec2.x - delta.x * speed;
+                camera.translation.y = ui_state.camera.vec2.y + delta.y * speed;
             }
         }
     }
-    let mut z = camera.translation.z;
-    // Zoom in.
-    if kb.pressed(KeyCode::Equals) || (scroll > 0.0) {
-        z *= 1.0f32 - CAMERA_ZOOM_SPEED * (1.0 + scroll);
-    // Zoom out.
-    } else if kb.pressed(KeyCode::Minus) || (scroll < 0.0) {
-        z *= 1.0f32 + CAMERA_ZOOM_SPEED * (1.0 - scroll);
-    }
-    // Apply new Z to the camera.
-    camera.translation.z = z.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
 }

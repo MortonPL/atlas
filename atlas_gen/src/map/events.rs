@@ -27,40 +27,15 @@ pub fn check_event_world_model(events: Res<EventStruct>) -> bool {
 ///
 /// Handle "change world model" UI event.
 pub fn update_event_world_model(
-    mut commands: Commands,
+    commands: Commands,
     mut events: ResMut<EventStruct>,
-    mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    mut graphics: ResMut<MapGraphicsData>,
-    mut logics: ResMut<MapLogicData>,
+    map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
+    globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
+    graphics: Res<MapGraphicsData>,
+    logics: ResMut<MapLogicData>,
 ) {
-    // Run queries.
-    let (map_en, mut map_vis, mut map_tran) = map.single_mut();
-    let (globe_en, mut globe_vis) = globe.single_mut();
-    // Switch model visibility and tags.
     let model = events.world_model_changed.take().expect("Always Some");
-    match model {
-        WorldModel::Flat(x) => {
-            *map_vis = Visibility::Visible;
-            *globe_vis = Visibility::Hidden;
-            map_tran.scale.x = x.world_size[0] as f32 / 100.0;
-            map_tran.scale.z = x.world_size[1] as f32 / 100.0;
-            commands.entity(map_en).insert(CurrentWorldModel);
-            commands.entity(globe_en).remove::<CurrentWorldModel>();
-            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
-        }
-        WorldModel::Globe(_) => {
-            *map_vis = Visibility::Hidden;
-            *globe_vis = Visibility::Visible;
-            commands.entity(globe_en).insert(CurrentWorldModel);
-            commands.entity(map_en).remove::<CurrentWorldModel>();
-            // Resize all layers according to world size // TODO
-        }
-    }
-    // Invalidate all layers - world models have different world size rules.
-    for layer in graphics.layers.values_mut() {
-        layer.invalid = true;
-    }
+    resize_helper(commands, model, map, globe, logics);
     // Trigger material refresh.
     events.viewed_layer_changed = Some(graphics.current);
 }
@@ -295,7 +270,9 @@ pub fn update_event_import(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasGenConfig>,
-    mut map: Query<&mut Transform, With<WorldMapMesh>>,
+    map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
+    globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
+    commands: Commands,
 ) {
     let base_path = events.import_world_request.take().expect("Always Some");
     // Import config.
@@ -346,15 +323,7 @@ pub fn update_event_import(
         }
     };
     // Resize if needed.
-    let mut map_tran = map.single_mut();
-    match &config.general.world_model {
-        WorldModel::Flat(x) => {
-            map_tran.scale.x = x.world_size[0] as f32 / 100.0;
-            map_tran.scale.z = x.world_size[1] as f32 / 100.0;
-            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
-        }
-        WorldModel::Globe(_) => { /* TODO */ }
-    }
+    resize_helper(commands, config.general.world_model.clone(), map, globe, logics);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
 }
@@ -420,4 +389,37 @@ fn post_generation(
     regen_layers.extend(regen_layers_2);
     // Trigger texture regeneration.
     events.regen_layer_request = Some(regen_layers);
+}
+
+/// Helper function
+///
+/// Switch and resize world models.
+fn resize_helper(
+    mut commands: Commands,
+    model: WorldModel,
+    mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
+    mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
+    mut logics: ResMut<MapLogicData>,
+) {
+    // Run queries.
+    let (map_en, mut map_vis, mut map_tran) = map.single_mut();
+    let (globe_en, mut globe_vis) = globe.single_mut();
+    match model {
+        WorldModel::Flat(x) => {
+            *map_vis = Visibility::Visible;
+            *globe_vis = Visibility::Hidden;
+            map_tran.scale.x = x.world_size[0] as f32 / 100.0;
+            map_tran.scale.z = x.world_size[1] as f32 / 100.0;
+            commands.entity(map_en).insert(CurrentWorldModel);
+            commands.entity(globe_en).remove::<CurrentWorldModel>();
+            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
+        }
+        WorldModel::Globe(x) => {
+            *map_vis = Visibility::Hidden;
+            *globe_vis = Visibility::Visible;
+            commands.entity(globe_en).insert(CurrentWorldModel);
+            commands.entity(map_en).remove::<CurrentWorldModel>();
+            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
+        }
+    }
 }

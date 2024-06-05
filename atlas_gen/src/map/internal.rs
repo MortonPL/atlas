@@ -6,10 +6,11 @@ use atlas_lib::{
         utils::HashMap,
     },
     domain::map::MapDataLayer,
+    ui::plugin_base::UiStateBase,
 };
 use std::f32::consts::FRAC_PI_2;
 
-use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig, ClimatePreviewMode};
+use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig, ClimatePreviewMode, WorldModel};
 
 pub const CONFIG_NAME: &str = "atlasgen.toml";
 pub const PREVIEW_NAME: &str = "preview.png";
@@ -159,7 +160,14 @@ pub struct CurrentWorldModel;
 pub fn spawn_default_globe(commands: &mut Commands, meshes: &mut Assets<Mesh>, graphics: &MapGraphicsData) {
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::UVSphere::default().into()),
+            mesh: meshes.add(
+                shape::UVSphere {
+                    radius: 2.0,
+                    stacks: 180,
+                    sectors: 360,
+                }
+                .into(),
+            ),
             material: graphics.empty_material.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
@@ -177,7 +185,7 @@ pub fn spawn_default_plane(commands: &mut Commands, meshes: &mut Assets<Mesh>, g
             transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 FRAC_PI_2,
-                FRAC_PI_2,
+                0.0,
                 0.0,
             )),
             ..Default::default()
@@ -185,6 +193,21 @@ pub fn spawn_default_plane(commands: &mut Commands, meshes: &mut Assets<Mesh>, g
         WorldMapMesh,
         CurrentWorldModel,
     ));
+}
+
+pub fn update_model_rotation(
+    mut model: Query<&mut Transform, With<CurrentWorldModel>>,
+    config: Res<AtlasGenConfig>,
+    mut ui_base: ResMut<UiStateBase>,
+) {
+    ui_base.camera.rotate_mode = match config.general.world_model {
+        WorldModel::Flat(_) => false,
+        WorldModel::Globe(_) => true,
+    };
+    if ui_base.camera.rotate_mode {
+        let mut transform = model.single_mut();
+        transform.rotation = ui_base.camera.rotation;
+    }
 }
 
 /// Create a new texture.
@@ -275,7 +298,12 @@ fn climate_to_view(data: &[u8], config: &AtlasGenConfig) -> Vec<u8> {
         ClimatePreviewMode::SimplifiedColor => {
             let fun = |x: &u8| {
                 let climate = fetch_climate(*x as usize, config);
-                [climate.simple_color[0], climate.simple_color[1], climate.simple_color[2], 255]
+                [
+                    climate.simple_color[0],
+                    climate.simple_color[1],
+                    climate.simple_color[2],
+                    255,
+                ]
             };
             data.iter().flat_map(fun).collect()
         }

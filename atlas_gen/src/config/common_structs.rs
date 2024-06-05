@@ -18,17 +18,15 @@ const MAX_WORLD_SIZE: u32 = 1000;
 #[serde(crate = "atlas_lib::serde")]
 pub enum WorldModel {
     Flat(FlatWorldModel),
-    #[empty]
-    #[invisible]
     #[serde(skip)]
-    Globe(()),
+    Globe(GlobeWorldModel),
 }
 
 impl WorldModel {
     pub fn get_dimensions(&self) -> (u32, u32) {
         match self {
             Self::Flat(x) => (x.world_size[0], x.world_size[1]),
-            Self::Globe(_) => (100, 100),
+            Self::Globe(x) => (x.world_size[0], x.world_size[1]),
         }
     }
 }
@@ -52,6 +50,23 @@ impl Default for FlatWorldModel {
     fn default() -> Self {
         Self {
             world_size: [300, 200],
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
+pub struct GlobeWorldModel {
+    #[name("World Size")]
+    #[control(SidebarSliderN)]
+    #[add(clamp_range(100..=MAX_WORLD_SIZE))]
+    pub world_size: [u32; 2],
+}
+
+impl Default for GlobeWorldModel {
+    fn default() -> Self {
+        Self {
+            world_size: [360, 180],
         }
     }
 }

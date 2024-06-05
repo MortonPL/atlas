@@ -3,7 +3,8 @@ mod generation;
 mod internal;
 mod samplers;
 
-use atlas_lib::bevy::prelude::*;
+use atlas_lib::{bevy::prelude::*, ui::plugin_base::UiUpdate};
+use internal::update_model_rotation;
 
 use crate::{
     config::AtlasGenConfig,
@@ -42,7 +43,8 @@ impl Plugin for MapPlugin {
             .add_systems(Update, update_event_generate.run_if(check_event_generate))
             .add_systems(Update, update_event_climatemap.run_if(check_event_climatemap))
             .add_systems(Update, update_event_import.run_if(check_event_import))
-            .add_systems(Update, update_event_export.run_if(check_event_export));
+            .add_systems(Update, update_event_export.run_if(check_event_export))
+            .add_systems(UiUpdate, update_model_rotation);
     }
 }
 
