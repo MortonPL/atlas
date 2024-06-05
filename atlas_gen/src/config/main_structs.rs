@@ -40,9 +40,18 @@ pub struct GeneralConfig {
     #[name("Preview Color Display")]
     #[control(SidebarEnumDropdown)]
     pub color_display: ColorDisplayMode,
-    #[name("World Model")]
-    #[control(SidebarEnumSection)]
-    pub world_model: WorldModel,
+    #[name("World Model Preview")]
+    #[control(SidebarEnumDropdown)]
+    pub preview_model: WorldModel,
+    /* TODO make it work with generator?
+    #[name("World Model Generation")]
+    #[control(SidebarEnumDropdown)]
+    */
+    pub generation_model: WorldModel,
+    #[name("World Size")]
+    #[control(SidebarSliderN)]
+    #[add(clamp_range(100..=MAX_WORLD_SIZE))]
+    pub world_size: [u32; 2],
 }
 
 impl Default for GeneralConfig {
@@ -51,7 +60,9 @@ impl Default for GeneralConfig {
             altitude_limit: 2600.0,
             color_display: Default::default(),
             height_levels: 10,
-            world_model: Default::default(),
+            preview_model: Default::default(),
+            generation_model: Default::default(),
+            world_size: [360, 180],
         }
     }
 }

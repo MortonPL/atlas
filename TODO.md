@@ -1,8 +1,5 @@
 # TO-DO List
 
-- High Priority
-  - Investigate quietly-failed-to-import bug
-
 - Low Priority
   - Make simple resource generator (needs economy system first)
   - Climate resource yield factor (needs economy system first)

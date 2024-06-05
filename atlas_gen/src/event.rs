@@ -4,8 +4,6 @@ use atlas_lib::{
 };
 use std::path::Path;
 
-use crate::config::WorldModel;
-
 /// Plugin responsible for holding event requests and their data.
 pub struct EventPlugin;
 
@@ -24,7 +22,7 @@ impl Plugin for EventPlugin {
 #[derive(Resource)]
 pub struct EventStruct {
     /// The world model in the config has been changed.
-    pub world_model_changed: Option<WorldModel>,
+    pub world_model_changed: Option<()>,
     /// The currently viewed map layer has been changed.
     pub viewed_layer_changed: Option<MapDataLayer>,
     /// A map layer should be loaded from data.

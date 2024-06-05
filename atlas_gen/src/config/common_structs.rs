@@ -8,67 +8,18 @@ use atlas_lib::{
 
 use crate::config::{CELSIUS_MAX, CELSIUS_MIN, PRECIP_MAX, PRECIP_MIN};
 
-const MAX_WORLD_SIZE: u32 = 1000;
+pub const MAX_WORLD_SIZE: u32 = 1000;
 
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.
-#[derive(Clone, Debug, Deserialize, Resource, Serialize, MakeUiEnum, UiEditableEnum)]
+#[derive(Copy, Clone, Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
 #[serde(rename_all = "lowercase")]
 #[serde(crate = "atlas_lib::serde")]
 pub enum WorldModel {
-    Flat(FlatWorldModel),
-    #[serde(skip)]
-    Globe(GlobeWorldModel),
-}
-
-impl WorldModel {
-    pub fn get_dimensions(&self) -> (u32, u32) {
-        match self {
-            Self::Flat(x) => (x.world_size[0], x.world_size[1]),
-            Self::Globe(x) => (x.world_size[0], x.world_size[1]),
-        }
-    }
-}
-
-impl Default for WorldModel {
-    fn default() -> Self {
-        WorldModel::Flat(FlatWorldModel::default())
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
-pub struct FlatWorldModel {
-    #[name("World Size")]
-    #[control(SidebarSliderN)]
-    #[add(clamp_range(100..=MAX_WORLD_SIZE))]
-    pub world_size: [u32; 2],
-}
-
-impl Default for FlatWorldModel {
-    fn default() -> Self {
-        Self {
-            world_size: [300, 200],
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
-pub struct GlobeWorldModel {
-    #[name("World Size")]
-    #[control(SidebarSliderN)]
-    #[add(clamp_range(100..=MAX_WORLD_SIZE))]
-    pub world_size: [u32; 2],
-}
-
-impl Default for GlobeWorldModel {
-    fn default() -> Self {
-        Self {
-            world_size: [360, 180],
-        }
-    }
+    #[default]
+    Flat,
+    Globe,
 }
 
 /// How map should be colored in the map preview.

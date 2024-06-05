@@ -7,7 +7,6 @@ use atlas_lib::{bevy::prelude::*, ui::plugin_base::UiUpdate};
 use internal::update_model_rotation;
 
 use crate::{
-    config::AtlasGenConfig,
     event::EventStruct,
     map::{
         events::{
@@ -86,11 +85,10 @@ fn startup_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     graphics: ResMut<MapGraphicsData>,
-    config: Res<AtlasGenConfig>,
     mut events: ResMut<EventStruct>,
 ) {
     spawn_default_globe(&mut commands, &mut meshes, &graphics);
     spawn_default_plane(&mut commands, &mut meshes, &graphics);
     // Trigger model change.
-    events.world_model_changed = Some(config.general.world_model.clone());
+    events.world_model_changed = Some(());
 }

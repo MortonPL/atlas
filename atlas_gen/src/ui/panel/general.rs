@@ -5,7 +5,7 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{AtlasGenConfig, WorldModel},
+    config::AtlasGenConfig,
     event::EventStruct,
     ui::{internal::UiState, panel::SidebarPanel},
 };
@@ -22,31 +22,19 @@ impl SidebarPanel for MainPanelGeneral {
         _ui_state: &mut UiState,
         events: &mut EventStruct,
     ) {
-        let old_world_model = config.general.world_model.self_as_index();
-        let old = match &config.general.world_model {
-            WorldModel::Flat(x) => x.world_size,
-            WorldModel::Globe(x) => x.world_size,
-        };
+        let old_world_model = config.general.preview_model.self_as_index();
+        let old = config.general.world_size;
 
         Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             config.general.make_ui(ui);
         });
 
-        if config.general.world_model.self_as_index() != old_world_model {
-            events.world_model_changed = Some(config.general.world_model.clone());
+        if config.general.preview_model.self_as_index() != old_world_model {
+            events.world_model_changed = Some(());
         }
 
-        match &config.general.world_model {
-            WorldModel::Flat(x) => {
-                if old != x.world_size {
-                    events.world_model_changed = Some(WorldModel::Flat(x.clone()));
-                }
-            }
-            WorldModel::Globe(x) => {
-                if old != x.world_size {
-                    events.world_model_changed = Some(WorldModel::Globe(x.clone()));
-                }
-            }
+        if old != config.general.world_size {
+            events.world_model_changed = Some(());
         }
 
         if button(ui, "Generate Preview") {

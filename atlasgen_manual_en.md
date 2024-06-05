@@ -174,9 +174,9 @@ The following can be configured:
   * Topography - altitude based color palette (green-yellow-brown-grey),
   * Simplified climate - climate (biome) based color palette, using simplified biome colors,
   * Detailed climate - climate (biome) based color palette.
-
-* World model - Currently only flat (rectangular) world model is available,
-  * World size - Horizontal and vertical size (in tiles) of the flat world.
+* Preview world model - Controls if the world map should be previewed as a flat map or as a globe,
+* Generation world model - Controls if the world map should be generated as a flat map or as a globe (currently unavailable),
+* World size - Horizontal (longitudinal) and vertical (latitudinal) size of the world, in tiles.
 
 ### Continents
 
@@ -264,5 +264,6 @@ Note: adding or removing biomes from the list is possible only via config file.
 * Numerical input boxes also act like sliders. Dragging on horizontal axis will decrease or increase value.
 * You can drag the edge of the sidebar to adjust its width.
 * You can zoom in our out of the map using the mouse wheel.
+* You can drag the plane in flat preview mode and rotate the globe in globe preview mode while pressing the right mouse button,
 * If you prefer to work with text files over the GUI, you can save the default configuration and edit its TOML file,
   then load it in Atlas and just generate layers.

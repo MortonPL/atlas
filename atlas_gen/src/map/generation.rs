@@ -20,21 +20,22 @@ pub fn generate(
     logics: &mut MapLogicData,
     config: &AtlasGenConfig,
 ) -> Vec<MapDataLayer> {
-    let model = &config.general.world_model;
+    let model = config.general.generation_model;
+    let world_size = config.general.world_size;
     match layer {
         MapDataLayer::Preview => generate_preview(logics, config),
         MapDataLayer::Continents => generate_continents(logics, config, layer),
-        MapDataLayer::Topography => generate_generic(logics, &config.topography, model, layer),
+        MapDataLayer::Topography => generate_generic(logics, &config.topography, model, world_size, layer),
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
         MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
         MapDataLayer::Resources => todo!(), // TODO
         // Influence
-        MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, layer),
-        MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, layer),
-        MapDataLayer::TemperatureInfluence => generate_influence(logics, &config.temperature, model, layer),
+        MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, world_size, layer),
+        MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, world_size, layer),
+        MapDataLayer::TemperatureInfluence => generate_influence(logics, &config.temperature, model, world_size, layer),
         MapDataLayer::PrecipitationInfluence => {
-            generate_influence(logics, &config.precipitation, model, layer)
+            generate_influence(logics, &config.precipitation, model, world_size, layer)
         }
         // Unreachable
         MapDataLayer::RealTopography => unreachable!(),
@@ -173,9 +174,10 @@ fn generate_continents(
     // Move out layer data.
     let mut cont_data = logics.pop_layer(layer);
     // Get relevant config info.
-    let model = &config.general.world_model;
+    let model = config.general.generation_model;
+    let world_size = config.general.world_size;
     // Run the noise algorithm to obtain height data for continental discrimination.
-    fill_with_algorithm(&mut cont_data, model, &config.continents);
+    fill_with_algorithm(&mut cont_data, model, world_size, &config.continents);
     // Apply the influence map if requested.
     if let Some(inf_layer) = layer.get_influence_layer() {
         handle_influence(&mut cont_data, logics, inf_layer, &config.continents);
@@ -206,13 +208,14 @@ fn generate_continents(
 fn generate_generic(
     logics: &mut MapLogicData,
     config: impl AsRef<NoiseAlgorithm> + AsRef<InfluenceShape>,
-    model: &WorldModel,
+    model: WorldModel,
+    world_size: [u32; 2],
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
     // Move out layer data.
     let mut data = logics.pop_layer(layer);
     // Run the noise algorithm for map topography (height data).
-    fill_with_algorithm(&mut data, model, &config);
+    fill_with_algorithm(&mut data, model, world_size, &config);
     // Apply the influence map if requested.
     if let Some(inf_layer) = layer.get_influence_layer() {
         handle_influence(&mut data, logics, inf_layer, &config);
@@ -232,13 +235,15 @@ fn generate_temperature(
     let mut temp_data = logics.pop_layer(layer);
     let topo_data = logics.get_layer(MapDataLayer::RealTopography);
     // Get relevant config info.
-    let model = &config.general.world_model;
+    let model = config.general.generation_model;
+    let world_size = config.general.world_size;
     // Set temperature based on latitude.
-    fill_latitudinal_temp(&mut temp_data, model, &config.temperature.latitudinal);
+    fill_latitudinal_temp(&mut temp_data, model, world_size, &config.temperature.latitudinal);
     // Append the noise algorithm data.
     add_with_algorithm(
         &mut temp_data,
         model,
+        world_size,
         &config.temperature,
         config.temperature.algorithm_strength,
     );
@@ -269,13 +274,15 @@ fn generate_precipitation(
     let mut humi_data = logics.pop_layer(layer);
     let topo_data = logics.get_layer(MapDataLayer::RealTopography);
     // Get relevant config info.
-    let model = &config.general.world_model;
+    let model = config.general.generation_model;
+    let world_size = config.general.world_size;
     // Set precipitation based on latitude.
-    fill_latitudinal_precip(&mut humi_data, model, &config.precipitation.latitudinal);
+    fill_latitudinal_precip(&mut humi_data, model, world_size, &config.precipitation.latitudinal);
     // Append the noise algorithm data.
     add_with_algorithm(
         &mut humi_data,
         model,
+        world_size,
         &config.precipitation,
         config.precipitation.algorithm_strength,
     );
@@ -349,10 +356,9 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConf
 
     let cont_data = logics.get_layer(MapDataLayer::Continents);
 
-    match &config.general.world_model {
-        WorldModel::Flat(x) => {
-            let width = x.world_size[0] as i32;
-            let height = x.world_size[1] as i32;
+    let (width, height) = (config.general.world_size[0] as i32, config.general.world_size[1] as i32);
+    match &config.general.generation_model {
+        WorldModel::Flat => {
             let multiplier = (255 / ((kernel * 2 + 1).pow(2) - 1)) as u16;
             for y in 0..height {
                 for x in 0..width {
@@ -376,7 +382,7 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConf
                 }
             }
         }
-        WorldModel::Globe(_) => todo!(),
+        WorldModel::Globe => todo!(),
     }
 
     // Set new layer data.
@@ -389,11 +395,12 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConf
 fn generate_influence(
     logics: &mut MapLogicData,
     shape: impl AsRef<InfluenceShape>,
-    model: &WorldModel,
+    model: WorldModel,
+    world_size: [u32; 2],
     layer: MapDataLayer,
 ) -> Vec<MapDataLayer> {
     let map_data = logics.get_layer_mut(layer);
-    fill_influence(map_data, shape.as_ref(), model);
+    fill_influence(map_data, shape.as_ref(), model, world_size);
     vec![layer]
 }
 

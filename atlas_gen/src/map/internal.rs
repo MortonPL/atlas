@@ -200,9 +200,9 @@ pub fn update_model_rotation(
     config: Res<AtlasGenConfig>,
     mut ui_base: ResMut<UiStateBase>,
 ) {
-    ui_base.camera.rotate_mode = match config.general.world_model {
-        WorldModel::Flat(_) => false,
-        WorldModel::Globe(_) => true,
+    ui_base.camera.rotate_mode = match config.general.preview_model {
+        WorldModel::Flat => false,
+        WorldModel::Globe => true,
     };
     if ui_base.camera.rotate_mode {
         let mut transform = model.single_mut();

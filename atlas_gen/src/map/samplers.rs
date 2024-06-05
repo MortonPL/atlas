@@ -342,19 +342,20 @@ impl Sampler for LatitudinalSampler {
     }
 }
 
-pub fn fill_latitudinal_temp(data: &mut [u8], model: &WorldModel, config: &LatitudinalTemperatureLerp) {
-    let sampler = LatitudinalSampler::new_temp(config, model.get_dimensions().1);
-    sample_fill(data, sampler, model);
+pub fn fill_latitudinal_temp(data: &mut [u8], model: WorldModel, world_size: [u32; 2], config: &LatitudinalTemperatureLerp) {
+    let sampler = LatitudinalSampler::new_temp(config, world_size[1]);
+    sample_fill(data, sampler, model, world_size);
 }
 
-pub fn fill_latitudinal_precip(data: &mut [u8], model: &WorldModel, config: &LatitudinalPrecipitationLerp) {
-    let sampler = LatitudinalSampler::new_precip(config, model.get_dimensions().1);
-    sample_fill(data, sampler, model);
+pub fn fill_latitudinal_precip(data: &mut [u8], model: WorldModel, world_size: [u32; 2], config: &LatitudinalPrecipitationLerp) {
+    let sampler = LatitudinalSampler::new_precip(config, world_size[1]);
+    sample_fill(data, sampler, model, world_size);
 }
 
 pub fn add_with_algorithm(
     data: &mut [u8],
-    model: &WorldModel,
+    model: WorldModel,
+    world_size: [u32; 2],
     algorithm: impl AsRef<NoiseAlgorithm>,
     strength: f32,
 ) {
@@ -363,40 +364,40 @@ pub fn add_with_algorithm(
     }
     match algorithm.as_ref() {
         NoiseAlgorithm::Perlin(config) => {
-            sample_add(data, FbmSampler::<Perlin>::new(config), model, strength)
+            sample_add(data, FbmSampler::<Perlin>::new(config), model, world_size, strength)
         }
         NoiseAlgorithm::OpenSimplex(config) => {
-            sample_add(data, FbmSampler::<OpenSimplex>::new(config), model, strength)
+            sample_add(data, FbmSampler::<OpenSimplex>::new(config), model, world_size, strength)
         }
         NoiseAlgorithm::SuperSimplex(config) => {
-            sample_add(data, FbmSampler::<SuperSimplex>::new(config), model, strength)
+            sample_add(data, FbmSampler::<SuperSimplex>::new(config), model, world_size, strength)
         }
         NoiseAlgorithm::FromImage => { /* Do nothing. */ }
     }
 }
 
 /// Fill a data layer with specified noise algorithm.
-pub fn fill_with_algorithm(data: &mut [u8], model: &WorldModel, algorithm: impl AsRef<NoiseAlgorithm>) {
+pub fn fill_with_algorithm(data: &mut [u8], model: WorldModel, world_size: [u32; 2], algorithm: impl AsRef<NoiseAlgorithm>) {
     match algorithm.as_ref() {
-        NoiseAlgorithm::Perlin(config) => sample_fill(data, FbmSampler::<Perlin>::new(config), model),
+        NoiseAlgorithm::Perlin(config) => sample_fill(data, FbmSampler::<Perlin>::new(config), model, world_size),
         NoiseAlgorithm::OpenSimplex(config) => {
-            sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model)
+            sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model, world_size)
         }
         NoiseAlgorithm::SuperSimplex(config) => {
-            sample_fill(data, FbmSampler::<SuperSimplex>::new(config), model)
+            sample_fill(data, FbmSampler::<SuperSimplex>::new(config), model, world_size)
         }
         NoiseAlgorithm::FromImage => { /* Do nothing. */ }
     }
 }
 
 /// Fill an influence layer with specified shape (or noise algorithm).
-pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: &WorldModel) {
+pub fn fill_influence(data: &mut [u8], shape: &InfluenceShape, model: WorldModel, world_size: [u32; 2]) {
     match shape {
         InfluenceShape::None => data.fill(0),
         InfluenceShape::FromImage(_) => { /*Do nothing. */ }
-        InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model),
-        InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model),
-        InfluenceShape::Fbm(x) => fill_with_algorithm(data, model, x),
+        InfluenceShape::Circle(x) => sample_fill(data, CircleSampler::new(x), model, world_size),
+        InfluenceShape::Strip(x) => sample_fill(data, StripSampler::new(x), model, world_size),
+        InfluenceShape::Fbm(x) => fill_with_algorithm(data, model, world_size, x),
     }
 }
 
@@ -478,14 +479,14 @@ pub fn apply_influence_from_src(
     }
 }
 
-fn sample_add<T>(data: &mut [u8], sampler: T, model: &WorldModel, strength: f32)
+fn sample_add<T>(data: &mut [u8], sampler: T, model: WorldModel, world_size: [u32; 2], strength: f32)
 where
     T: Sampler,
 {
     match model {
-        WorldModel::Flat(flat) => {
-            let width = flat.world_size[0] as i32;
-            let height = flat.world_size[1] as i32;
+        WorldModel::Flat => {
+            let width = world_size[0] as i32;
+            let height = world_size[1] as i32;
             // NOTE: Not respected by FbmSampler.
             let origin = Vec2::new(width as f32 / 2.0, height as f32 / 2.0);
             // NOTE: Only respected by FbmSampler.
@@ -500,18 +501,18 @@ where
                 }
             }
         }
-        WorldModel::Globe(_) => todo!(), // TODO
+        WorldModel::Globe => todo!(), // TODO
     }
 }
 
-fn sample_fill<T>(data: &mut [u8], sampler: T, model: &WorldModel)
+fn sample_fill<T>(data: &mut [u8], sampler: T, model: WorldModel, world_size: [u32; 2])
 where
     T: Sampler,
 {
     match model {
-        WorldModel::Flat(flat) => {
-            let width = flat.world_size[0] as i32;
-            let height = flat.world_size[1] as i32;
+        WorldModel::Flat => {
+            let width = world_size[0] as i32;
+            let height = world_size[1] as i32;
             // NOTE: Not respected by FbmSampler.
             let origin = Vec2::new(width as f32 / 2.0, height as f32 / 2.0);
             // NOTE: Only respected by FbmSampler.
@@ -525,6 +526,6 @@ where
                 }
             }
         }
-        WorldModel::Globe(_) => todo!(), // TODO
+        WorldModel::Globe => todo!(), // TODO
     }
 }

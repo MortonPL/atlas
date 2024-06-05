@@ -29,13 +29,14 @@ pub fn check_event_world_model(events: Res<EventStruct>) -> bool {
 pub fn update_event_world_model(
     commands: Commands,
     mut events: ResMut<EventStruct>,
+    config: Res<AtlasGenConfig>,
     map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
     globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
     graphics: Res<MapGraphicsData>,
     logics: ResMut<MapLogicData>,
 ) {
-    let model = events.world_model_changed.take().expect("Always Some");
-    resize_helper(commands, model, map, globe, logics);
+    events.world_model_changed = None;
+    resize_helper(commands, &config, map, globe, logics);
     // Trigger material refresh.
     events.viewed_layer_changed = Some(graphics.current);
 }
@@ -94,7 +95,7 @@ pub fn update_event_regen(
         let layer = graphics.get_layer_mut(layer);
         let material = get_material_mut(&mut materials, &layer.material);
         // Assign new texture.
-        let (width, height) = config.general.world_model.get_dimensions();
+        let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
         let image = images.add(make_image(width, height, std::mem::take(&mut data)));
         material.base_color_texture = Some(image);
         // Graphical layer becomes valid again.
@@ -143,7 +144,7 @@ pub fn update_event_saved(
 ) {
     let (layer, path) = events.save_layer_request.take().expect("Always Some");
     let data = logics.get_layer(layer);
-    let (width, height) = config.general.world_model.get_dimensions();
+    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     let result = match layer {
         MapDataLayer::Preview => save_image(path, data, width, height),
         _ => save_image_grey(path, data, width, height),
@@ -183,7 +184,7 @@ pub fn update_event_rendered(
         .expect("Material should have a texture");
     let image = images.get(image).expect("Image handle should be valid");
     // Save the texture with correct dimensions.
-    let (width, height) = config.general.world_model.get_dimensions();
+    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     let result = save_image(path, &image.data, width, height);
     events.error_window = result.err().map(|x| x.to_string());
 }
@@ -280,7 +281,7 @@ pub fn update_event_import(
     match load_config(path) {
         Ok(data) => {
             *config = data;
-            events.world_model_changed = Some(config.general.world_model.clone());
+            events.world_model_changed = Some(());
         }
         Err(error) => {
             events.error_window = Some(error.to_string());
@@ -288,7 +289,7 @@ pub fn update_event_import(
         }
     }
     // Import data layers.
-    let (width, height) = config.general.world_model.get_dimensions();
+    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     let mut regen_layers = vec![];
     for (layer, name) in EXPORT_DATA_LAYERS {
         let path = base_path.join(name);
@@ -323,7 +324,7 @@ pub fn update_event_import(
         }
     };
     // Resize if needed.
-    resize_helper(commands, config.general.world_model.clone(), map, globe, logics);
+    resize_helper(commands, &config, map, globe, logics);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
 }
@@ -345,7 +346,7 @@ pub fn update_event_export(
 ) {
     let base_path = events.export_world_request.take().expect("Always Some");
     // Export data layers.
-    let (width, height) = config.general.world_model.get_dimensions();
+    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     for (layer, name) in EXPORT_DATA_LAYERS {
         let data = logics.get_layer(layer);
         let path = base_path.join(name);
@@ -396,7 +397,7 @@ fn post_generation(
 /// Switch and resize world models.
 fn resize_helper(
     mut commands: Commands,
-    model: WorldModel,
+    config: &AtlasGenConfig,
     mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
     mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
     mut logics: ResMut<MapLogicData>,
@@ -404,22 +405,22 @@ fn resize_helper(
     // Run queries.
     let (map_en, mut map_vis, mut map_tran) = map.single_mut();
     let (globe_en, mut globe_vis) = globe.single_mut();
-    match model {
-        WorldModel::Flat(x) => {
+    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
+    logics.resize_all_layers((width * height) as usize);
+    match config.general.preview_model {
+        WorldModel::Flat => {
             *map_vis = Visibility::Visible;
             *globe_vis = Visibility::Hidden;
-            map_tran.scale.x = x.world_size[0] as f32 / 100.0;
-            map_tran.scale.z = x.world_size[1] as f32 / 100.0;
+            map_tran.scale.x = width as f32 / 100.0;
+            map_tran.scale.z = height as f32 / 100.0;
             commands.entity(map_en).insert(CurrentWorldModel);
             commands.entity(globe_en).remove::<CurrentWorldModel>();
-            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
         }
-        WorldModel::Globe(x) => {
+        WorldModel::Globe => {
             *map_vis = Visibility::Hidden;
             *globe_vis = Visibility::Visible;
             commands.entity(globe_en).insert(CurrentWorldModel);
             commands.entity(map_en).remove::<CurrentWorldModel>();
-            logics.resize_all_layers((x.world_size[0] * x.world_size[1]) as usize);
         }
     }
 }

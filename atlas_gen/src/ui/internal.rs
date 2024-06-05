@@ -276,7 +276,7 @@ fn load_config_clicked(ui_base: &mut UiStateBase) {
 fn reset_config_clicked(config: &mut AtlasGenConfig, ui_panel: &mut UiStatePanel, events: &mut EventStruct) {
     *config = AtlasGenConfig::default();
     ui_panel.current_panel = default();
-    events.world_model_changed = Some(config.general.world_model.clone());
+    events.world_model_changed = Some(());
 }
 
 /// Reset a config from one panel to defaults, and reset relevant logic layers.
@@ -284,7 +284,7 @@ fn reset_panel_clicked(config: &mut AtlasGenConfig, ui_panel: &UiStatePanel, eve
     match ui_panel.current_panel.get_layer() {
         MapDataLayer::Preview => {
             config.general = default();
-            events.world_model_changed = Some(config.general.world_model.clone());
+            events.world_model_changed = Some(());
         }
         MapDataLayer::Continents => {
             config.continents = default();
@@ -360,7 +360,7 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
         match load_config(path) {
             Ok(data) => {
                 *self.config = data;
-                self.events.world_model_changed = Some(self.config.general.world_model.clone());
+                self.events.world_model_changed = Some(());
             }
             Err(err) => self.events.error_window = Some(err.to_string()),
         }
@@ -381,7 +381,7 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
     }
 
     fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer) {
-        let (width, height) = self.config.general.world_model.get_dimensions();
+        let (width, height) = (self.config.general.world_size[0], self.config.general.world_size[1]);
         let result = match layer {
             MapDataLayer::Preview => load_image(path, width, height),
             _ => load_image_grey(path, width, height),
@@ -403,7 +403,7 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
     fn export_gen(&mut self, path: &Path) {
         self.events.export_world_request = Some(path.into());
     }
-    
+
     fn import_gen(&mut self, path: &Path) {
         self.events.import_world_request = Some(path.into());
     }
