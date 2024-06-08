@@ -2,8 +2,8 @@ use atlas_lib::{bevy::utils::petgraph::matrix_graph::Zero, domain::map::MapDataL
 
 use crate::{
     config::{
-        precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceShape, NoiseAlgorithm,
-        WorldModel, ALTITUDE_STEP,
+        precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceMode, InfluenceShape,
+        NoiseAlgorithm, WorldModel, ALTITUDE_STEP,
     },
     map::{
         internal::{fetch_climate, MapLogicData, CLIMATEMAP_SIZE},
@@ -31,9 +31,15 @@ pub fn generate(
         MapDataLayer::Climate => generate_climate(logics, config, layer),
         MapDataLayer::Resources => todo!(), // TODO
         // Influence
-        MapDataLayer::ContinentsInfluence => generate_influence(logics, &config.continents, model, world_size, layer),
-        MapDataLayer::TopographyInfluence => generate_influence(logics, &config.topography, model, world_size, layer),
-        MapDataLayer::TemperatureInfluence => generate_influence(logics, &config.temperature, model, world_size, layer),
+        MapDataLayer::ContinentsInfluence => {
+            generate_influence(logics, &config.continents, model, world_size, layer)
+        }
+        MapDataLayer::TopographyInfluence => {
+            generate_influence(logics, &config.topography, model, world_size, layer)
+        }
+        MapDataLayer::TemperatureInfluence => {
+            generate_influence(logics, &config.temperature, model, world_size, layer)
+        }
         MapDataLayer::PrecipitationInfluence => {
             generate_influence(logics, &config.precipitation, model, world_size, layer)
         }
@@ -277,7 +283,12 @@ fn generate_precipitation(
     let model = config.general.generation_model;
     let world_size = config.general.world_size;
     // Set precipitation based on latitude.
-    fill_latitudinal_precip(&mut humi_data, model, world_size, &config.precipitation.latitudinal);
+    fill_latitudinal_precip(
+        &mut humi_data,
+        model,
+        world_size,
+        &config.precipitation.latitudinal,
+    );
     // Append the noise algorithm data.
     add_with_algorithm(
         &mut humi_data,
@@ -337,7 +348,13 @@ fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
     let topo_data = logics.get_layer(MapDataLayer::Topography);
     let filter_data = logics.get_layer(MapDataLayer::TopographyFilter);
     // Little trick: topography filter is basically an influence layer.
-    apply_influence_from_src(&mut real_data, topo_data, filter_data, Default::default(), 1.0);
+    apply_influence_from_src(
+        &mut real_data,
+        topo_data,
+        filter_data,
+        InfluenceMode::ScaleDown,
+        1.0,
+    );
     // Set new layer data.
     logics.put_layer(MapDataLayer::RealTopography, real_data);
 
@@ -350,13 +367,24 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConf
     filter_data.fill(0);
 
     let kernel: i32 = config.topography.coastal_erosion as i32;
+    let (width, height) = (
+        config.general.world_size[0] as i32,
+        config.general.world_size[1] as i32,
+    );
+    let cont_data = logics.get_layer(MapDataLayer::Continents);
     if kernel == 0 {
+        for y in 0..height {
+            for x in 0..width {
+                let i = (y * width + x) as usize;
+                if !is_sea(cont_data[i]) {
+                    filter_data[i] = 255;
+                }
+            }
+        }
+        logics.put_layer(MapDataLayer::TopographyFilter, filter_data);
         return vec![];
     }
 
-    let cont_data = logics.get_layer(MapDataLayer::Continents);
-
-    let (width, height) = (config.general.world_size[0] as i32, config.general.world_size[1] as i32);
     match &config.general.generation_model {
         WorldModel::Flat => {
             let multiplier = (255 / ((kernel * 2 + 1).pow(2) - 1)) as u16;

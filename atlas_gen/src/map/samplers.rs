@@ -342,12 +342,22 @@ impl Sampler for LatitudinalSampler {
     }
 }
 
-pub fn fill_latitudinal_temp(data: &mut [u8], model: WorldModel, world_size: [u32; 2], config: &LatitudinalTemperatureLerp) {
+pub fn fill_latitudinal_temp(
+    data: &mut [u8],
+    model: WorldModel,
+    world_size: [u32; 2],
+    config: &LatitudinalTemperatureLerp,
+) {
     let sampler = LatitudinalSampler::new_temp(config, world_size[1]);
     sample_fill(data, sampler, model, world_size);
 }
 
-pub fn fill_latitudinal_precip(data: &mut [u8], model: WorldModel, world_size: [u32; 2], config: &LatitudinalPrecipitationLerp) {
+pub fn fill_latitudinal_precip(
+    data: &mut [u8],
+    model: WorldModel,
+    world_size: [u32; 2],
+    config: &LatitudinalPrecipitationLerp,
+) {
     let sampler = LatitudinalSampler::new_precip(config, world_size[1]);
     sample_fill(data, sampler, model, world_size);
 }
@@ -363,23 +373,42 @@ pub fn add_with_algorithm(
         return;
     }
     match algorithm.as_ref() {
-        NoiseAlgorithm::Perlin(config) => {
-            sample_add(data, FbmSampler::<Perlin>::new(config), model, world_size, strength)
-        }
-        NoiseAlgorithm::OpenSimplex(config) => {
-            sample_add(data, FbmSampler::<OpenSimplex>::new(config), model, world_size, strength)
-        }
-        NoiseAlgorithm::SuperSimplex(config) => {
-            sample_add(data, FbmSampler::<SuperSimplex>::new(config), model, world_size, strength)
-        }
+        NoiseAlgorithm::Perlin(config) => sample_add(
+            data,
+            FbmSampler::<Perlin>::new(config),
+            model,
+            world_size,
+            strength,
+        ),
+        NoiseAlgorithm::OpenSimplex(config) => sample_add(
+            data,
+            FbmSampler::<OpenSimplex>::new(config),
+            model,
+            world_size,
+            strength,
+        ),
+        NoiseAlgorithm::SuperSimplex(config) => sample_add(
+            data,
+            FbmSampler::<SuperSimplex>::new(config),
+            model,
+            world_size,
+            strength,
+        ),
         NoiseAlgorithm::FromImage => { /* Do nothing. */ }
     }
 }
 
 /// Fill a data layer with specified noise algorithm.
-pub fn fill_with_algorithm(data: &mut [u8], model: WorldModel, world_size: [u32; 2], algorithm: impl AsRef<NoiseAlgorithm>) {
+pub fn fill_with_algorithm(
+    data: &mut [u8],
+    model: WorldModel,
+    world_size: [u32; 2],
+    algorithm: impl AsRef<NoiseAlgorithm>,
+) {
     match algorithm.as_ref() {
-        NoiseAlgorithm::Perlin(config) => sample_fill(data, FbmSampler::<Perlin>::new(config), model, world_size),
+        NoiseAlgorithm::Perlin(config) => {
+            sample_fill(data, FbmSampler::<Perlin>::new(config), model, world_size)
+        }
         NoiseAlgorithm::OpenSimplex(config) => {
             sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model, world_size)
         }

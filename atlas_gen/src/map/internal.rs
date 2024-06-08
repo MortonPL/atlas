@@ -245,10 +245,7 @@ pub fn get_material_mut<'a>(
 /// Convert logical layer data to a texture.
 /// For most cases, this just expands greyscale to grey RGBA.
 pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &AtlasGenConfig) -> Vec<u8> {
-    let data = data_layers
-        .layers
-        .get(&layer)
-        .expect("MapLogicData should map all layers");
+    let data = data_layers.get_layer(layer);
     match layer {
         MapDataLayer::Preview => data.to_vec(),
         MapDataLayer::Climate => climate_to_view(data, config),

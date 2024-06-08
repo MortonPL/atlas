@@ -381,7 +381,10 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
     }
 
     fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer) {
-        let (width, height) = (self.config.general.world_size[0], self.config.general.world_size[1]);
+        let (width, height) = (
+            self.config.general.world_size[0],
+            self.config.general.world_size[1],
+        );
         let result = match layer {
             MapDataLayer::Preview => load_image(path, width, height),
             _ => load_image_grey(path, width, height),

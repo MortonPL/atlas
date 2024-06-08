@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"] DEBUG
+//#![windows_subsystem = "windows"] // DEBUG
 
 use atlas_lib::bevy::prelude::*;
 mod config;
