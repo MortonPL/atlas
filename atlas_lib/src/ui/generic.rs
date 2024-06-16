@@ -35,6 +35,15 @@ where
     }
 }
 
+/// [`button_action`] that can be optionally disabled.
+pub fn button_action_enabled<F, T>(ui: &mut Ui, text: impl Into<WidgetText>, enabled: bool, fun: F) -> T
+where
+    F: FnOnce() -> T,
+    T: Default,
+{
+    ui.add_enabled_ui(enabled, |ui| button_action(ui, text, fun)).inner
+}
+
 /// Show a popup window.
 pub fn window<F, T>(ctx: &Context, title: &str, open: &mut bool, add_content: F)
 where

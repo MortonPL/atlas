@@ -4,13 +4,11 @@ use atlas_lib::{
         prelude::*,
         render::render_resource::{Extent3d, TextureDimension, TextureFormat},
         utils::HashMap,
-    },
-    domain::map::MapDataLayer,
-    ui::plugin_base::UiStateBase,
+    }, config::load_image_grey, domain::map::MapDataLayer, ui::plugin_base::UiStateBase
 };
 use std::f32::consts::FRAC_PI_2;
 
-use crate::config::{load_image_grey, AtlasGenConfig, BiomeConfig, ClimatePreviewMode, WorldModel};
+use crate::config::{AtlasGenConfig, BiomeConfig, ClimatePreviewMode, WorldModel};
 
 pub const CONFIG_NAME: &str = "atlasgen.toml";
 pub const PREVIEW_NAME: &str = "preview.png";
@@ -98,7 +96,7 @@ impl MapLogicData {
         &self.climatemap
     }
 
-    pub fn load_climatemap(&mut self) -> Result<(), crate::config::Error> {
+    pub fn load_climatemap(&mut self) -> Result<(), atlas_lib::config::Error> {
         let result = load_image_grey(CLIMATEMAP_NAME, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32);
         if let Ok(vec) = result {
             self.climatemap = vec;

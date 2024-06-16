@@ -5,7 +5,7 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::{egui::Context, EguiPlugin};
+use bevy_egui::{egui::{Context, Ui}, EguiPlugin};
 use std::path::Path;
 
 use crate::{domain::map::MapDataLayer, ui::window};
@@ -21,18 +21,19 @@ const CAMERA_DRAG_SPEED: f32 = 12.0;
 /// Multiplier to rotation value.
 const CAMERA_ROTATE_SPEED: f32 = 0.2;
 
+/// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
+pub const SIDEBAR_WIDTH: f32 = 360.0;
+/// Minimum sidebar width in points.
+pub const SIDEBAR_MIN_WIDTH: f32 = 360.0;
+
 /// Mode of operation for the generic file dialog.
 #[derive(Clone, Copy, Default)]
 pub enum FileDialogMode {
-    /// Save generator configuration to TOML file.
+    /// Save configuration to TOML file.
     #[default]
-    SaveGenConfig,
-    /// Load generator configuration to TOML file.
-    LoadGenConfig,
-    /// Save simulator configuration to TOML file.
-    SaveSimConfig,
-    /// Load simulator configuration to TOML file.
-    LoadSimConfig,
+    SaveConfig,
+    /// Load configuration to TOML file.
+    LoadConfig,
     /// Save this layer data to PNG file.
     SaveData(MapDataLayer),
     /// Load this layer data from PNG file.
@@ -58,7 +59,10 @@ pub struct UiStateBase {
     pub error_window_open: bool,
     /// Current error message.
     pub error_message: String,
+    /// Camera movement data.
     pub camera: UiCameraData,
+    /// Is the about window open?
+    pub about_open: bool,
 }
 
 #[derive(Resource)]
@@ -126,10 +130,8 @@ pub trait HandleFileDialog {
             }
             if let Some(path) = file_dialog.path() {
                 match mode {
-                    FileDialogMode::LoadGenConfig => self.load_gen_config(path),
-                    FileDialogMode::SaveGenConfig => self.save_gen_config(path),
-                    FileDialogMode::LoadSimConfig => self.load_sim_config(path),
-                    FileDialogMode::SaveSimConfig => self.save_sim_config(path),
+                    FileDialogMode::LoadConfig => self.load_config(path),
+                    FileDialogMode::SaveConfig => self.save_config(path),
                     FileDialogMode::LoadData(layer) => self.load_layer_data(path, layer),
                     FileDialogMode::SaveData(layer) => self.save_layer_data(path, layer),
                     FileDialogMode::RenderImage(layer) => self.render_image(path, layer),
@@ -141,10 +143,8 @@ pub trait HandleFileDialog {
         }
     }
 
-    fn load_gen_config(&mut self, path: &Path);
-    fn save_gen_config(&mut self, path: &Path);
-    fn load_sim_config(&mut self, path: &Path);
-    fn save_sim_config(&mut self, path: &Path);
+    fn load_config(&mut self, path: &Path);
+    fn save_config(&mut self, path: &Path);
     fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer);
     fn save_layer_data(&mut self, path: &Path, layer: MapDataLayer);
     fn render_image(&mut self, path: &Path, layer: MapDataLayer);
@@ -166,6 +166,17 @@ pub trait HandleErrorWindow {
         );
     }
 }
+
+/// A handler for error window. Doesn't need to override anything.
+pub struct ErrorWindowHandler;
+
+impl ErrorWindowHandler {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl HandleErrorWindow for ErrorWindowHandler {}
 
 /// Startup system
 ///
@@ -262,4 +273,14 @@ fn update_input(
             }
         }
     }
+}
+
+/// Adjust viewport size to not overlap the sidebar.
+pub fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
+    let window_size = ui.clip_rect().size();
+    let ui_size = ui.max_rect().size();
+    ui_base.viewport_size = Vec2 {
+        x: (window_size.x - ui_size.x).max(1.0),
+        y: window_size.y.max(1.0),
+    };
 }

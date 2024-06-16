@@ -1,10 +1,7 @@
-use atlas_lib::{bevy::prelude::*, domain::map::MapDataLayer};
+use atlas_lib::{bevy::prelude::*, config::{load_config, load_image, load_image_grey, save_config, save_image, save_image_grey}, domain::map::MapDataLayer};
 
 use crate::{
-    config::{
-        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, AtlasGenConfig,
-        WorldModel,
-    },
+    config::{AtlasGenConfig, WorldModel},
     event::EventStruct,
     map::{
         generation::{after_generate, generate},
@@ -371,7 +368,7 @@ pub fn update_event_export(
     }
     // Export config.
     let path = base_path.join(CONFIG_NAME);
-    let result = save_config(&config, path);
+    let result = save_config(config.as_ref(), path);
     events.error_window = result.err().map(|x| x.to_string());
 }
 

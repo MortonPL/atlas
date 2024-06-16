@@ -1,20 +1,15 @@
 use std::path::Path;
 
 use atlas_lib::{
-    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
-    bevy_egui::egui::{self, Context, Ui},
-    domain::map::MapDataLayer,
-    egui_file,
-    ui::{
+    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*}, bevy_egui::egui::{self, Context, RichText, Ui}, config::{load_config, load_image, load_image_grey, save_config}, domain::map::MapDataLayer, egui_file, ui::{
         button_action,
-        plugin_base::{FileDialogMode, HandleErrorWindow, HandleFileDialog, UiStateBase},
-        sidebar::{SidebarControl, SidebarEnumDropdown},
-        window,
-    },
+        plugin_base::{adjust_viewport, ErrorWindowHandler, FileDialogMode, HandleErrorWindow, HandleFileDialog, UiStateBase, SIDEBAR_MIN_WIDTH, SIDEBAR_WIDTH},
+        sidebar::{SidebarControl, SidebarEnumDropdown}, window,
+    }
 };
 
 use crate::{
-    config::{load_config, load_image, load_image_grey, save_config, AtlasGenConfig},
+    config::AtlasGenConfig,
     event::EventStruct,
     ui::panel::{
         MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources,
@@ -22,18 +17,11 @@ use crate::{
     },
 };
 
-/// Default sidebar width in points. Should be greater or equal to [`SIDEBAR_MIN_WIDTH`].
-const SIDEBAR_WIDTH: f32 = 360.0;
-/// Minimum sidebar width in points.
-const SIDEBAR_MIN_WIDTH: f32 = 360.0;
-
 /// Struct that contains only the UI-related state (no logic).
 #[derive(Default, Resource)]
 pub struct UiState {
     /// Currently viewed map layer.
     current_layer: MapDataLayer,
-    /// Is the about window open?
-    about_open: bool,
 }
 
 /// Extra struct (alongside [`UiState`]) that holds the current sidebar panel.
@@ -79,18 +67,21 @@ pub fn create_ui(
             adjust_viewport(ui, ui_base);
         });
     // Handle file dialog.
-    let mut handler = FileDialogHandler::new(events, config);
-    handler.handle(ctx, ui_base);
+    FileDialogHandler::new(events, config).handle(ctx, ui_base);
     // Handle error window.
     if let Some(error) = events.error_window.take() {
         ui_base.error_message = error;
         ui_base.error_window_open = true;
     }
-    let mut handler = ErrorWindowHandler::new();
-    handler.handle(ctx, ui_base);
+    ErrorWindowHandler::new().handle(ctx, ui_base);
     // Handle about window.
-    window(ctx, "About", &mut ui_state.about_open, |ui| {
-        ui.heading("Atlas Map Generator");
+    handle_about(ctx, "Atlas Map Generator", &mut ui_base.about_open);
+}
+
+/// Handle displaying the "About" window.
+fn handle_about(ctx: &Context, name: impl Into<RichText>, open: &mut bool) {
+    window(ctx, "About", open, |ui| {
+        ui.heading(name);
         ui.label(env!("CARGO_PKG_DESCRIPTION"));
         ui.separator();
         ui.label(format!("Authors: {}", env!("CARGO_PKG_AUTHORS")));
@@ -138,7 +129,7 @@ fn create_sidebar_head(
                 });
             });
             ui.menu_button("Help", |ui| {
-                button_action(ui, "About", || ui_state.about_open = true);
+                button_action(ui, "About", || ui_base.about_open = true);
             })
         });
     });
@@ -230,16 +221,6 @@ fn create_current_panel(
     });
 }
 
-/// Adjust viewport size to not overlap the sidebar.
-fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
-    let window_size = ui.clip_rect().size();
-    let ui_size = ui.max_rect().size();
-    ui_base.viewport_size = Vec2 {
-        x: (window_size.x - ui_size.x).max(1.0),
-        y: window_size.y.max(1.0),
-    };
-}
-
 /// Set context for the file dialog to "exporting world" and show it.
 fn import_world_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
@@ -261,7 +242,7 @@ fn save_config_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::save_file(None);
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::SaveGenConfig;
+    ui_base.file_dialog_mode = FileDialogMode::SaveConfig;
 }
 
 /// Set context for the file dialog to "loading config" and show it.
@@ -269,7 +250,7 @@ fn load_config_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::open_file(None);
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::LoadGenConfig;
+    ui_base.file_dialog_mode = FileDialogMode::LoadConfig;
 }
 
 /// Reset generator config to defaults.
@@ -356,7 +337,7 @@ impl<'a> FileDialogHandler<'a> {
 }
 
 impl<'a> HandleFileDialog for FileDialogHandler<'a> {
-    fn load_gen_config(&mut self, path: &Path) {
+    fn load_config(&mut self, path: &Path) {
         match load_config(path) {
             Ok(data) => {
                 *self.config = data;
@@ -366,18 +347,10 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
         }
     }
 
-    fn save_gen_config(&mut self, path: &Path) {
+    fn save_config(&mut self, path: &Path) {
         if let Err(err) = save_config(self.config, path) {
             self.events.error_window = Some(err.to_string());
         }
-    }
-
-    fn load_sim_config(&mut self, _path: &Path) {
-        unreachable!()
-    }
-
-    fn save_sim_config(&mut self, _path: &Path) {
-        unreachable!()
     }
 
     fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer) {
@@ -411,14 +384,3 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
         self.events.import_world_request = Some(path.into());
     }
 }
-
-/// A handler for error window. Doesn't need to override anything.
-pub struct ErrorWindowHandler;
-
-impl ErrorWindowHandler {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl HandleErrorWindow for ErrorWindowHandler {}

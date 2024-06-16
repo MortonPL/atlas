@@ -1,4 +1,4 @@
-use atlas_lib::{
+use crate::{
     png::{BitDepth, ColorType, Decoder, DecodingError, Encoder, EncodingError, SrgbRenderingIntent},
     thiserror, toml,
 };
@@ -6,8 +6,6 @@ use std::{
     fs::{self, File},
     path::Path,
 };
-
-use crate::config::AtlasGenConfig;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -36,14 +34,14 @@ pub enum Error {
 }
 
 /// Load a generator config from a TOML file.
-pub fn load_config(path: impl AsRef<Path>) -> Result<AtlasGenConfig> {
+pub fn load_config<T: for<'de> serde::Deserialize<'de>>(path: impl AsRef<Path>) -> Result<T> {
     let text = fs::read_to_string(path)?;
     let config = toml::from_str(&text)?;
     Ok(config)
 }
 
 /// Save a generator config to a TOML file.
-pub fn save_config(config: &AtlasGenConfig, path: impl AsRef<Path>) -> Result<()> {
+pub fn save_config<T: serde::Serialize>(config: &T, path: impl AsRef<Path>) -> Result<()> {
     let text = toml::to_string(config)?;
     fs::write(path, text)?;
     Ok(())

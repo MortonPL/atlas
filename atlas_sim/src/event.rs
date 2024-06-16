@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use atlas_lib::bevy::{ecs as bevy_ecs, prelude::*};
 
 /// Plugin responsible for holding event requests and their data.
@@ -16,10 +18,21 @@ impl Plugin for EventPlugin {
 /// This way, we can request something to happen next frame, from any place in the code
 /// (as long as this struct can be accessed/is passed down).
 #[derive(Resource)]
-pub struct EventStruct {}
+pub struct EventStruct {
+    /// The whole world should be imported from files.
+    pub import_world_request: Option<Box<Path>>,
+    /// The whole world should be exported to files.
+    pub export_world_request: Option<Box<Path>>,
+    /// An error has occured, and a popup window should display it.
+    pub error_window: Option<String>,
+}
 
 impl Default for EventStruct {
     fn default() -> Self {
-        Self {}
+        Self {
+            import_world_request: Default::default(),
+            export_world_request: Default::default(),
+            error_window: Default::default(),
+        }
     }
 }
