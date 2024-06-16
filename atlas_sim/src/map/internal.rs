@@ -1,12 +1,12 @@
 use atlas_lib::domain::{graphics::MapLogicData, map::MapDataLayer};
 
-use crate::config::{AtlasGenConfig, BiomeConfig, ClimatePreviewMode};
+use crate::config::{AtlasSimConfig, BiomeConfig, ClimatePreviewMode};
 
-pub const CONFIG_NAME: &str = "atlasgen.toml";
+pub const CONFIG_NAME: &str = "atlassim.toml";
 
 /// Convert logical layer data to a texture.
 /// For most cases, this just expands greyscale to grey RGBA.
-pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &AtlasGenConfig) -> Vec<u8> {
+pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &AtlasSimConfig) -> Vec<u8> {
     match layer {
         MapDataLayer::Climate => {
             let data = data_layers.get_layer(layer);
@@ -16,7 +16,7 @@ pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer, config: &At
     }
 }
 
-pub fn fetch_climate(i: usize, config: &AtlasGenConfig) -> &BiomeConfig {
+pub fn fetch_climate(i: usize, config: &AtlasSimConfig) -> &BiomeConfig {
     if i > config.climate.biomes.len() {
         &config.climate.default_biome
     } else {
@@ -24,7 +24,7 @@ pub fn fetch_climate(i: usize, config: &AtlasGenConfig) -> &BiomeConfig {
     }
 }
 
-fn climate_to_view(data: &[u8], config: &AtlasGenConfig) -> Vec<u8> {
+fn climate_to_view(data: &[u8], config: &AtlasSimConfig) -> Vec<u8> {
     match config.climate.preview_mode {
         ClimatePreviewMode::SimplifiedColor => {
             let fun = |x: &u8| {

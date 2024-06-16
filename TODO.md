@@ -18,7 +18,7 @@
 
 ## TO-DO List 2
 
-- Everything
+- Make one app core
 
 - High Priority
   - Core app code: load world, ui (camera zoom/movement + config), config, map display

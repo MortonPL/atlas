@@ -1,11 +1,20 @@
 use std::path::Path;
 
 use atlas_lib::{
-    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*}, bevy_egui::egui::{self, Context, RichText, Ui}, config::{load_config, load_image, load_image_grey, save_config}, domain::map::MapDataLayer, egui_file, ui::{
+    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
+    bevy_egui::egui::{self, Context, RichText, Ui},
+    config::{load_config, load_image, load_image_grey, save_config},
+    domain::map::MapDataLayer,
+    egui_file,
+    ui::{
         button_action,
-        plugin_base::{adjust_viewport, ErrorWindowHandler, FileDialogMode, HandleErrorWindow, HandleFileDialog, UiStateBase, SIDEBAR_MIN_WIDTH, SIDEBAR_WIDTH},
-        sidebar::{SidebarControl, SidebarEnumDropdown}, window,
-    }
+        plugin_base::{
+            adjust_viewport, ErrorWindowHandler, FileDialogMode, HandleErrorWindow, HandleFileDialog,
+            UiStateBase, SIDEBAR_MIN_WIDTH, SIDEBAR_WIDTH,
+        },
+        sidebar::{SidebarControl, SidebarEnumDropdown},
+        window,
+    },
 };
 
 use crate::{
@@ -221,12 +230,12 @@ fn create_current_panel(
     });
 }
 
-/// Set context for the file dialog to "exporting world" and show it.
+/// Set context for the file dialog to "importing world" and show it.
 fn import_world_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::ImportGen;
+    ui_base.file_dialog_mode = FileDialogMode::Import;
 }
 
 /// Set context for the file dialog to "exporting world" and show it.
@@ -234,7 +243,7 @@ fn export_world_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::ExportGen;
+    ui_base.file_dialog_mode = FileDialogMode::Export;
 }
 
 /// Set context for the file dialog to "saving config" and show it.
@@ -376,11 +385,15 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
         self.events.render_layer_request = Some((layer, path.into()));
     }
 
-    fn export_gen(&mut self, path: &Path) {
+    fn export(&mut self, path: &Path) {
         self.events.export_world_request = Some(path.into());
     }
 
-    fn import_gen(&mut self, path: &Path) {
+    fn import(&mut self, path: &Path) {
         self.events.import_world_request = Some(path.into());
+    }
+    
+    fn import_special(&mut self, _path: &Path) {
+        unreachable!()
     }
 }

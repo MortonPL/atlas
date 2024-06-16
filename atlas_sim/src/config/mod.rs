@@ -1,6 +1,8 @@
 mod main_structs;
+mod climate;
 
 pub use main_structs::*;
+pub use climate::*;
 
 use atlas_lib::bevy::prelude::*;
 

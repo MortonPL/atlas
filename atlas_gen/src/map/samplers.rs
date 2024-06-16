@@ -1,13 +1,13 @@
 use atlas_lib::{
     bevy::{math::Vec2, utils::petgraph::matrix_graph::Zero},
-    bevy_egui::egui::lerp,
+    bevy_egui::egui::lerp, config::WorldModel,
 };
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 use crate::config::{
     celsius_to_fraction, precip_to_fraction, FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceShape,
     InfluenceStripConfig, LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm,
-    QuadPointLerp, WorldModel,
+    QuadPointLerp,
 };
 
 impl QuadPointLerp {

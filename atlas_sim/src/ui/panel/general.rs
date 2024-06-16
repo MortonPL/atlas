@@ -7,7 +7,7 @@ use crate::{config::AtlasSimConfig, ui::panel::SidebarPanel};
 pub struct MainPanelGeneral;
 
 impl SidebarPanel for MainPanelGeneral {
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
+    fn make_ui(&mut self, _ui: &mut Ui, _config: &mut AtlasSimConfig) {
         // TODO
     }
 
@@ -16,6 +16,6 @@ impl SidebarPanel for MainPanelGeneral {
     }
 
     fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Continents
+        MapDataLayer::Preview
     }
 }

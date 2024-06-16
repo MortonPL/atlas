@@ -1,15 +1,18 @@
 use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     bevy_egui,
+    config::WorldModel,
     serde_derive::{Deserialize, Serialize},
-    ui::sidebar::*,
-    ui::UiEditableEnum,
+    ui::{sidebar::*, UiEditableEnum},
     MakeUi, UiEditableEnum,
 };
 
-pub use crate::config::common_structs::*;
+pub use crate::config::{common::*, latitudinal::*};
 
-use crate::config::{climate_structs::make_default_biomes, ALTITUDE_MAX, ALTITUDE_MIN};
+use crate::config::{
+    climate::{make_default_biomes, BiomeConfig, ClimatePreviewMode},
+    ALTITUDE_MAX, ALTITUDE_MIN,
+};
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -65,6 +68,20 @@ impl Default for GeneralConfig {
             world_size: [360, 180],
         }
     }
+}
+
+/// How map should be colored in the map preview.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+#[serde(crate = "atlas_lib::serde")]
+pub enum ColorDisplayMode {
+    /// Use color palette depending on topography.
+    #[default]
+    Topography,
+    /// Use climate colors (simplified).
+    SimplifiedClimate,
+    /// Use climate colors.
+    DetailedClimate,
 }
 
 /// Config for the continents generation.
@@ -303,47 +320,10 @@ impl Default for ClimateConfig {
                 name: "Default Biome".to_string(),
                 color: [255, 0, 255],
                 simple_color: [255, 0, 255],
-                productivity: 1.0,
-                habitability: 1.0,
             },
             biomes: make_default_biomes(),
         }
     }
-}
-
-#[derive(Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(rename_all = "lowercase")]
-#[serde(crate = "atlas_lib::serde")]
-pub enum ClimatePreviewMode {
-    SimplifiedColor,
-    #[default]
-    DetailedColor,
-    Habitability,
-}
-
-/// A single climate biome.
-#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
-pub struct BiomeConfig {
-    #[name("Name")]
-    #[control(SidebarHeader)]
-    pub name: String,
-    #[name("Color")]
-    #[control(SidebarColor)]
-    pub color: [u8; 3],
-    #[name("Color (Simplified View)")]
-    #[control(SidebarColor)]
-    pub simple_color: [u8; 3],
-    #[name("Habitability")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub habitability: f32,
-    #[name("Productivity")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    #[add(speed(0.1))]
-    pub productivity: f32, // TODO: replace with per-job-yield (farming/plantation-farming/hunting-gathering/herding/woodcutting).
 }
 
 /// Config for the resource generation.

@@ -1,12 +1,12 @@
-use atlas_lib::{bevy::utils::petgraph::matrix_graph::Zero, domain::map::MapDataLayer};
+use atlas_lib::{bevy::utils::petgraph::matrix_graph::Zero, config::WorldModel, domain::{graphics::{MapLogicData, CLIMATEMAP_SIZE}, map::MapDataLayer}};
 
 use crate::{
     config::{
         precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceMode, InfluenceShape,
-        NoiseAlgorithm, WorldModel, ALTITUDE_STEP,
+        NoiseAlgorithm, ALTITUDE_STEP,
     },
     map::{
-        internal::{fetch_climate, MapLogicData, CLIMATEMAP_SIZE},
+        internal::fetch_climate,
         samplers::{
             add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
             fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,

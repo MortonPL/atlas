@@ -12,6 +12,7 @@ use atlas_lib::{
             adjust_viewport, ErrorWindowHandler, FileDialogMode, HandleErrorWindow, HandleFileDialog,
             UiStateBase, SIDEBAR_MIN_WIDTH, SIDEBAR_WIDTH,
         },
+        sidebar::{SidebarControl, SidebarEnumDropdown},
         window,
     },
 };
@@ -23,12 +24,17 @@ use super::panel::MainPanelGeneral;
 #[derive(Resource)]
 pub struct UiState {
     /// Is the simulations not running yet? Can we still make changes to the configuration?
-    is_not_running: bool,
+    setup_mode: bool,
+    /// Currently viewed map layer.
+    current_layer: MapDataLayer,
 }
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { is_not_running: true }
+        Self {
+            setup_mode: true,
+            current_layer: MapDataLayer::Preview,
+        }
     }
 }
 
@@ -64,8 +70,8 @@ pub fn create_ui(
         .show(ctx, |ui| {
             create_sidebar_head(ui, config, ui_state, ui_base, ui_panel, events, exit);
             ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
-            // create_layer_view_settings(ui, ui_state, events);
-            // ui.separator();
+            create_layer_view_settings(ui, ui_state, events);
+            ui.separator();
             create_panel_tabs(ui, ui_state, ui_panel, events);
             ui.separator();
             create_current_panel(ui, config, ui_state, ui_panel, events);
@@ -111,10 +117,13 @@ fn create_sidebar_head(
         ui.heading(egui::RichText::new("Atlas History Simulator").size(24.0));
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                button_action_enabled(ui, "Import Generated World", ui_state.is_not_running, || {
+                button_action_enabled(ui, "Import Generated World", ui_state.setup_mode, || {
                     import_world_clicked(ui_base)
                 });
-                button_action(ui, "Export Current World", || export_world_clicked(ui_base));
+                button_action_enabled(ui, "Import World State", ui_state.setup_mode, || {
+                    import_world_state_clicked(ui_base)
+                });
+                button_action(ui, "Export World State", || export_world_state_clicked(ui_base));
                 button_action(ui, "Exit", || exit.send(AppExit));
             });
             ui.menu_button("Edit", |ui| {
@@ -124,16 +133,34 @@ fn create_sidebar_head(
             });
             ui.menu_button("Config", |ui| {
                 button_action(ui, "Save Configuration", || save_config_clicked(ui_base));
-                button_action_enabled(ui, "Load Configuration", ui_state.is_not_running, || {
+                button_action_enabled(ui, "Load Configuration", ui_state.setup_mode, || {
                     load_config_clicked(ui_base)
                 });
-                button_action_enabled(ui, "Reset Configuration", ui_state.is_not_running, || {
+                button_action_enabled(ui, "Reset Configuration", ui_state.setup_mode, || {
                     reset_config_clicked(config, ui_panel)
                 });
             });
             ui.menu_button("Help", |ui| {
                 button_action(ui, "About", || ui_base.about_open = true);
             })
+        });
+    });
+}
+
+/// Create sidebar settings for the layer display.
+fn create_layer_view_settings(ui: &mut Ui, ui_state: &mut UiState, events: &mut EventStruct) {
+    ui.vertical(|ui| {
+        let old = ui_state.current_layer;
+        // Layer visibility dropdown.
+        // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
+        ui.horizontal_wrapped(|ui| {
+            let selection =
+                SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_state.current_layer).show(None);
+            SidebarEnumDropdown::post_show(selection, &mut ui_state.current_layer);
+            // Trigger layer change event as needed.
+            if old != ui_state.current_layer {
+                events.viewed_layer_changed = Some(ui_state.current_layer);
+            }
         });
     });
 }
@@ -204,20 +231,28 @@ fn create_current_panel(
     });
 }
 
-/// Set context for the file dialog to "exporting world" and show it.
+/// Set context for the file dialog to "importing world" and show it.
 fn import_world_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::ImportGen;
+    ui_base.file_dialog_mode = FileDialogMode::ImportSpecial;
 }
 
-/// Set context for the file dialog to "exporting world" and show it.
-fn export_world_clicked(ui_base: &mut UiStateBase) {
+/// Set context for the file dialog to "importing world state" and show it.
+fn import_world_state_clicked(ui_base: &mut UiStateBase) {
     let mut file_picker = egui_file::FileDialog::select_folder(None);
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::ExportGen;
+    ui_base.file_dialog_mode = FileDialogMode::Import;
+}
+
+/// Set context for the file dialog to "exporting world state" and show it.
+fn export_world_state_clicked(ui_base: &mut UiStateBase) {
+    let mut file_picker = egui_file::FileDialog::select_folder(None);
+    file_picker.open();
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = FileDialogMode::Export;
 }
 
 /// Set context for the file dialog to "saving config" and show it.
@@ -273,11 +308,15 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
         }
     }
 
-    fn export_gen(&mut self, path: &Path) {
-        self.events.export_world_request = Some(path.into());
+    fn export(&mut self, path: &Path) {
+        self.events.export_state_request = Some(path.into());
     }
 
-    fn import_gen(&mut self, path: &Path) {
+    fn import(&mut self, path: &Path) {
+        self.events.import_state_request = Some(path.into());
+    }
+
+    fn import_special(&mut self, path: &Path) {
         self.events.import_world_request = Some(path.into());
     }
 

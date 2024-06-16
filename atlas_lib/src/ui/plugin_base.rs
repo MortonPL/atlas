@@ -5,7 +5,10 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_egui::{egui::{Context, Ui}, EguiPlugin};
+use bevy_egui::{
+    egui::{Context, Ui},
+    EguiPlugin,
+};
 use std::path::Path;
 
 use crate::{domain::map::MapDataLayer, ui::window};
@@ -41,9 +44,11 @@ pub enum FileDialogMode {
     /// Render this layer to a PNG file.
     RenderImage(MapDataLayer),
     /// Import all layers.
-    ImportGen,
+    Import,
     /// Export all layers.
-    ExportGen,
+    Export,
+    /// Import previous session.
+    ImportSpecial,
 }
 
 /// Struct that contains only the UI-related state (no logic).
@@ -135,8 +140,9 @@ pub trait HandleFileDialog {
                     FileDialogMode::LoadData(layer) => self.load_layer_data(path, layer),
                     FileDialogMode::SaveData(layer) => self.save_layer_data(path, layer),
                     FileDialogMode::RenderImage(layer) => self.render_image(path, layer),
-                    FileDialogMode::ImportGen => self.import_gen(path),
-                    FileDialogMode::ExportGen => self.export_gen(path),
+                    FileDialogMode::Import => self.import(path),
+                    FileDialogMode::ImportSpecial => self.import_special(path),
+                    FileDialogMode::Export => self.export(path),
                 };
             }
             ui_state.file_dialog = None;
@@ -148,8 +154,9 @@ pub trait HandleFileDialog {
     fn load_layer_data(&mut self, path: &Path, layer: MapDataLayer);
     fn save_layer_data(&mut self, path: &Path, layer: MapDataLayer);
     fn render_image(&mut self, path: &Path, layer: MapDataLayer);
-    fn import_gen(&mut self, path: &Path);
-    fn export_gen(&mut self, path: &Path);
+    fn import(&mut self, path: &Path);
+    fn import_special(&mut self, path: &Path);
+    fn export(&mut self, path: &Path);
 }
 
 /// Handler for the egui error window.

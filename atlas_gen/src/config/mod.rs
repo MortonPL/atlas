@@ -1,10 +1,12 @@
-mod climate_structs;
-mod common_structs;
+mod climate;
+mod common;
 mod conversions;
+mod latitudinal;
 mod main_structs;
 
 pub use conversions::*;
 pub use main_structs::*;
+pub use climate::*;
 
 use atlas_lib::bevy::prelude::*;
 

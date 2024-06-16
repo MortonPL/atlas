@@ -243,18 +243,15 @@ based on temperature at precipitation at that location. The exact mapping is con
 * Vertical axis - precipitation, from top to bottom,
 * Value at point - index of a biome in the biome list.
 
-There are three preview modes for this layer:
+There are two preview modes for this layer:
 
 * Simplified color,
 * Detailed color,
-* Habitability.
 
 Each biome has a name and the following properties:
 
 * Color - Color to use for this climate in the detailed climate preview mode. Each biome should have a unique color,
 * Color (simplified view) - Color to use in the simplified climate preview mode. Similar biomes should share colors,
-* Habitability - Measures how habitable this biome is for humans, with 0.0 meaning unhabitable, and 1.0 meaning perfect conditions. This setting is only used by the simulator,
-* Productivity - Overall agricultural productivity of this biome. This setting is only used by the simulator.
 
 Note: adding or removing biomes from the list is possible only via config file.
 

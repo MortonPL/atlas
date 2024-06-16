@@ -45,3 +45,32 @@ impl MapDataLayer {
         }
     }
 }
+
+/// Array of all [`MapDataLayer`] variants.
+pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
+    MapDataLayer::Preview,
+    MapDataLayer::Continents,
+    MapDataLayer::Topography,
+    MapDataLayer::Temperature,
+    MapDataLayer::Precipitation,
+    MapDataLayer::Climate,
+    MapDataLayer::Resources,
+    MapDataLayer::RealTopography,
+    MapDataLayer::TopographyFilter,
+    // Influence
+    MapDataLayer::ContinentsInfluence,
+    MapDataLayer::TopographyInfluence,
+    MapDataLayer::TemperatureInfluence,
+    MapDataLayer::PrecipitationInfluence,
+];
+
+/// Array of all exportable [`MapDataLayer`]s.
+pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 7] = [
+    (MapDataLayer::Continents, "continents.png"),
+    (MapDataLayer::Topography, "topography.png"),
+    (MapDataLayer::RealTopography, "realtopography.png"),
+    (MapDataLayer::Temperature, "temperature.png"),
+    (MapDataLayer::Precipitation, "precipitation.png"),
+    (MapDataLayer::Climate, "climate.png"),
+    (MapDataLayer::Resources, "resources.png"),
+];

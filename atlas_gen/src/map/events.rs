@@ -1,15 +1,23 @@
-use atlas_lib::{bevy::prelude::*, config::{load_config, load_image, load_image_grey, save_config, save_image, save_image_grey}, domain::map::MapDataLayer};
+use atlas_lib::{
+    bevy::prelude::*,
+    config::{
+        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, WorldModel,
+    },
+    domain::{
+        graphics::{
+            get_material, get_material_mut, make_image, CurrentWorldModel, MapGraphicsData, MapLogicData,
+            WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, PREVIEW_NAME,
+        },
+        map::{MapDataLayer, EXPORT_DATA_LAYERS},
+    },
+};
 
 use crate::{
-    config::{AtlasGenConfig, WorldModel},
+    config::AtlasGenConfig,
     event::EventStruct,
     map::{
         generation::{after_generate, generate},
-        internal::{
-            data_to_view, get_material, get_material_mut, make_image, CurrentWorldModel, MapGraphicsData,
-            MapLogicData, WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, CONFIG_NAME,
-            EXPORT_DATA_LAYERS, PREVIEW_NAME,
-        },
+        internal::{data_to_view, CONFIG_NAME},
     },
 };
 

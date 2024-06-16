@@ -14,9 +14,9 @@ use crate::{
     ui::internal::{create_ui, UiState},
 };
 
-pub struct Uiplugin;
+pub struct UiPlugin;
 
-impl Plugin for Uiplugin {
+impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiPluginBase)
             .init_resource::<UiStatePanel>()
