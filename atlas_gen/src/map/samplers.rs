@@ -1,6 +1,7 @@
 use atlas_lib::{
     bevy::{math::Vec2, utils::petgraph::matrix_graph::Zero},
-    bevy_egui::egui::lerp, config::WorldModel,
+    bevy_egui::egui::lerp,
+    config::WorldModel,
 };
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 

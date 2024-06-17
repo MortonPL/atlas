@@ -4,25 +4,28 @@ mod internal;
 mod samplers;
 
 use atlas_lib::{
+    base::{
+        events::{
+            check_event_changed, check_event_export, check_event_import, check_event_regen,
+            check_event_world_model, update_event_changed, update_event_world_model, EventStruct,
+        },
+        ui::{UiStateBase, UiUpdate},
+    },
     bevy::prelude::*,
     config::WorldModel,
     domain::graphics::{
         spawn_default_globe, spawn_default_plane, startup_layers, CurrentWorldModel, MapGraphicsData,
         MapLogicData,
     },
-    base::ui::{UiStateBase, UiUpdate},
 };
 
 use crate::{
     config::AtlasGenConfig,
-    event::EventStruct,
     map::events::{
-        check_event_changed, check_event_clear, check_event_climatemap, check_event_export,
-        check_event_generate, check_event_import, check_event_loaded, check_event_regen,
-        check_event_rendered, check_event_saved, check_event_world_model, update_event_changed,
-        update_event_clear, update_event_climatemap, update_event_export, update_event_generate,
-        update_event_import, update_event_loaded, update_event_regen, update_event_rendered,
-        update_event_saved, update_event_world_model,
+        check_event_clear, check_event_climatemap, check_event_generate, check_event_loaded,
+        check_event_rendered, check_event_saved, update_event_clear, update_event_climatemap,
+        update_event_export, update_event_generate, update_event_import, update_event_loaded,
+        update_event_regen, update_event_rendered, update_event_saved,
     },
 };
 
@@ -35,7 +38,10 @@ impl Plugin for MapPlugin {
             .init_resource::<MapLogicData>()
             .add_systems(Startup, startup_layers)
             .add_systems(Startup, startup_model.after(startup_layers))
-            .add_systems(Update, update_event_world_model.run_if(check_event_world_model))
+            .add_systems(
+                Update,
+                update_event_world_model::<AtlasGenConfig>.run_if(check_event_world_model),
+            )
             .add_systems(Update, update_event_changed.run_if(check_event_changed))
             .add_systems(Update, update_event_loaded.run_if(check_event_loaded))
             .add_systems(Update, update_event_saved.run_if(check_event_saved))

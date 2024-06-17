@@ -1,12 +1,11 @@
 use atlas_lib::{
+    base::events::{resize_helper, EventStruct},
     bevy::prelude::*,
-    config::{
-        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, WorldModel,
-    },
+    config::{load_config, load_image, load_image_grey},
     domain::{
         graphics::{
-            get_material_mut, make_image, CurrentWorldModel, MapGraphicsData, MapLogicData, WorldGlobeMesh,
-            WorldMapMesh, PREVIEW_NAME,
+            get_material_mut, make_image, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
+            PREVIEW_NAME,
         },
         map::{MapDataLayer, EXPORT_DATA_LAYERS},
     },
@@ -14,75 +13,14 @@ use atlas_lib::{
 
 use crate::{
     config::AtlasSimConfig,
-    event::EventStruct,
     map::internal::{data_to_view, CONFIG_NAME},
 };
 
-/// Run Condition
-///
-/// Check if "change world model" UI event needs handling.
-pub fn check_event_world_model(events: Res<EventStruct>) -> bool {
-    events.world_model_changed.is_some()
-}
-
-/// Update system
-///
-/// Handle "change world model" UI event.
-pub fn update_event_world_model(
-    commands: Commands,
-    mut events: ResMut<EventStruct>,
-    config: Res<AtlasSimConfig>,
-    map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    graphics: Res<MapGraphicsData>,
-    logics: ResMut<MapLogicData>,
-) {
-    events.world_model_changed = None;
-    resize_helper(commands, &config, map, globe, logics);
-    // Trigger material refresh.
-    events.viewed_layer_changed = Some(graphics.current);
-}
-
-/// Run Condition
-///
-/// Check if "change viewed layer" UI event needs handling.
-pub fn check_event_changed(events: Res<EventStruct>) -> bool {
-    events.viewed_layer_changed.is_some()
-}
-
-/// Update system
-///
-/// Assign respective layer material to the world model.
-pub fn update_event_changed(
-    mut events: ResMut<EventStruct>,
-    mut graphics: ResMut<MapGraphicsData>,
-    mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
-) {
-    // Set layer as current.
-    let layer = events.viewed_layer_changed.take().expect("Always Some");
-    graphics.current = layer;
-    // Change worls model's material to this layer's material.
-    let layer = graphics.get_layer_mut(layer);
-    let mut mat = world.single_mut();
-    *mat = if layer.invalid {
-        graphics.empty_material.clone()
-    } else {
-        layer.material.clone()
-    };
-}
-
 /// Run condition
 ///
-/// Check if "import world" event needs handling.
-pub fn check_event_import(events: Res<EventStruct>) -> bool {
-    events.import_world_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "regen layer image" event needs handling.
-pub fn check_event_regen(events: Res<EventStruct>) -> bool {
-    events.regen_layer_request.is_some()
+/// Check if "import initial world" event needs handling.
+pub fn check_event_import_start(events: Res<EventStruct>) -> bool {
+    events.import_start_request.is_some()
 }
 
 /// Update system
@@ -117,7 +55,7 @@ pub fn update_event_regen(
 /// Update system
 ///
 /// Import the initial world for simulation.
-pub fn update_event_import(
+pub fn update_event_import_start(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasSimConfig>,
@@ -165,40 +103,7 @@ pub fn update_event_import(
     };
     regen_layers.push(MapDataLayer::Preview);
     // Resize if needed.
-    resize_helper(commands, &config, map, globe, logics);
+    resize_helper(commands, config.as_ref(), map, globe, logics);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
-}
-
-/// Helper function
-///
-/// Switch and resize world models.
-fn resize_helper(
-    mut commands: Commands,
-    config: &AtlasSimConfig,
-    mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    mut logics: ResMut<MapLogicData>,
-) {
-    // Run queries.
-    let (map_en, mut map_vis, mut map_tran) = map.single_mut();
-    let (globe_en, mut globe_vis) = globe.single_mut();
-    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
-    logics.resize_all_layers((width * height) as usize);
-    match config.general.preview_model {
-        WorldModel::Flat => {
-            *map_vis = Visibility::Visible;
-            *globe_vis = Visibility::Hidden;
-            map_tran.scale.x = width as f32 / 100.0;
-            map_tran.scale.z = height as f32 / 100.0;
-            commands.entity(map_en).insert(CurrentWorldModel);
-            commands.entity(globe_en).remove::<CurrentWorldModel>();
-        }
-        WorldModel::Globe => {
-            *map_vis = Visibility::Hidden;
-            *globe_vis = Visibility::Visible;
-            commands.entity(globe_en).insert(CurrentWorldModel);
-            commands.entity(map_en).remove::<CurrentWorldModel>();
-        }
-    }
 }

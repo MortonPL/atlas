@@ -1,4 +1,5 @@
 use atlas_lib::{
+    base::events::EventStruct,
     bevy_egui::egui::Ui,
     domain::map::MapDataLayer,
     ui::sidebar::{MakeUi, SidebarPanel},
@@ -6,7 +7,6 @@ use atlas_lib::{
 
 use crate::{
     config::{AtlasGenConfig, InfluenceShape},
-    event::EventStruct,
     ui::{panel::SidebarPanelGen, AtlasGenUi},
 };
 
@@ -14,7 +14,7 @@ use crate::{
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelTopography;
 
-impl SidebarPanel<AtlasGenConfig, EventStruct, AtlasGenUi> for MainPanelTopography {
+impl SidebarPanel<AtlasGenConfig, AtlasGenUi> for MainPanelTopography {
     fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasGenConfig) {
         config.topography.make_ui(ui);
     }

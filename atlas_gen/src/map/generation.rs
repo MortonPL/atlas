@@ -1,4 +1,11 @@
-use atlas_lib::{bevy::utils::petgraph::matrix_graph::Zero, config::WorldModel, domain::{graphics::{MapLogicData, CLIMATEMAP_SIZE}, map::MapDataLayer}};
+use atlas_lib::{
+    bevy::utils::petgraph::matrix_graph::Zero,
+    config::WorldModel,
+    domain::{
+        graphics::{MapLogicData, CLIMATEMAP_SIZE},
+        map::MapDataLayer,
+    },
+};
 
 use crate::{
     config::{

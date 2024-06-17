@@ -2,7 +2,13 @@ mod internal;
 mod panel;
 
 use atlas_lib::{
-    base::ui::{update_viewport, HandleFileDialog, UiCreator, UiPluginBase, UiStateBase, UiUpdate},
+    base::{
+        events::EventStruct,
+        ui::{
+            open_file_dialog, update_viewport, FileDialogMode, HandleFileDialog, UiCreator, UiPluginBase,
+            UiStateBase, UiUpdate,
+        },
+    },
     bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
     bevy_egui::{
         egui::{self, Context, RichText, Ui},
@@ -11,13 +17,10 @@ use atlas_lib::{
     domain::map::MapDataLayer,
     ui::{button_action, button_action_enabled, sidebar::SidebarPanel, window},
 };
-use internal::{
-    export_world_state_clicked, import_world_clicked, import_world_state_clicked, load_config_clicked,
-    reset_config_clicked, reset_panel_clicked, save_config_clicked, FileDialogHandler,
-};
+use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::MainPanelGeneral;
 
-use crate::{config::AtlasSimConfig, event::EventStruct};
+use crate::config::AtlasSimConfig;
 
 pub struct UiPlugin;
 
@@ -59,7 +62,7 @@ struct AtlasSimUi {
     /// Is the simulations not running yet? Can we still make changes to the configuration?
     pub setup_mode: bool,
     /// Currently viewed sidebar panel.
-    pub current_panel: Box<dyn SidebarPanel<AtlasSimConfig, EventStruct, Self> + Sync + Send>,
+    pub current_panel: Box<dyn SidebarPanel<AtlasSimConfig, Self> + Sync + Send>,
 }
 
 impl Default for AtlasSimUi {
@@ -71,7 +74,7 @@ impl Default for AtlasSimUi {
     }
 }
 
-impl UiCreator<AtlasSimConfig, EventStruct> for AtlasSimUi {
+impl UiCreator<AtlasSimConfig> for AtlasSimUi {
     fn create_sidebar_head(
         &mut self,
         ui: &mut Ui,
@@ -85,12 +88,14 @@ impl UiCreator<AtlasSimConfig, EventStruct> for AtlasSimUi {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     button_action_enabled(ui, "Import Generated World", self.setup_mode, || {
-                        import_world_clicked(ui_base)
+                        open_file_dialog(ui_base, FileDialogMode::ImportSpecial)
                     });
                     button_action_enabled(ui, "Import World State", self.setup_mode, || {
-                        import_world_state_clicked(ui_base)
+                        open_file_dialog(ui_base, FileDialogMode::Import)
                     });
-                    button_action(ui, "Export World State", || export_world_state_clicked(ui_base));
+                    button_action(ui, "Export World State", || {
+                        open_file_dialog(ui_base, FileDialogMode::Export)
+                    });
                     button_action(ui, "Exit", || exit.send(AppExit));
                 });
                 ui.menu_button("Edit", |ui| {
@@ -99,12 +104,14 @@ impl UiCreator<AtlasSimConfig, EventStruct> for AtlasSimUi {
                     });
                 });
                 ui.menu_button("Config", |ui| {
-                    button_action(ui, "Save Configuration", || save_config_clicked(ui_base));
+                    button_action(ui, "Save Configuration", || {
+                        open_file_dialog(ui_base, FileDialogMode::SaveConfig)
+                    });
                     button_action_enabled(ui, "Load Configuration", self.setup_mode, || {
-                        load_config_clicked(ui_base)
+                        open_file_dialog(ui_base, FileDialogMode::LoadConfig)
                     });
                     button_action_enabled(ui, "Reset Configuration", self.setup_mode, || {
-                        reset_config_clicked(config, self)
+                        reset_config_clicked(config, self, events)
                     });
                 });
                 ui.menu_button("Help", |ui| {

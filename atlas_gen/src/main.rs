@@ -1,8 +1,7 @@
 //#![windows_subsystem = "windows"] // DEBUG
 
-use atlas_lib::bevy::prelude::*;
+use atlas_lib::{base::events::EventPlugin, bevy::prelude::*};
 mod config;
-mod event;
 mod map;
 mod ui;
 
@@ -21,7 +20,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
         )
         .add_plugins(config::ConfigPlugin)
-        .add_plugins(event::EventPlugin)
+        .add_plugins(EventPlugin)
         .add_plugins(ui::UiPlugin)
         .add_plugins(map::MapPlugin)
         .add_systems(Startup, atlas_lib::set_window_icon)

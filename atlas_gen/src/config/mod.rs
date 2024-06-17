@@ -4,9 +4,9 @@ mod conversions;
 mod latitudinal;
 mod main_structs;
 
+pub use climate::*;
 pub use conversions::*;
 pub use main_structs::*;
-pub use climate::*;
 
 use atlas_lib::bevy::prelude::*;
 

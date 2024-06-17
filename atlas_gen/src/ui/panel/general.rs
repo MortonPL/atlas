@@ -1,4 +1,5 @@
 use atlas_lib::{
+    base::events::EventStruct,
     bevy_egui::egui::{Grid, Ui},
     domain::map::MapDataLayer,
     ui::{
@@ -10,7 +11,6 @@ use atlas_lib::{
 
 use crate::{
     config::AtlasGenConfig,
-    event::EventStruct,
     ui::{panel::SidebarPanelGen, AtlasGenUi},
 };
 
@@ -18,7 +18,7 @@ use crate::{
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelGeneral {}
 
-impl SidebarPanel<AtlasGenConfig, EventStruct, AtlasGenUi> for MainPanelGeneral {
+impl SidebarPanel<AtlasGenConfig, AtlasGenUi> for MainPanelGeneral {
     fn show(
         &mut self,
         ui: &mut Ui,

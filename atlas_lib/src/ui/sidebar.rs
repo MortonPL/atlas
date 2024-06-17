@@ -1,12 +1,12 @@
 use bevy_egui::egui::{self, Grid, Ui};
 use std::{marker::PhantomData, ops::RangeInclusive};
 
-use crate::{domain::map::MapDataLayer, ui::generic::UiEditableEnum};
+use crate::{base::events::EventStruct, domain::map::MapDataLayer, ui::generic::UiEditableEnum};
 
 const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
 
 /// A sidebar page/panel.
-pub trait SidebarPanel<C, E, U>: SidebarPanelCloneHax<C, E, U> {
+pub trait SidebarPanel<C, U>: SidebarPanelCloneHax<C, U> {
     /// Get panel heading.
     /// NOTE: Must be a unique string!
     fn get_heading(&self) -> &'static str;
@@ -18,10 +18,10 @@ pub trait SidebarPanel<C, E, U>: SidebarPanelCloneHax<C, E, U> {
     fn make_ui(&mut self, _ui: &mut Ui, _config: &mut C) {}
 
     /// Create extra UI after the config UI. Nothing shown by default.
-    fn extra_ui(&mut self, _ui: &mut Ui, _config: &mut C, _ui_state: &mut U, _events: &mut E) {}
+    fn extra_ui(&mut self, _ui: &mut Ui, _config: &mut C, _ui_state: &mut U, _events: &mut EventStruct) {}
 
     /// Create UI for this panel.
-    fn show(&mut self, ui: &mut Ui, config: &mut C, ui_state: &mut U, events: &mut E) {
+    fn show(&mut self, ui: &mut Ui, config: &mut C, ui_state: &mut U, events: &mut EventStruct) {
         Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             self.make_ui(ui, config);
         });
@@ -30,15 +30,15 @@ pub trait SidebarPanel<C, E, U>: SidebarPanelCloneHax<C, E, U> {
 }
 
 /// A hack to allow trait objects be clonable. https://stackoverflow.com/a/30353928
-pub trait SidebarPanelCloneHax<C, E, U> {
-    fn clone_box(&self) -> Box<dyn SidebarPanel<C, E, U>>;
+pub trait SidebarPanelCloneHax<C, U> {
+    fn clone_box(&self) -> Box<dyn SidebarPanel<C, U>>;
 }
 
-impl<T, C, E, U> SidebarPanelCloneHax<C, E, U> for T
+impl<T, C, U> SidebarPanelCloneHax<C, U> for T
 where
-    T: 'static + Clone + SidebarPanel<C, E, U>,
+    T: 'static + Clone + SidebarPanel<C, U>,
 {
-    fn clone_box(&self) -> Box<dyn SidebarPanel<C, E, U>> {
+    fn clone_box(&self) -> Box<dyn SidebarPanel<C, U>> {
         Box::new(self.clone())
     }
 }

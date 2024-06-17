@@ -2,7 +2,13 @@ mod internal;
 mod panel;
 
 use atlas_lib::{
-    base::ui::{update_viewport, HandleFileDialog, UiCreator, UiPluginBase, UiStateBase, UiUpdate},
+    base::{
+        events::EventStruct,
+        ui::{
+            open_file_dialog, update_viewport, FileDialogMode, HandleFileDialog, UiCreator, UiPluginBase,
+            UiStateBase, UiUpdate,
+        },
+    },
     bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
     bevy_egui::{
         egui::{self, Context, RichText, Ui},
@@ -11,17 +17,13 @@ use atlas_lib::{
     domain::map::MapDataLayer,
     ui::{button_action, sidebar::SidebarPanel, window},
 };
-use internal::{
-    clear_layer_clicked, export_world_clicked, import_world_clicked, load_config_clicked, load_layer_clicked,
-    render_layer_clicked, reset_config_clicked, reset_panel_clicked, save_config_clicked, save_layer_clicked,
-    FileDialogHandler,
-};
+use internal::{clear_layer_clicked, reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{
     MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelTemperature,
     MainPanelTopography,
 };
 
-use crate::{config::AtlasGenConfig, event::EventStruct};
+use crate::config::AtlasGenConfig;
 
 /// Plugin responsible for the entire GUI and viewport rectangle.
 pub struct UiPlugin;
@@ -62,7 +64,7 @@ fn update_ui(
 #[derive(Resource)]
 struct AtlasGenUi {
     /// Currently viewed sidebar panel.
-    pub current_panel: Box<dyn SidebarPanel<AtlasGenConfig, EventStruct, Self> + Sync + Send>,
+    pub current_panel: Box<dyn SidebarPanel<AtlasGenConfig, Self> + Sync + Send>,
 }
 
 impl Default for AtlasGenUi {
@@ -73,7 +75,7 @@ impl Default for AtlasGenUi {
     }
 }
 
-impl UiCreator<AtlasGenConfig, EventStruct> for AtlasGenUi {
+impl UiCreator<AtlasGenConfig> for AtlasGenUi {
     fn create_sidebar_head(
         &mut self,
         ui: &mut Ui,
@@ -86,8 +88,12 @@ impl UiCreator<AtlasGenConfig, EventStruct> for AtlasGenUi {
             ui.heading(egui::RichText::new("Atlas Map Generator").size(24.0));
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    button_action(ui, "Import World", || import_world_clicked(ui_base));
-                    button_action(ui, "Export World", || export_world_clicked(ui_base));
+                    button_action(ui, "Import World", || {
+                        open_file_dialog(ui_base, FileDialogMode::Import)
+                    });
+                    button_action(ui, "Export World", || {
+                        open_file_dialog(ui_base, FileDialogMode::Export)
+                    });
                     button_action(ui, "Exit", || exit.send(AppExit));
                 });
                 ui.menu_button("Edit", |ui| {
@@ -96,17 +102,27 @@ impl UiCreator<AtlasGenConfig, EventStruct> for AtlasGenUi {
                     });
                 });
                 ui.menu_button("Config", |ui| {
-                    button_action(ui, "Save Configuration", || save_config_clicked(ui_base));
-                    button_action(ui, "Load Configuration", || load_config_clicked(ui_base));
+                    button_action(ui, "Save Configuration", || {
+                        open_file_dialog(ui_base, FileDialogMode::SaveConfig)
+                    });
+                    button_action(ui, "Load Configuration", || {
+                        open_file_dialog(ui_base, FileDialogMode::LoadConfig)
+                    });
                     button_action(ui, "Reset Configuration", || {
                         reset_config_clicked(config, self, events)
                     });
                 });
                 ui.menu_button("Layer", |ui| {
-                    button_action(ui, "Load Layer Data", || load_layer_clicked(ui_base));
-                    button_action(ui, "Save Layer Data", || save_layer_clicked(ui_base));
+                    button_action(ui, "Load Layer Data", || {
+                        open_file_dialog(ui_base, FileDialogMode::LoadData(ui_base.current_layer))
+                    });
+                    button_action(ui, "Save Layer Data", || {
+                        open_file_dialog(ui_base, FileDialogMode::SaveData(ui_base.current_layer))
+                    });
                     button_action(ui, "Clear Layer Data", || clear_layer_clicked(ui_base, events));
-                    button_action(ui, "Render Layer Image", || render_layer_clicked(ui_base));
+                    button_action(ui, "Render Layer Image", || {
+                        open_file_dialog(ui_base, FileDialogMode::RenderImage(ui_base.current_layer))
+                    });
                 });
                 ui.menu_button("Help", |ui| {
                     button_action(ui, "About", || ui_base.about_open = true);

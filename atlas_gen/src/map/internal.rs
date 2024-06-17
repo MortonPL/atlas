@@ -1,6 +1,9 @@
-use atlas_lib::domain::{graphics::MapLogicData, map::MapDataLayer};
+use atlas_lib::{
+    config::{AtlasConfig, ClimatePreviewMode},
+    domain::{graphics::MapLogicData, map::MapDataLayer},
+};
 
-use crate::config::{AtlasGenConfig, BiomeConfig, ClimatePreviewMode};
+use crate::config::{AtlasGenConfig, BiomeConfig};
 
 pub const CONFIG_NAME: &str = "atlasgen.toml";
 
@@ -25,7 +28,7 @@ pub fn fetch_climate(i: usize, config: &AtlasGenConfig) -> &BiomeConfig {
 }
 
 fn climate_to_view(data: &[u8], config: &AtlasGenConfig) -> Vec<u8> {
-    match config.climate.preview_mode {
+    match config.get_climate_preview() {
         ClimatePreviewMode::SimplifiedColor => {
             let fun = |x: &u8| {
                 let climate = fetch_climate(*x as usize, config);

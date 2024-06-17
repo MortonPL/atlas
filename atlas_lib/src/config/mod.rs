@@ -18,3 +18,17 @@ pub enum WorldModel {
     Flat,
     Globe,
 }
+
+#[derive(Copy, Clone, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum ClimatePreviewMode {
+    SimplifiedColor,
+    #[default]
+    DetailedColor,
+}
+
+pub trait AtlasConfig: Resource {
+    fn get_world_size(&self) -> (u32, u32);
+    fn get_preview_model(&self) -> WorldModel;
+    fn get_climate_preview(&self) -> ClimatePreviewMode;
+}

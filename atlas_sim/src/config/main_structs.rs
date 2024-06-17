@@ -1,10 +1,10 @@
 use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
-    config::WorldModel,
+    config::{AtlasConfig, ClimatePreviewMode, WorldModel},
     serde_derive::{Deserialize, Serialize},
 };
 
-use crate::config::{make_default_biomes, BiomeConfig, ClimatePreviewMode};
+use crate::config::{make_default_biomes, BiomeConfig};
 
 /// Complete configuration for the history simulator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -12,6 +12,20 @@ use crate::config::{make_default_biomes, BiomeConfig, ClimatePreviewMode};
 pub struct AtlasSimConfig {
     pub general: GeneralConfig,
     pub climate: ClimateConfig,
+}
+
+impl AtlasConfig for AtlasSimConfig {
+    fn get_world_size(&self) -> (u32, u32) {
+        (self.general.world_size[0], self.general.world_size[1])
+    }
+
+    fn get_preview_model(&self) -> WorldModel {
+        self.general.preview_model
+    }
+
+    fn get_climate_preview(&self) -> ClimatePreviewMode {
+        self.climate.preview_mode
+    }
 }
 
 /// Complete configuration for the history simulator.

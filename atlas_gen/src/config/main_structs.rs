@@ -1,7 +1,7 @@
 use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     bevy_egui,
-    config::WorldModel,
+    config::{AtlasConfig, ClimatePreviewMode, WorldModel},
     serde_derive::{Deserialize, Serialize},
     ui::{sidebar::*, UiEditableEnum},
     MakeUi, UiEditableEnum,
@@ -10,7 +10,7 @@ use atlas_lib::{
 pub use crate::config::{common::*, latitudinal::*};
 
 use crate::config::{
-    climate::{make_default_biomes, BiomeConfig, ClimatePreviewMode},
+    climate::{make_default_biomes, BiomeConfig},
     ALTITUDE_MAX, ALTITUDE_MIN,
 };
 
@@ -25,6 +25,20 @@ pub struct AtlasGenConfig {
     pub precipitation: PrecipitationConfig,
     pub climate: ClimateConfig,
     pub resources: ResourcesConfig,
+}
+
+impl AtlasConfig for AtlasGenConfig {
+    fn get_world_size(&self) -> (u32, u32) {
+        (self.general.world_size[0], self.general.world_size[1])
+    }
+
+    fn get_preview_model(&self) -> WorldModel {
+        self.general.preview_model
+    }
+
+    fn get_climate_preview(&self) -> ClimatePreviewMode {
+        self.climate.preview_mode
+    }
 }
 
 /// Config for the general map settings.

@@ -13,6 +13,7 @@ use bevy_egui::{
 use std::path::Path;
 
 use crate::{
+    base::events::EventStruct,
     domain::map::MapDataLayer,
     ui::{
         sidebar::{SidebarControl, SidebarEnumDropdown},
@@ -50,11 +51,11 @@ pub enum FileDialogMode {
     LoadData(MapDataLayer),
     /// Render this layer to a PNG file.
     RenderImage(MapDataLayer),
-    /// Import all layers.
+    /// Import all data.
     Import,
-    /// Export all layers.
+    /// Export all data.
     Export,
-    /// Import previous session.
+    /// Import initial data.
     ImportSpecial,
 }
 
@@ -184,23 +185,18 @@ pub trait HandleErrorWindow {
 }
 
 /// A handler for error window. Doesn't need to override anything.
+#[derive(Default)]
 pub struct ErrorWindowHandler;
-
-impl ErrorWindowHandler {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl HandleErrorWindow for ErrorWindowHandler {}
 
-pub trait UiCreator<C, E> {
+pub trait UiCreator<C> {
     fn create_ui(
         &mut self,
         ctx: &mut Context,
         config: &mut C,
         ui_base: &mut UiStateBase,
-        events: &mut E,
+        events: &mut EventStruct,
         exit: &mut EventWriter<AppExit>,
     ) {
         // The UI is a resizeable sidebar fixed to the right window border.
@@ -231,7 +227,7 @@ pub trait UiCreator<C, E> {
         // Handle file dialog.
         Self::handle_file_dialog(config, events, ctx, ui_base);
         // Handle error window.
-        ErrorWindowHandler::new().handle(ctx, ui_base);
+        ErrorWindowHandler::default().handle(ctx, ui_base);
         // Handle about window.
         Self::handle_about(ctx, "Atlas History Simulator", &mut ui_base.about_open);
     }
@@ -242,12 +238,12 @@ pub trait UiCreator<C, E> {
         ui: &mut Ui,
         config: &mut C,
         ui_base: &mut UiStateBase,
-        events: &mut E,
+        events: &mut EventStruct,
         exit: &mut EventWriter<AppExit>,
     );
 
     /// Create sidebar settings for the layer display.
-    fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut E) {
+    fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
         ui.vertical(|ui| {
             let old = ui_base.current_layer;
             // Layer visibility dropdown.
@@ -265,19 +261,19 @@ pub trait UiCreator<C, E> {
     }
 
     /// Create tabs for switching panels.
-    fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut E);
+    fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct);
 
     /// Create the current panel.
-    fn create_current_panel(&mut self, ui: &mut Ui, config: &mut C, events: &mut E);
+    fn create_current_panel(&mut self, ui: &mut Ui, config: &mut C, events: &mut EventStruct);
 
     /// Handle displaying the "About" window.
     fn handle_about(ctx: &Context, name: impl Into<RichText>, open: &mut bool);
 
     /// Get a hadler for file dialog input.
-    fn handle_file_dialog(config: &mut C, events: &mut E, ctx: &Context, ui_base: &mut UiStateBase);
+    fn handle_file_dialog(config: &mut C, events: &mut EventStruct, ctx: &Context, ui_base: &mut UiStateBase);
 
     /// Send an event that a new viewed layer has been set.
-    fn notify_viewed_layer_changed(events: &mut E, layer: MapDataLayer);
+    fn notify_viewed_layer_changed(events: &mut EventStruct, layer: MapDataLayer);
 }
 
 /// Startup system
@@ -409,4 +405,20 @@ pub fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
         x: (window_size.x - ui_size.x).max(1.0),
         y: window_size.y.max(1.0),
     };
+}
+
+pub fn open_file_dialog(ui_base: &mut UiStateBase, mode: FileDialogMode) {
+    let mut file_picker = match mode {
+        FileDialogMode::SaveConfig => egui_file::FileDialog::save_file(None),
+        FileDialogMode::SaveData(_) => egui_file::FileDialog::save_file(None),
+        FileDialogMode::RenderImage(_) => egui_file::FileDialog::save_file(None),
+        FileDialogMode::LoadConfig => egui_file::FileDialog::open_file(None),
+        FileDialogMode::LoadData(_) => egui_file::FileDialog::open_file(None),
+        FileDialogMode::Import => egui_file::FileDialog::select_folder(None),
+        FileDialogMode::Export => egui_file::FileDialog::select_folder(None),
+        FileDialogMode::ImportSpecial => egui_file::FileDialog::select_folder(None),
+    };
+    file_picker.open();
+    ui_base.file_dialog = Some(file_picker);
+    ui_base.file_dialog_mode = mode;
 }

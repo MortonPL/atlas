@@ -3,17 +3,8 @@ use atlas_lib::{
     bevy_egui,
     serde_derive::{Deserialize, Serialize},
     ui::sidebar::*,
-    MakeUi, UiEditableEnum, ui::UiEditableEnum,
+    MakeUi,
 };
-
-#[derive(Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(rename_all = "lowercase")]
-#[serde(crate = "atlas_lib::serde")]
-pub enum ClimatePreviewMode {
-    SimplifiedColor,
-    #[default]
-    DetailedColor,
-}
 
 /// A single climate biome.
 #[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]

@@ -1,16 +1,16 @@
 use atlas_lib::{
+    base::events::EventStruct,
     bevy_egui::egui::Ui,
     ui::{button, sidebar::SidebarPanel},
 };
 
 use crate::{
     config::{AtlasGenConfig, InfluenceShape},
-    event::EventStruct,
     ui::AtlasGenUi,
 };
 
 /// A sidebar page/panel.
-pub trait SidebarPanelGen: SidebarPanel<AtlasGenConfig, EventStruct, AtlasGenUi> {
+pub trait SidebarPanelGen: SidebarPanel<AtlasGenConfig, AtlasGenUi> {
     /// Get influence shape from this panel's config. [`InfluenceShape::None`] by default.
     fn get_influence_shape<'b>(&self, _config: &'b AtlasGenConfig) -> &'b InfluenceShape {
         &InfluenceShape::None

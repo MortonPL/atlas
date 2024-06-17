@@ -1,12 +1,13 @@
 use atlas_lib::{
+    base::events::{resize_helper, EventStruct},
     bevy::prelude::*,
     config::{
-        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, WorldModel,
+        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, AtlasConfig,
     },
     domain::{
         graphics::{
-            get_material, get_material_mut, make_image, CurrentWorldModel, MapGraphicsData, MapLogicData,
-            WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, PREVIEW_NAME,
+            get_material, get_material_mut, make_image, MapGraphicsData, MapLogicData, WorldGlobeMesh,
+            WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, PREVIEW_NAME,
         },
         map::{MapDataLayer, EXPORT_DATA_LAYERS},
     },
@@ -14,71 +15,52 @@ use atlas_lib::{
 
 use crate::{
     config::AtlasGenConfig,
-    event::EventStruct,
     map::{
         generation::{after_generate, generate},
         internal::{data_to_view, CONFIG_NAME},
     },
 };
 
-/// Run Condition
+/// Run condition
 ///
-/// Check if "change world model" UI event needs handling.
-pub fn check_event_world_model(events: Res<EventStruct>) -> bool {
-    events.world_model_changed.is_some()
-}
-
-/// Update system
-///
-/// Handle "change world model" UI event.
-pub fn update_event_world_model(
-    commands: Commands,
-    mut events: ResMut<EventStruct>,
-    config: Res<AtlasGenConfig>,
-    map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    graphics: Res<MapGraphicsData>,
-    logics: ResMut<MapLogicData>,
-) {
-    events.world_model_changed = None;
-    resize_helper(commands, &config, map, globe, logics);
-    // Trigger material refresh.
-    events.viewed_layer_changed = Some(graphics.current);
-}
-
-/// Run Condition
-///
-/// Check if "change viewed layer" UI event needs handling.
-pub fn check_event_changed(events: Res<EventStruct>) -> bool {
-    events.viewed_layer_changed.is_some()
-}
-
-/// Update system
-///
-/// Assign respective layer material to the world model.
-pub fn update_event_changed(
-    mut events: ResMut<EventStruct>,
-    mut graphics: ResMut<MapGraphicsData>,
-    mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
-) {
-    // Set layer as current.
-    let layer = events.viewed_layer_changed.take().expect("Always Some");
-    graphics.current = layer;
-    // Change worls model's material to this layer's material.
-    let layer = graphics.get_layer_mut(layer);
-    let mut mat = world.single_mut();
-    *mat = if layer.invalid {
-        graphics.empty_material.clone()
-    } else {
-        layer.material.clone()
-    };
+/// Check if "load layer data" event needs handling.
+pub fn check_event_loaded(events: Res<EventStruct>) -> bool {
+    events.load_layer_request.is_some()
 }
 
 /// Run condition
 ///
-/// Check if "regen layer image" event needs handling.
-pub fn check_event_regen(events: Res<EventStruct>) -> bool {
-    events.regen_layer_request.is_some()
+/// Check if "save layer data" event needs handling.
+pub fn check_event_saved(events: Res<EventStruct>) -> bool {
+    events.save_layer_request.is_some()
+}
+
+/// Run condition
+///
+/// Check if "save layer image" event needs handling.
+pub fn check_event_rendered(events: Res<EventStruct>) -> bool {
+    events.render_layer_request.is_some()
+}
+
+/// Run condition
+///
+/// Check if "clear layer image" event needs handling.
+pub fn check_event_clear(events: Res<EventStruct>) -> bool {
+    events.clear_layer_request.is_some()
+}
+
+/// Run condition
+///
+/// Check if "generate layer data" event needs handling.
+pub fn check_event_generate(events: Res<EventStruct>) -> bool {
+    events.generate_request.is_some()
+}
+
+/// Run condition
+///
+/// Check if "reload climatemap.png" event needs handling.
+pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
+    events.load_climatemap_request.is_some()
 }
 
 /// Update system
@@ -100,7 +82,7 @@ pub fn update_event_regen(
         let layer = graphics.get_layer_mut(layer);
         let material = get_material_mut(&mut materials, &layer.material);
         // Assign new texture.
-        let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
+        let (width, height) = config.get_world_size();
         let image = images.add(make_image(width, height, std::mem::take(&mut data)));
         material.base_color_texture = Some(image);
         // Graphical layer becomes valid again.
@@ -108,13 +90,6 @@ pub fn update_event_regen(
     }
     // Trigger material refresh.
     events.viewed_layer_changed = Some(graphics.current);
-}
-
-/// Run condition
-///
-/// Check if "load layer data" event needs handling.
-pub fn check_event_loaded(events: Res<EventStruct>) -> bool {
-    events.load_layer_request.is_some()
 }
 
 /// Update system
@@ -132,13 +107,6 @@ pub fn update_event_loaded(
     post_generation(layer, &mut logics, &mut events, &config, vec![layer]);
 }
 
-/// Run condition
-///
-/// Check if "save layer data" event needs handling.
-pub fn check_event_saved(events: Res<EventStruct>) -> bool {
-    events.save_layer_request.is_some()
-}
-
 /// Update system
 ///
 /// Save layer data.
@@ -149,19 +117,12 @@ pub fn update_event_saved(
 ) {
     let (layer, path) = events.save_layer_request.take().expect("Always Some");
     let data = logics.get_layer(layer);
-    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
+    let (width, height) = config.get_world_size();
     let result = match layer {
         MapDataLayer::Preview => save_image(path, data, width, height),
         _ => save_image_grey(path, data, width, height),
     };
     events.error_window = result.err().map(|x| x.to_string());
-}
-
-/// Run condition
-///
-/// Check if "save layer image" event needs handling.
-pub fn check_event_rendered(events: Res<EventStruct>) -> bool {
-    events.render_layer_request.is_some()
 }
 
 /// Update system
@@ -189,16 +150,9 @@ pub fn update_event_rendered(
         .expect("Material should have a texture");
     let image = images.get(image).expect("Image handle should be valid");
     // Save the texture with correct dimensions.
-    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
+    let (width, height) = config.get_world_size();
     let result = save_image(path, &image.data, width, height);
     events.error_window = result.err().map(|x| x.to_string());
-}
-
-/// Run condition
-///
-/// Check if "clear layer image" event needs handling.
-pub fn check_event_clear(events: Res<EventStruct>) -> bool {
-    events.clear_layer_request.is_some()
 }
 
 /// Update system
@@ -216,13 +170,6 @@ pub fn update_event_clear(
     graphic.invalid = true;
     // Trigger material refresh.
     events.viewed_layer_changed = Some(graphics.current);
-}
-
-/// Run condition
-///
-/// Check if "generate layer data" event needs handling.
-pub fn check_event_generate(events: Res<EventStruct>) -> bool {
-    events.generate_request.is_some()
 }
 
 /// Update system
@@ -246,13 +193,6 @@ pub fn update_event_generate(
     post_generation(layer, &mut logics, &mut events, &config, regen_layers);
 }
 
-/// Run condition
-///
-/// Check if "reload climatemap.png" event needs handling.
-pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
-    events.load_climatemap_request.is_some()
-}
-
 /// Update system
 ///
 /// Reload climatemap.png.
@@ -260,13 +200,6 @@ pub fn update_event_climatemap(mut events: ResMut<EventStruct>, mut logics: ResM
     events.load_climatemap_request.take();
     let result = logics.load_climatemap();
     events.error_window = result.err().map(|x| x.to_string());
-}
-
-/// Run condition
-///
-/// Check if "import world" event needs handling.
-pub fn check_event_import(events: Res<EventStruct>) -> bool {
-    events.import_world_request.is_some()
 }
 
 /// Update system
@@ -329,16 +262,9 @@ pub fn update_event_import(
         }
     };
     // Resize if needed.
-    resize_helper(commands, &config, map, globe, logics);
+    resize_helper(commands, config.as_ref(), map, globe, logics);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
-}
-
-/// Run condition
-///
-/// Check if "export world" event needs handling.
-pub fn check_event_export(events: Res<EventStruct>) -> bool {
-    events.export_world_request.is_some()
 }
 
 /// Update system
@@ -395,37 +321,4 @@ fn post_generation(
     regen_layers.extend(regen_layers_2);
     // Trigger texture regeneration.
     events.regen_layer_request = Some(regen_layers);
-}
-
-/// Helper function
-///
-/// Switch and resize world models.
-fn resize_helper(
-    mut commands: Commands,
-    config: &AtlasGenConfig,
-    mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    mut logics: ResMut<MapLogicData>,
-) {
-    // Run queries.
-    let (map_en, mut map_vis, mut map_tran) = map.single_mut();
-    let (globe_en, mut globe_vis) = globe.single_mut();
-    let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
-    logics.resize_all_layers((width * height) as usize);
-    match config.general.preview_model {
-        WorldModel::Flat => {
-            *map_vis = Visibility::Visible;
-            *globe_vis = Visibility::Hidden;
-            map_tran.scale.x = width as f32 / 100.0;
-            map_tran.scale.z = height as f32 / 100.0;
-            commands.entity(map_en).insert(CurrentWorldModel);
-            commands.entity(globe_en).remove::<CurrentWorldModel>();
-        }
-        WorldModel::Globe => {
-            *map_vis = Visibility::Hidden;
-            *globe_vis = Visibility::Visible;
-            commands.entity(globe_en).insert(CurrentWorldModel);
-            commands.entity(map_en).remove::<CurrentWorldModel>();
-        }
-    }
 }

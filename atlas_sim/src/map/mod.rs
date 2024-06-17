@@ -2,24 +2,23 @@ mod events;
 mod internal;
 
 use atlas_lib::{
+    base::{
+        events::{
+            check_event_changed, check_event_regen, check_event_world_model, update_event_changed,
+            update_event_world_model, EventStruct,
+        },
+        ui::{UiStateBase, UiUpdate},
+    },
     bevy::prelude::*,
     config::WorldModel,
     domain::graphics::{
         spawn_default_globe, spawn_default_plane, startup_layers, CurrentWorldModel, MapGraphicsData,
         MapLogicData,
     },
-    base::ui::{UiStateBase, UiUpdate},
 };
-use events::{
-    check_event_changed, check_event_regen, check_event_world_model, update_event_changed,
-    update_event_regen, update_event_world_model,
-};
+use events::{check_event_import_start, update_event_regen};
 
-use crate::{
-    config::AtlasSimConfig,
-    event::EventStruct,
-    map::events::{check_event_import, update_event_import},
-};
+use crate::{config::AtlasSimConfig, map::events::update_event_import_start};
 
 /// Plugin responsible for the world graphics and generation.
 pub struct MapPlugin;
@@ -30,10 +29,13 @@ impl Plugin for MapPlugin {
             .init_resource::<MapLogicData>()
             .add_systems(Startup, startup_layers)
             .add_systems(Startup, startup_model.after(startup_layers))
-            .add_systems(Update, update_event_world_model.run_if(check_event_world_model))
+            .add_systems(
+                Update,
+                update_event_world_model::<AtlasSimConfig>.run_if(check_event_world_model),
+            )
             .add_systems(Update, update_event_changed.run_if(check_event_changed))
             .add_systems(Update, update_event_regen.run_if(check_event_regen))
-            .add_systems(Update, update_event_import.run_if(check_event_import))
+            .add_systems(Update, update_event_import_start.run_if(check_event_import_start))
             .add_systems(UiUpdate, update_model_rotation);
         /*
         .add_systems(Update, update_event_loaded.run_if(check_event_loaded))

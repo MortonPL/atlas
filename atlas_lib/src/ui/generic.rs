@@ -41,7 +41,8 @@ where
     F: FnOnce() -> T,
     T: Default,
 {
-    ui.add_enabled_ui(enabled, |ui| button_action(ui, text, fun)).inner
+    ui.add_enabled_ui(enabled, |ui| button_action(ui, text, fun))
+        .inner
 }
 
 /// Show a popup window.

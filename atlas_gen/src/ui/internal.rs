@@ -1,48 +1,19 @@
 use std::path::Path;
 
 use atlas_lib::{
-    base::ui::{FileDialogMode, HandleFileDialog, UiStateBase},
+    base::{
+        events::EventStruct,
+        ui::{HandleFileDialog, UiStateBase},
+    },
     bevy::prelude::*,
     config::{load_config, load_image, load_image_grey, save_config},
     domain::map::MapDataLayer,
-    egui_file,
 };
 
-use crate::{config::AtlasGenConfig, event::EventStruct, ui::AtlasGenUi};
-
-use super::panel::MainPanelGeneral;
-
-/// Set context for the file dialog to "importing world" and show it.
-pub fn import_world_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::select_folder(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::Import;
-}
-
-/// Set context for the file dialog to "exporting world" and show it.
-pub fn export_world_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::select_folder(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::Export;
-}
-
-/// Set context for the file dialog to "saving config" and show it.
-pub fn save_config_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::save_file(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::SaveConfig;
-}
-
-/// Set context for the file dialog to "loading config" and show it.
-pub fn load_config_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::open_file(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::LoadConfig;
-}
+use crate::{
+    config::AtlasGenConfig,
+    ui::{panel::MainPanelGeneral, AtlasGenUi},
+};
 
 /// Reset generator config to defaults.
 pub fn reset_config_clicked(
@@ -53,6 +24,11 @@ pub fn reset_config_clicked(
     *config = AtlasGenConfig::default();
     ui_state.current_panel = Box::<MainPanelGeneral>::default();
     events.world_model_changed = Some(());
+}
+
+// Clear layer data.
+pub fn clear_layer_clicked(ui_base: &mut UiStateBase, events: &mut EventStruct) {
+    events.clear_layer_request = Some(ui_base.current_layer);
 }
 
 /// Reset a config from one panel to defaults, and reset relevant logic layers.
@@ -88,35 +64,6 @@ pub fn reset_panel_clicked(config: &mut AtlasGenConfig, ui_state: &mut AtlasGenU
         }
         _ => unreachable!(),
     }
-}
-
-// Set context for the file dialog to "loading layer" and show it.
-pub fn load_layer_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::open_file(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::LoadData(ui_base.current_layer);
-}
-
-// Set context for the file dialog to "saving layer" and show it.
-pub fn save_layer_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::save_file(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::SaveData(ui_base.current_layer);
-}
-
-// Set context for the file dialog to "rendering layer" and show it.
-pub fn render_layer_clicked(ui_base: &mut UiStateBase) {
-    let mut file_picker = egui_file::FileDialog::save_file(None);
-    file_picker.open();
-    ui_base.file_dialog = Some(file_picker);
-    ui_base.file_dialog_mode = FileDialogMode::RenderImage(ui_base.current_layer);
-}
-
-// Clear layer data.
-pub fn clear_layer_clicked(ui_base: &mut UiStateBase, events: &mut EventStruct) {
-    events.clear_layer_request = Some(ui_base.current_layer);
 }
 
 /// A handler implementation for the egui file dialog.
