@@ -1,6 +1,10 @@
 use std::path::Path;
 
 use atlas_lib::{
+    base::ui::{
+        adjust_viewport, ErrorWindowHandler, FileDialogMode, HandleErrorWindow, HandleFileDialog,
+        UiStateBase, SIDEBAR_MIN_WIDTH, SIDEBAR_WIDTH,
+    },
     bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
     bevy_egui::egui::{self, Context, RichText, Ui},
     config::{load_config, load_image, load_image_grey, save_config},
@@ -8,10 +12,6 @@ use atlas_lib::{
     egui_file,
     ui::{
         button_action,
-        plugin_base::{
-            adjust_viewport, ErrorWindowHandler, FileDialogMode, HandleErrorWindow, HandleFileDialog,
-            UiStateBase, SIDEBAR_MIN_WIDTH, SIDEBAR_WIDTH,
-        },
         sidebar::{SidebarControl, SidebarEnumDropdown},
         window,
     },
@@ -392,7 +392,7 @@ impl<'a> HandleFileDialog for FileDialogHandler<'a> {
     fn import(&mut self, path: &Path) {
         self.events.import_world_request = Some(path.into());
     }
-    
+
     fn import_special(&mut self, _path: &Path) {
         unreachable!()
     }

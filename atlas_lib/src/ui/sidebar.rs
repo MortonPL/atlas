@@ -1,9 +1,46 @@
-use bevy_egui::egui::{self, Ui};
+use bevy_egui::egui::{self, Grid, Ui};
 use std::{marker::PhantomData, ops::RangeInclusive};
 
-use crate::ui::generic::UiEditableEnum;
+use crate::{domain::map::MapDataLayer, ui::generic::UiEditableEnum};
 
 const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
+
+/// A sidebar page/panel.
+pub trait SidebarPanel<C, E, U>: SidebarPanelCloneHax<C, E, U> {
+    /// Get panel heading.
+    /// NOTE: Must be a unique string!
+    fn get_heading(&self) -> &'static str;
+
+    /// Get layer that should be displayed with this panel.
+    fn get_layer(&self) -> MapDataLayer;
+
+    /// Create a config UI for this panel. Nothing shown by default.
+    fn make_ui(&mut self, _ui: &mut Ui, _config: &mut C) {}
+
+    /// Create UI for this panel.
+    fn show(
+        &mut self,
+        ui: &mut Ui,
+        config: &mut C,
+        _ui_state: &mut U,
+        _events: &mut E,
+    ) {
+        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+            self.make_ui(ui, config);
+        });
+    }
+}
+
+/// A hack to allow trait objects be clonable. https://stackoverflow.com/a/30353928
+pub trait SidebarPanelCloneHax<C, E, U> {
+    fn clone_box(&self) -> Box<dyn SidebarPanel<C, E, U>>;
+}
+
+impl<T, C, E, U> SidebarPanelCloneHax<C, E, U> for T where T: 'static + Clone + SidebarPanel<C, E, U> {
+    fn clone_box(&self) -> Box<dyn SidebarPanel<C, E, U>> {
+        Box::new(self.clone())
+    }
+}
 
 /// Something that can be edited via the sidebar UI.
 pub trait MakeUi {

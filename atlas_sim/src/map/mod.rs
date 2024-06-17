@@ -8,7 +8,7 @@ use atlas_lib::{
         spawn_default_globe, spawn_default_plane, startup_layers, CurrentWorldModel, MapGraphicsData,
         MapLogicData,
     },
-    ui::plugin_base::{UiStateBase, UiUpdate},
+    base::ui::{UiStateBase, UiUpdate},
 };
 use events::{
     check_event_changed, check_event_regen, check_event_world_model, update_event_changed,

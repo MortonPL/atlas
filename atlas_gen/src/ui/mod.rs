@@ -4,7 +4,7 @@ mod panel;
 use atlas_lib::{
     bevy::{app::AppExit, prelude::*, render::camera::Viewport},
     bevy_egui::{EguiContexts, EguiSettings},
-    ui::plugin_base::{MainCamera, UiPluginBase, UiStateBase, UiUpdate},
+    base::ui::{MainCamera, UiPluginBase, UiStateBase, UiUpdate},
 };
 
 use crate::{

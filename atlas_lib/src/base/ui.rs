@@ -1,17 +1,24 @@
 use bevy::{
-    app::{MainScheduleOrder, RunFixedUpdateLoop},
+    app::{AppExit, MainScheduleOrder, RunFixedUpdateLoop},
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
     ecs::schedule::ScheduleLabel,
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
+    render::camera::Viewport,
 };
 use bevy_egui::{
-    egui::{Context, Ui},
-    EguiPlugin,
+    egui::{self, Context, RichText, Ui},
+    EguiPlugin, EguiSettings,
 };
 use std::path::Path;
 
-use crate::{domain::map::MapDataLayer, ui::window};
+use crate::{
+    domain::map::MapDataLayer,
+    ui::{
+        sidebar::{SidebarControl, SidebarEnumDropdown},
+        window,
+    },
+};
 
 /// Minimum camera zoom as Z in world space (bad idea?).
 const MIN_CAMERA_ZOOM: f32 = 1.0;
@@ -68,6 +75,8 @@ pub struct UiStateBase {
     pub camera: UiCameraData,
     /// Is the about window open?
     pub about_open: bool,
+    /// Currently viewed map layer.
+    pub current_layer: MapDataLayer,
 }
 
 #[derive(Resource)]
@@ -185,6 +194,92 @@ impl ErrorWindowHandler {
 
 impl HandleErrorWindow for ErrorWindowHandler {}
 
+pub trait UiCreator<C, E> {
+    fn create_ui(
+        &mut self,
+        ctx: &mut Context,
+        config: &mut C,
+        ui_base: &mut UiStateBase,
+        events: &mut E,
+        exit: &mut EventWriter<AppExit>,
+    ) {
+        // The UI is a resizeable sidebar fixed to the right window border.
+        // __________________
+        // | Sidebar Head   |  <-- Title, menu bar.
+        // |----------------|
+        // | Layer View     |  <-- Layer dropdown.
+        // |----------------|
+        // | Panel Selection|  <-- Pseudo "tabs" for panels.
+        // |----------------|
+        // | Panel-specific |  <-- Panel displaying current stage settings.
+        // |________________|
+        egui::SidePanel::right("ui_root")
+            .min_width(SIDEBAR_MIN_WIDTH)
+            .default_width(SIDEBAR_WIDTH)
+            .show(ctx, |ui| {
+                self.create_sidebar_head(ui, config, ui_base, events, exit);
+                ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
+                self.create_layer_view_settings(ui, ui_base, events);
+                ui.separator();
+                self.create_panel_tabs(ui);
+                ui.separator();
+                self.create_current_panel(ui, config, events);
+                // We've finished drawing the sidebar. Its size is now established
+                // and we can calculate the viewport size.
+                adjust_viewport(ui, ui_base);
+            });
+        // Handle file dialog.
+        Self::handle_file_dialog(config, events, ctx, ui_base);
+        // Handle error window.
+        ErrorWindowHandler::new().handle(ctx, ui_base);
+        // Handle about window.
+        Self::handle_about(ctx, "Atlas History Simulator", &mut ui_base.about_open);
+    }
+
+    /// Create the top part of the sidebar with configuration S/L.
+    fn create_sidebar_head(
+        &mut self,
+        ui: &mut Ui,
+        config: &mut C,
+        ui_base: &mut UiStateBase,
+        events: &mut E,
+        exit: &mut EventWriter<AppExit>,
+    );
+
+    /// Create sidebar settings for the layer display.
+    fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut E) {
+        ui.vertical(|ui| {
+            let old = ui_base.current_layer;
+            // Layer visibility dropdown.
+            // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
+            ui.horizontal_wrapped(|ui| {
+                let selection =
+                    SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_base.current_layer).show(None);
+                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
+                // Trigger layer change event as needed.
+                if old != ui_base.current_layer {
+                    Self::notify_viewed_layer_changed(events, ui_base.current_layer);
+                }
+            });
+        });
+    }
+
+    /// Create tabs for switching panels.
+    fn create_panel_tabs(&mut self, ui: &mut Ui);
+
+    /// Create the current panel.
+    fn create_current_panel(&mut self, ui: &mut Ui, config: &mut C, events: &mut E);
+
+    /// Handle displaying the "About" window.
+    fn handle_about(ctx: &Context, name: impl Into<RichText>, open: &mut bool);
+
+    /// Get a hadler for file dialog input.
+    fn handle_file_dialog(config: &mut C, events: &mut E, ctx: &Context, ui_base: &mut UiStateBase);
+
+    /// Send an event that a new viewed layer has been set.
+    fn notify_viewed_layer_changed(events: &mut E, layer: MapDataLayer);
+}
+
 /// Startup system
 ///
 /// Spawn the main camera that the viewport will use.
@@ -282,7 +377,31 @@ fn update_input(
     }
 }
 
-/// Adjust viewport size to not overlap the sidebar.
+/// Update system (after [`update_ui`]).
+///
+/// Set the viewport rectangle to whatever is not occupied by the UI sidebar.
+pub fn update_viewport(
+    settings: Res<EguiSettings>,
+    mut cameras: Query<&mut Camera, With<MainCamera>>,
+    ui_base: Res<UiStateBase>,
+    window: Query<&Window>,
+) {
+    if !window.single().focused {
+        return;
+    }
+    let viewport_size = ui_base.viewport_size * settings.scale_factor as f32;
+    // Layout: viewport on the left, sidebar on the right. Together they take up the entire screen space.
+    let mut camera = cameras.single_mut();
+    camera.viewport = Some(Viewport {
+        physical_position: UVec2::new(0, 0),
+        physical_size: UVec2::new(viewport_size.x as u32, viewport_size.y as u32),
+        ..Default::default()
+    });
+}
+
+/// Helper function.
+///
+/// Calculate viewport size to not overlap the sidebar.
 pub fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
     let window_size = ui.clip_rect().size();
     let ui_size = ui.max_rect().size();
