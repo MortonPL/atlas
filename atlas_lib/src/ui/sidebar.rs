@@ -17,17 +17,15 @@ pub trait SidebarPanel<C, E, U>: SidebarPanelCloneHax<C, E, U> {
     /// Create a config UI for this panel. Nothing shown by default.
     fn make_ui(&mut self, _ui: &mut Ui, _config: &mut C) {}
 
+    /// Create extra UI after the config UI. Nothing shown by default.
+    fn extra_ui(&mut self, _ui: &mut Ui, _config: &mut C, _ui_state: &mut U, _events: &mut E) {}
+
     /// Create UI for this panel.
-    fn show(
-        &mut self,
-        ui: &mut Ui,
-        config: &mut C,
-        _ui_state: &mut U,
-        _events: &mut E,
-    ) {
+    fn show(&mut self, ui: &mut Ui, config: &mut C, ui_state: &mut U, events: &mut E) {
         Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             self.make_ui(ui, config);
         });
+        self.extra_ui(ui, config, ui_state, events);
     }
 }
 
@@ -36,7 +34,10 @@ pub trait SidebarPanelCloneHax<C, E, U> {
     fn clone_box(&self) -> Box<dyn SidebarPanel<C, E, U>>;
 }
 
-impl<T, C, E, U> SidebarPanelCloneHax<C, E, U> for T where T: 'static + Clone + SidebarPanel<C, E, U> {
+impl<T, C, E, U> SidebarPanelCloneHax<C, E, U> for T
+where
+    T: 'static + Clone + SidebarPanel<C, E, U>,
+{
     fn clone_box(&self) -> Box<dyn SidebarPanel<C, E, U>> {
         Box::new(self.clone())
     }

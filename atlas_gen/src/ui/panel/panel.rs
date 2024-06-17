@@ -1,45 +1,19 @@
 use atlas_lib::{
-    bevy_egui::egui::{Grid, Ui},
-    domain::map::MapDataLayer,
-    ui::button,
+    bevy_egui::egui::Ui,
+    ui::{button, sidebar::SidebarPanel},
 };
 
 use crate::{
     config::{AtlasGenConfig, InfluenceShape},
     event::EventStruct,
-    ui::{internal::UiState, panel::MainPanelGeneral},
+    ui::AtlasGenUi,
 };
 
 /// A sidebar page/panel.
-pub trait SidebarPanel {
-    /// Get panel heading.
-    /// NOTE: Must be a unique string!
-    fn get_heading(&self) -> &'static str;
-
-    /// Get layer that should be displayed with this panel.
-    fn get_layer(&self) -> MapDataLayer;
-
-    /// Create a config UI for this panel. Nothing shown by default.
-    fn make_ui(&mut self, _ui: &mut Ui, _config: &mut AtlasGenConfig) {}
-
+pub trait SidebarPanelGen: SidebarPanel<AtlasGenConfig, EventStruct, AtlasGenUi> {
     /// Get influence shape from this panel's config. [`InfluenceShape::None`] by default.
     fn get_influence_shape<'b>(&self, _config: &'b AtlasGenConfig) -> &'b InfluenceShape {
         &InfluenceShape::None
-    }
-
-    /// Create UI for this panel.
-    fn show(
-        &mut self,
-        ui: &mut Ui,
-        config: &mut AtlasGenConfig,
-        _ui_state: &mut UiState,
-        events: &mut EventStruct,
-    ) {
-        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
-            self.make_ui(ui, config);
-        });
-        self.button_influence(ui, events, self.get_influence_shape(config));
-        self.button_layer(ui, events);
     }
 
     /// Create a "Generate Layer" button.
@@ -56,11 +30,5 @@ pub trait SidebarPanel {
                 events.generate_request = Some((layer, false));
             }
         }
-    }
-}
-
-impl Default for Box<dyn SidebarPanel + Sync + Send> {
-    fn default() -> Self {
-        Box::<MainPanelGeneral>::default()
     }
 }

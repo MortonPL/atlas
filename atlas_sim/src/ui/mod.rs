@@ -114,7 +114,7 @@ impl UiCreator<AtlasSimConfig, EventStruct> for AtlasSimUi {
         });
     }
 
-    fn create_panel_tabs(&mut self, ui: &mut Ui) {
+    fn create_panel_tabs(&mut self, ui: &mut Ui, _ui_base: &mut UiStateBase, _events: &mut EventStruct) {
         ui.vertical(|ui| {
             let mut changed = false;
             egui::menu::bar(ui, |ui| {
@@ -151,6 +151,16 @@ impl UiCreator<AtlasSimConfig, EventStruct> for AtlasSimUi {
         });
     }
 
+    fn create_current_panel(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig, events: &mut EventStruct) {
+        // Panel heading.
+        ui.heading(self.current_panel.get_heading());
+        // Panel inner.
+        egui::ScrollArea::both().show(ui, |ui| {
+            self.current_panel.clone_box().show(ui, config, self, events);
+            ui.separator(); // HACK! Again! Without it the scroll area isn't greedy.
+        });
+    }
+
     fn handle_about(ctx: &Context, name: impl Into<RichText>, open: &mut bool) {
         window(ctx, "About", open, |ui| {
             ui.heading(name);
@@ -173,16 +183,6 @@ impl UiCreator<AtlasSimConfig, EventStruct> for AtlasSimUi {
             ui_base.error_message = error;
             ui_base.error_window_open = true;
         }
-    }
-
-    fn create_current_panel(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig, events: &mut EventStruct) {
-        // Panel heading.
-        ui.heading(self.current_panel.get_heading());
-        // Panel inner.
-        egui::ScrollArea::both().show(ui, |ui| {
-            self.current_panel.clone_box().show(ui, config, self, events);
-            ui.separator(); // HACK! Again! Without it the scroll area isn't greedy.
-        });
     }
 
     fn notify_viewed_layer_changed(events: &mut EventStruct, layer: MapDataLayer) {

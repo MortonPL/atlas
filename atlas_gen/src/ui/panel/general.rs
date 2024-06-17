@@ -1,25 +1,29 @@
 use atlas_lib::{
     bevy_egui::egui::{Grid, Ui},
     domain::map::MapDataLayer,
-    ui::{button, sidebar::MakeUi, UiEditableEnum},
+    ui::{
+        button,
+        sidebar::{MakeUi, SidebarPanel},
+        UiEditableEnum,
+    },
 };
 
 use crate::{
     config::AtlasGenConfig,
     event::EventStruct,
-    ui::{internal::UiState, panel::SidebarPanel},
+    ui::{panel::SidebarPanelGen, AtlasGenUi},
 };
 
 /// Panel with general world gen and preview settings.
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelGeneral {}
 
-impl SidebarPanel for MainPanelGeneral {
+impl SidebarPanel<AtlasGenConfig, EventStruct, AtlasGenUi> for MainPanelGeneral {
     fn show(
         &mut self,
         ui: &mut Ui,
         config: &mut AtlasGenConfig,
-        _ui_state: &mut UiState,
+        _ui_state: &mut AtlasGenUi,
         events: &mut EventStruct,
     ) {
         let old_world_model = config.general.preview_model.self_as_index();
@@ -50,3 +54,5 @@ impl SidebarPanel for MainPanelGeneral {
         MapDataLayer::Preview
     }
 }
+
+impl SidebarPanelGen for MainPanelGeneral {}

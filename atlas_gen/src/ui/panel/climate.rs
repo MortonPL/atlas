@@ -1,28 +1,35 @@
-use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::MakeUi};
+use atlas_lib::{
+    bevy_egui::egui::{Grid, Ui},
+    domain::map::MapDataLayer,
+    ui::sidebar::{MakeUi, SidebarPanel},
+};
 
 use crate::{
     config::AtlasGenConfig,
     event::EventStruct,
-    ui::{internal::UiState, panel::SidebarPanel},
+    ui::{panel::SidebarPanelGen, AtlasGenUi},
 };
 
 /// Panel with climate generation settings.
 #[derive(Default, Clone, Copy)]
 pub struct MainPanelClimate;
 
-impl SidebarPanel for MainPanelClimate {
+impl SidebarPanel<AtlasGenConfig, EventStruct, AtlasGenUi> for MainPanelClimate {
     fn show(
         &mut self,
         ui: &mut Ui,
         config: &mut AtlasGenConfig,
-        _ui_state: &mut UiState,
+        _ui_state: &mut AtlasGenUi,
         events: &mut EventStruct,
     ) {
         if ui.button("Reload \"climatemap.png\"").clicked() {
             events.load_climatemap_request = Some(());
         }
 
-        self.make_ui(ui, config);
+        Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+            self.make_ui(ui, config);
+        });
+
         self.button_layer(ui, events);
     }
 
@@ -38,3 +45,5 @@ impl SidebarPanel for MainPanelClimate {
         MapDataLayer::Climate
     }
 }
+
+impl SidebarPanelGen for MainPanelClimate {}

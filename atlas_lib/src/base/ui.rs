@@ -221,7 +221,7 @@ pub trait UiCreator<C, E> {
                 ui.separator(); // HACK: Do not delete. The panel won't resize without it. Known issue.
                 self.create_layer_view_settings(ui, ui_base, events);
                 ui.separator();
-                self.create_panel_tabs(ui);
+                self.create_panel_tabs(ui, ui_base, events);
                 ui.separator();
                 self.create_current_panel(ui, config, events);
                 // We've finished drawing the sidebar. Its size is now established
@@ -265,7 +265,7 @@ pub trait UiCreator<C, E> {
     }
 
     /// Create tabs for switching panels.
-    fn create_panel_tabs(&mut self, ui: &mut Ui);
+    fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut E);
 
     /// Create the current panel.
     fn create_current_panel(&mut self, ui: &mut Ui, config: &mut C, events: &mut E);
