@@ -26,7 +26,7 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelScenario {
     fn extra_ui(
         &mut self,
         ui: &mut Ui,
-        config: &mut AtlasSimConfig,
+        _config: &mut AtlasSimConfig,
         _ui_state: &mut AtlasSimUi,
         events: &mut EventStruct,
     ) {

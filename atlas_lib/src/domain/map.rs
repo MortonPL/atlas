@@ -74,3 +74,11 @@ pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 7] = [
     (MapDataLayer::Climate, "climate.png"),
     (MapDataLayer::Resources, "resources.png"),
 ];
+
+/// A graphical overlay over the map, but not necessarily a full layer.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Resource, UiEditableEnum)]
+pub enum MapDataOverlay {
+    #[default]
+    None,
+    StartPoints,
+}

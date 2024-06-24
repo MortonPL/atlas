@@ -1,9 +1,12 @@
 //#![windows_subsystem = "windows"] // DEBUG
 
-use atlas_lib::{base::events::EventPlugin, bevy::prelude::*};
 mod config;
 mod map;
 mod ui;
+
+use atlas_lib::{
+    base::events::EventPlugin, bevy::prelude::*, bevy_prng::WyRand, bevy_rand::prelude::EntropyPlugin,
+};
 
 /// Application entry point.
 fn main() {
@@ -19,6 +22,7 @@ fn main() {
                 })
                 .set(ImagePlugin::default_nearest()),
         )
+        .add_plugins(EntropyPlugin::<WyRand>::default())
         .add_plugins(config::ConfigPlugin)
         .add_plugins(EventPlugin)
         .add_plugins(ui::UiPlugin)

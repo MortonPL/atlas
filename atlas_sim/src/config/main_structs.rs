@@ -3,7 +3,10 @@ use atlas_lib::{
     bevy_egui,
     config::{AtlasConfig, ClimatePreviewMode, WorldModel},
     serde_derive::{Deserialize, Serialize},
-    ui::{sidebar::{MakeUi, SidebarControl, SidebarSlider}, UiEditableEnum},
+    ui::{
+        sidebar::{MakeUi, SidebarControl, SidebarSlider},
+        UiEditableEnum,
+    },
     MakeUi, UiEditableEnum,
 };
 
@@ -24,7 +27,7 @@ impl AtlasConfig for AtlasSimConfig {
     }
 
     fn get_preview_model(&self) -> WorldModel {
-        self.general.preview_model
+        WorldModel::Flat
     }
 
     fn get_climate_preview(&self) -> ClimatePreviewMode {
@@ -32,11 +35,28 @@ impl AtlasConfig for AtlasSimConfig {
     }
 }
 
+impl AtlasSimConfig {
+    pub fn world_to_map(&self, point: (f32, f32)) -> (u32, u32) {
+        let (width, height) = self.get_world_size();
+        (
+            (point.0 * 100.0 + width as f32 / 2.0) as u32,
+            (-point.1 * 100.0 + height as f32 / 2.0) as u32,
+        )
+    }
+
+    pub fn map_to_world(&self, point: (u32, u32)) -> (f32, f32) {
+        let (width, height) = self.get_world_size();
+        (
+            (point.0 as f32 - width as f32 / 2.0) / 100.0,
+            (height as f32 / 2.0 - (point.1 as f32)) / 100.0,
+        )
+    }
+}
+
 /// Config for general world settings and preview.
 #[derive(Debug, Deserialize, Resource, Serialize)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
-    pub preview_model: WorldModel,
     pub tile_resolution: f32,
     pub world_size: [u32; 2],
 }
@@ -46,7 +66,6 @@ impl Default for GeneralConfig {
         Self {
             tile_resolution: 10.0,
             world_size: [360, 180],
-            preview_model: Default::default(),
         }
     }
 }
@@ -70,6 +89,9 @@ pub struct ScenarioConfig {
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct StartingPoint {
+    #[name("Locked")]
+    #[control(SidebarCheckbox)]
+    pub locked: bool,
     #[name("Position")]
     #[control(SidebarSliderN)]
     pub position: [u32; 2],
@@ -90,10 +112,10 @@ pub enum StartingPointOwner {
 impl MakeUi for StartingPointOwner {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
         match self {
-            StartingPointOwner::Random => {},
+            StartingPointOwner::Random => {}
             StartingPointOwner::Picked(x) => {
                 SidebarSlider::new(ui, "Index", x).show(None);
-            },
+            }
         }
     }
 }
@@ -103,8 +125,9 @@ impl MakeUi for StartingPointOwner {
 #[serde(rename_all = "lowercase")]
 pub enum StartPointAlgorithm {
     Uniform,
-    #[default]
     Weighted,
+    #[default]
+    WeightedArea,
 }
 
 /// Config for the climate rules.

@@ -5,17 +5,21 @@ use atlas_lib::{
     base::{
         events::EventStruct,
         ui::{
-            open_file_dialog, update_viewport, FileDialogMode, HandleFileDialog, UiCreator, UiPluginBase,
-            UiStateBase, UiUpdate,
+            open_file_dialog, update_viewport, FileDialogMode, HandleFileDialog, MainCamera, UiCreator,
+            UiPluginBase, UiStateBase, UiUpdate,
         },
     },
-    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*},
+    bevy::{app::AppExit, ecs as bevy_ecs, prelude::*, window::PrimaryWindow},
     bevy_egui::{
         egui::{self, Context, RichText, Ui},
         EguiContexts,
     },
-    domain::map::MapDataLayer,
-    ui::{button_action, button_action_enabled, sidebar::SidebarPanel, window},
+    domain::graphics::CurrentWorldModel,
+    ui::{
+        button_action, button_action_enabled,
+        sidebar::{SidebarControl, SidebarEnumDropdown, SidebarPanel},
+        window,
+    },
 };
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{MainPanelGeneral, MainPanelScenario};
@@ -28,8 +32,10 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiPluginBase)
             .init_resource::<AtlasSimUi>()
+            .add_systems(Startup, startup_location)
             .add_systems(UiUpdate, update_ui)
-            .add_systems(UiUpdate, update_viewport.after(update_ui));
+            .add_systems(UiUpdate, update_viewport.after(update_ui))
+            .add_systems(UiUpdate, update_location.after(update_viewport));
     }
 }
 
@@ -63,6 +69,8 @@ struct AtlasSimUi {
     pub setup_mode: bool,
     /// Currently viewed sidebar panel.
     pub current_panel: Box<dyn SidebarPanel<AtlasSimConfig, Self> + Sync + Send>,
+    /// Current mouse cursor coords in world space.
+    pub cursor: Option<(u32, u32)>,
 }
 
 impl Default for AtlasSimUi {
@@ -70,6 +78,7 @@ impl Default for AtlasSimUi {
         Self {
             setup_mode: true,
             current_panel: Box::<MainPanelGeneral>::default(),
+            cursor: None,
         }
     }
 }
@@ -96,7 +105,9 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     button_action(ui, "Export World State", || {
                         open_file_dialog(ui_base, FileDialogMode::Export)
                     });
-                    button_action(ui, "Exit", || exit.send(AppExit));
+                    button_action(ui, "Exit", || {
+                        exit.send(AppExit);
+                    });
                 });
                 ui.menu_button("Edit", |ui| {
                     button_action(ui, "Reset Current Panel", || {
@@ -117,6 +128,32 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                 ui.menu_button("Help", |ui| {
                     button_action(ui, "About", || ui_base.about_open = true);
                 })
+            });
+        });
+    }
+
+    /// Create sidebar settings for the layer display.
+    fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
+        ui.vertical(|ui| {
+            // Layer visibility dropdown.
+            // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
+            ui.horizontal_wrapped(|ui| {
+                let old = ui_base.current_layer;
+                let selection =
+                    SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_base.current_layer).show(None);
+                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
+                // Trigger layer change event as needed.
+                if old != ui_base.current_layer {
+                    events.viewed_layer_changed = Some(ui_base.current_layer);
+                }
+                let old = ui_base.current_overlay;
+                let selection =
+                    SidebarEnumDropdown::new(ui, "Viewed Overlay", &mut ui_base.current_overlay).show(None);
+                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_overlay);
+                // Trigger overlay change event as needed.
+                if old != ui_base.current_overlay {
+                    events.viewed_overlay_changed = Some(ui_base.current_overlay);
+                }
             });
         });
     }
@@ -191,8 +228,77 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
             ui_base.error_window_open = true;
         }
     }
-
-    fn notify_viewed_layer_changed(events: &mut EventStruct, layer: MapDataLayer) {
-        events.viewed_layer_changed = Some(layer);
-    }
 }
+
+#[derive(Component)]
+struct LocationText;
+
+/// Startup system
+///
+/// Create the top-left location text.
+fn startup_location(mut commands: Commands) {
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection {
+                value: "Location: ".to_string(),
+                style: TextStyle::default(),
+            },
+            TextSection {
+                value: "-".to_string(),
+                style: TextStyle::default(),
+            },
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.0),
+            left: Val::Px(0.0),
+            ..Default::default()
+        }),
+        LocationText,
+    ));
+}
+
+/// Update system
+///
+/// Update the string with current mouse coords (mapped to in-map coords).
+fn update_location(
+    mut ui_state: ResMut<AtlasSimUi>,
+    window: Query<&Window, With<PrimaryWindow>>,
+    camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    map: Query<&Transform, With<CurrentWorldModel>>,
+    mut text: Query<&mut Text, With<LocationText>>,
+    config: Res<AtlasSimConfig>,
+) {
+    // Get query results.
+    let (camera, camera_transform) = camera.single();
+    let window = window.single();
+    let map = map.single();
+    let mut text = text.single_mut();
+    // Update text.
+    text.sections[1].value = match ui_state.cursor {
+        Some(x) => format!("{}, {}", x.0, x.1),
+        None => "-".to_string(),
+    };
+    // Check if the mouse cursor is inside the window.
+    let Some(cursor_position) = window.cursor_position() else {
+        ui_state.cursor = None;
+        return;
+    };
+    // Raycast from the camera.
+    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+        ui_state.cursor = None;
+        return;
+    };
+    let Some(distance) = ray.intersect_plane(map.translation, Plane3d::new(*map.up())) else {
+        ui_state.cursor = None;
+        return;
+    };
+    // Get the coords.
+    let coords = ray.get_point(distance);
+    let coords = config.world_to_map((coords.x, coords.y));
+    ui_state.cursor = Some(coords);
+}
+
+/// A visible map overlay.
+#[derive(Component)]
+pub struct MapOverlay;

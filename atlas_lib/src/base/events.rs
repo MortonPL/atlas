@@ -3,7 +3,7 @@ use crate::{
     config::{AtlasConfig, WorldModel},
     domain::{
         graphics::{CurrentWorldModel, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh},
-        map::MapDataLayer,
+        map::{MapDataLayer, MapDataOverlay},
     },
 };
 use std::path::Path;
@@ -29,6 +29,8 @@ pub struct EventStruct {
     pub world_model_changed: Option<()>,
     /// The currently viewed map layer has been changed.
     pub viewed_layer_changed: Option<MapDataLayer>,
+    /// The currently viewed map overlay has been changed.
+    pub viewed_overlay_changed: Option<MapDataOverlay>,
     /// A map layer should be loaded from data.
     pub load_layer_request: Option<(MapDataLayer, Vec<u8>)>,
     /// A map layer should be saved to file.
@@ -60,6 +62,7 @@ impl Default for EventStruct {
         Self {
             world_model_changed: Default::default(),
             viewed_layer_changed: Default::default(),
+            viewed_overlay_changed: Default::default(),
             load_layer_request: Default::default(),
             save_layer_request: Default::default(),
             render_layer_request: Default::default(),

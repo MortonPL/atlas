@@ -14,7 +14,6 @@ use atlas_lib::{
         egui::{self, Context, RichText, Ui},
         EguiContexts,
     },
-    domain::map::MapDataLayer,
     ui::{button_action, sidebar::SidebarPanel, window},
 };
 use internal::{clear_layer_clicked, reset_config_clicked, reset_panel_clicked, FileDialogHandler};
@@ -94,7 +93,9 @@ impl UiCreator<AtlasGenConfig> for AtlasGenUi {
                     button_action(ui, "Export World", || {
                         open_file_dialog(ui_base, FileDialogMode::Export)
                     });
-                    button_action(ui, "Exit", || exit.send(AppExit));
+                    button_action(ui, "Exit", || {
+                        exit.send(AppExit);
+                    });
                 });
                 ui.menu_button("Edit", |ui| {
                     button_action(ui, "Reset Current Panel", || {
@@ -208,9 +209,5 @@ impl UiCreator<AtlasGenConfig> for AtlasGenUi {
             ui_base.error_message = error;
             ui_base.error_window_open = true;
         }
-    }
-
-    fn notify_viewed_layer_changed(events: &mut EventStruct, layer: MapDataLayer) {
-        events.viewed_layer_changed = Some(layer);
     }
 }

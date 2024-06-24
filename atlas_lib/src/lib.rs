@@ -7,6 +7,8 @@ pub use atlas_macro::*;
 
 pub use bevy;
 pub use bevy_egui;
+pub use bevy_rand;
+pub use bevy_prng;
 pub use egui_file;
 pub use png;
 pub use rand;

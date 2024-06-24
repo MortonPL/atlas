@@ -1,5 +1,5 @@
 use bevy::{
-    app::{AppExit, MainScheduleOrder, RunFixedUpdateLoop},
+    app::{AppExit, MainScheduleOrder, RunFixedMainLoop},
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
     ecs::schedule::ScheduleLabel,
     input::mouse::{MouseScrollUnit, MouseWheel},
@@ -14,7 +14,7 @@ use std::path::Path;
 
 use crate::{
     base::events::EventStruct,
-    domain::map::MapDataLayer,
+    domain::map::{MapDataLayer, MapDataOverlay},
     ui::{
         sidebar::{SidebarControl, SidebarEnumDropdown},
         window,
@@ -78,6 +78,8 @@ pub struct UiStateBase {
     pub about_open: bool,
     /// Currently viewed map layer.
     pub current_layer: MapDataLayer,
+    /// Currently viewed map overlay.
+    pub current_overlay: MapDataOverlay,
 }
 
 #[derive(Resource)]
@@ -115,7 +117,7 @@ pub struct UiPluginBase;
 impl Plugin for UiPluginBase {
     fn build(&self, app: &mut App) {
         let mut schedule_order = app.world.get_resource_mut::<MainScheduleOrder>().unwrap();
-        schedule_order.insert_after(RunFixedUpdateLoop, UiUpdate);
+        schedule_order.insert_after(RunFixedMainLoop, UiUpdate);
         // NOTE: Systems that create Egui widgets should be run during the `CoreSet::Update` set,
         // or after the `EguiSet::BeginFrame` system (which belongs to the `CoreSet::PreUpdate` set).
         app.init_resource::<UiStateBase>()
@@ -254,7 +256,7 @@ pub trait UiCreator<C> {
                 SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
                 // Trigger layer change event as needed.
                 if old != ui_base.current_layer {
-                    Self::notify_viewed_layer_changed(events, ui_base.current_layer);
+                    events.viewed_layer_changed = Some(ui_base.current_layer);
                 }
             });
         });
@@ -271,9 +273,6 @@ pub trait UiCreator<C> {
 
     /// Get a hadler for file dialog input.
     fn handle_file_dialog(config: &mut C, events: &mut EventStruct, ctx: &Context, ui_base: &mut UiStateBase);
-
-    /// Send an event that a new viewed layer has been set.
-    fn notify_viewed_layer_changed(events: &mut EventStruct, layer: MapDataLayer);
 }
 
 /// Startup system
@@ -297,7 +296,7 @@ fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
 ///
 /// Handle user input.
 fn update_input(
-    mouse_button: Res<Input<MouseButton>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     window: Query<&Window>,
     mut cameras: Query<&mut Transform, With<MainCamera>>,

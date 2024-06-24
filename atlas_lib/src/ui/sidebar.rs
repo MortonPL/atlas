@@ -417,7 +417,6 @@ where
 
     fn show(self, _hint: Option<&str>) -> usize {
         Self::inner_show(self.ui, self.label, self.value);
-        self.ui.end_row();
         0
     }
 }
@@ -454,6 +453,27 @@ where
             .heading(self.label)
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
         self.ui.end_row();
+        self.value.make_ui(self.ui);
+        self.ui.end_row();
+        0
+    }
+}
+
+/// A (sub)section for a (headerless) struct with fields. The struct must have [`MakeUi`] trait.
+pub struct SidebarStructSubsection<'u, 'v, T> {
+    ui: &'u mut Ui,
+    value: &'v mut T,
+}
+
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructSubsection<'u, 'v, T>
+where
+    T: MakeUi,
+{
+    fn new(ui: &'u mut Ui, _label: &'static str, value: &'v mut T) -> Self {
+        Self { ui, value }
+    }
+
+    fn show(self, _hint: Option<&str>) -> usize {
         self.value.make_ui(self.ui);
         self.ui.end_row();
         0

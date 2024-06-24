@@ -1,5 +1,10 @@
 use std::f32::consts::FRAC_PI_2;
 
+use bevy::render::{
+    mesh::{PlaneMeshBuilder, SphereMeshBuilder},
+    render_asset::RenderAssetUsages,
+};
+
 use crate::{
     bevy::{
         prelude::*,
@@ -135,6 +140,7 @@ pub fn make_image(width: u32, height: u32, data: Vec<u8>) -> Image {
         TextureDimension::D2,
         data,
         TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     )
 }
 
@@ -232,12 +238,14 @@ pub fn spawn_default_globe(commands: &mut Commands, meshes: &mut Assets<Mesh>, g
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(
-                shape::UVSphere {
-                    radius: 2.0,
-                    stacks: 180,
-                    sectors: 360,
-                }
-                .into(),
+                SphereMeshBuilder::new(
+                    2.0,
+                    bevy::render::mesh::SphereKind::Uv {
+                        sectors: 360,
+                        stacks: 180,
+                    },
+                )
+                .build(),
             ),
             material: graphics.empty_material.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -251,7 +259,7 @@ pub fn spawn_default_globe(commands: &mut Commands, meshes: &mut Assets<Mesh>, g
 pub fn spawn_default_plane(commands: &mut Commands, meshes: &mut Assets<Mesh>, graphics: &MapGraphicsData) {
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::default().into()),
+            mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE)),
             material: graphics.empty_material.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
