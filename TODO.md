@@ -18,11 +18,10 @@
 
 ## TO-DO List 2
 
-- Make one app core
-
 - High Priority
-  - Core app code: load world, ui (camera zoom/movement + config), config, map display
+  - Core app code: load world, config
   - New scenario generation
+    - Generate/load civs
   - Time flow and time flow control
   - Basic Polity (map grabbing) component
 

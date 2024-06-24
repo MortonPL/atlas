@@ -49,6 +49,8 @@ pub struct EventStruct {
     pub import_world_request: Option<Box<Path>>,
     /// The whole world should be exported to files.
     pub export_world_request: Option<Box<Path>>,
+    /// The scenario starting points should be randomized.
+    pub randomize_starts_request: Option<()>,
     /// An error has occured, and a popup window should display it.
     pub error_window: Option<String>,
 }
@@ -69,6 +71,7 @@ impl Default for EventStruct {
             import_start_request: Default::default(),
             import_world_request: Default::default(),
             export_world_request: Default::default(),
+            randomize_starts_request: Default::default(),
             error_window: Default::default(),
         }
     }

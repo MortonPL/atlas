@@ -1,7 +1,10 @@
 use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
+    bevy_egui,
     config::{AtlasConfig, ClimatePreviewMode, WorldModel},
     serde_derive::{Deserialize, Serialize},
+    ui::{sidebar::{MakeUi, SidebarControl, SidebarSlider}, UiEditableEnum},
+    MakeUi, UiEditableEnum,
 };
 
 use crate::config::{make_default_biomes, BiomeConfig};
@@ -11,6 +14,7 @@ use crate::config::{make_default_biomes, BiomeConfig};
 #[serde(crate = "atlas_lib::serde")]
 pub struct AtlasSimConfig {
     pub general: GeneralConfig,
+    pub scenario: ScenarioConfig,
     pub climate: ClimateConfig,
 }
 
@@ -28,7 +32,7 @@ impl AtlasConfig for AtlasSimConfig {
     }
 }
 
-/// Complete configuration for the history simulator.
+/// Config for general world settings and preview.
 #[derive(Debug, Deserialize, Resource, Serialize)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
@@ -45,6 +49,62 @@ impl Default for GeneralConfig {
             preview_model: Default::default(),
         }
     }
+}
+
+/// Initial scenario config.
+#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
+pub struct ScenarioConfig {
+    #[name("Number of Starting Points")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=255))]
+    pub num_starts: u8,
+    #[name("Random Start Point Algorithm")]
+    #[control(SidebarEnumDropdown)]
+    pub random_point_algorithm: StartPointAlgorithm,
+    #[name("Starting Points")]
+    #[control(SidebarStructList)]
+    pub start_points: Vec<StartingPoint>,
+}
+
+#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
+pub struct StartingPoint {
+    #[name("Position")]
+    #[control(SidebarSliderN)]
+    pub position: [u32; 2],
+    #[name("Starting Point Owner")]
+    #[control(SidebarEnumSubsection)]
+    pub owner: StartingPointOwner,
+}
+
+#[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(crate = "atlas_lib::serde")]
+#[serde(rename_all = "lowercase")]
+pub enum StartingPointOwner {
+    #[default]
+    Random,
+    Picked(u8),
+}
+
+impl MakeUi for StartingPointOwner {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        match self {
+            StartingPointOwner::Random => {},
+            StartingPointOwner::Picked(x) => {
+                SidebarSlider::new(ui, "Index", x).show(None);
+            },
+        }
+    }
+}
+
+#[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(crate = "atlas_lib::serde")]
+#[serde(rename_all = "lowercase")]
+pub enum StartPointAlgorithm {
+    Uniform,
+    #[default]
+    Weighted,
 }
 
 /// Config for the climate rules.

@@ -394,6 +394,46 @@ where
     }
 }
 
+/// A (sub)section (headerless) for an enum with fields. The enum must have [`UiEditableEnum`] and [`MakeUi`] traits.
+pub struct SidebarEnumSubsection<'u, 'v, T> {
+    ui: &'u mut Ui,
+    value: &'v mut T,
+    label: &'static str,
+    __: PhantomData<&'v T>,
+}
+
+impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarEnumSubsection<'u, 'v, T>
+where
+    T: UiEditableEnum + MakeUi,
+{
+    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+        Self {
+            ui,
+            value,
+            label,
+            __: PhantomData,
+        }
+    }
+
+    fn show(self, _hint: Option<&str>) -> usize {
+        Self::inner_show(self.ui, self.label, self.value);
+        self.ui.end_row();
+        0
+    }
+}
+
+impl<'u, 'v, T> SidebarEnumSubsection<'u, 'v, T>
+where
+    T: UiEditableEnum + MakeUi,
+{
+    fn inner_show(ui: &mut Ui, label: &'static str, value: &'v mut T) -> usize {
+        let result = SidebarEnumDropdown::new(ui, label, value).show(Some("Select a variant"));
+        SidebarEnumDropdown::post_show(result, value);
+        value.make_ui(ui);
+        0
+    }
+}
+
 /// A section for a struct with fields. The struct must have [`MakeUi`] trait.
 pub struct SidebarStructSection<'u, 'v, T> {
     ui: &'u mut Ui,
@@ -424,6 +464,7 @@ where
 pub struct SidebarStructList<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
+    label: &'static str,
 }
 
 impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructList<'u, 'v, T>
@@ -431,11 +472,15 @@ where
     T: AsVector,
     T::Item: MakeUi,
 {
-    fn new(ui: &'u mut Ui, _label: &'static str, value: &'v mut T) -> Self {
-        Self { ui, value }
+    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+        Self { ui, value, label }
     }
 
-    fn show(self, _hint: Option<&str>) -> usize {
+    fn show(self, hint: Option<&str>) -> usize {
+        self.ui
+            .heading(self.label)
+            .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+        self.ui.end_row();
         for element in self.value.as_vec() {
             element.make_ui(self.ui);
             self.ui.end_row();

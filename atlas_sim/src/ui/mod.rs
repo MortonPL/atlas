@@ -18,7 +18,7 @@ use atlas_lib::{
     ui::{button_action, button_action_enabled, sidebar::SidebarPanel, window},
 };
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::MainPanelGeneral;
+use panel::{MainPanelGeneral, MainPanelScenario};
 
 use crate::config::AtlasSimConfig;
 
@@ -129,8 +129,8 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     self.current_panel = Box::<MainPanelGeneral>::default();
                     true
                 });
-                changed |= button_action(ui, "Tab 2", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
+                changed |= button_action(ui, "Scenario", || {
+                    self.current_panel = Box::<MainPanelScenario>::default();
                     true
                 });
                 changed |= button_action(ui, "Tab 3", || {

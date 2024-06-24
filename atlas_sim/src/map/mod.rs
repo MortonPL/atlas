@@ -16,7 +16,9 @@ use atlas_lib::{
         MapLogicData,
     },
 };
-use events::{check_event_import_start, update_event_regen};
+use events::{
+    check_event_import_start, check_event_random_start, update_event_random_start, update_event_regen,
+};
 
 use crate::{config::AtlasSimConfig, map::events::update_event_import_start};
 
@@ -36,6 +38,7 @@ impl Plugin for MapPlugin {
             .add_systems(Update, update_event_changed.run_if(check_event_changed))
             .add_systems(Update, update_event_regen.run_if(check_event_regen))
             .add_systems(Update, update_event_import_start.run_if(check_event_import_start))
+            .add_systems(Update, update_event_random_start.run_if(check_event_random_start))
             .add_systems(UiUpdate, update_model_rotation);
         /*
         .add_systems(Update, update_event_loaded.run_if(check_event_loaded))
