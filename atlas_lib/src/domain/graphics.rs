@@ -1,9 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
-
-use bevy::render::{
-    mesh::{PlaneMeshBuilder, SphereMeshBuilder},
-    render_asset::RenderAssetUsages,
-};
+use bevy::render::render_asset::RenderAssetUsages;
 
 use crate::{
     bevy::{
@@ -11,8 +6,8 @@ use crate::{
         render::render_resource::{Extent3d, TextureDimension, TextureFormat},
         utils::HashMap,
     },
-    config::load_image_grey,
-    domain::map::{MapDataLayer, MAP_DATA_LAYERS},
+    config::{load_image_grey, AtlasConfig, ClimatePreviewMode},
+    domain::map::MapDataLayer,
 };
 
 pub const PREVIEW_NAME: &str = "preview.png";
@@ -164,7 +159,7 @@ pub fn get_material_mut<'a>(
 
 /// Convert logical layer data to a texture.
 /// For most cases, this just expands greyscale to grey RGBA.
-pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> {
+pub fn data_to_view<C: AtlasConfig>(data_layers: &MapLogicData, layer: MapDataLayer, config: &C) -> Vec<u8> {
     let data = data_layers.get_layer(layer);
     match layer {
         MapDataLayer::Preview => data.to_vec(),
@@ -179,7 +174,20 @@ pub fn data_to_view(data_layers: &MapLogicData, layer: MapDataLayer) -> Vec<u8> 
         MapDataLayer::Resources => expand_monochrome(data),
         MapDataLayer::RealTopography => expand_monochrome(data),
         MapDataLayer::TopographyFilter => expand_monochrome(data),
-        MapDataLayer::Climate => expand_monochrome(data), // TODO fix for atlas sim
+        MapDataLayer::Climate => climate_to_view(data, config),
+    }
+}
+
+fn climate_to_view<C: AtlasConfig>(data: &[u8], config: &C) -> Vec<u8> {
+    match config.get_climate_preview() {
+        ClimatePreviewMode::SimplifiedColor => {
+            let fun = |x: &u8| config.climate_index_to_color(*x);
+            data.iter().flat_map(fun).collect()
+        }
+        ClimatePreviewMode::DetailedColor => {
+            let fun = |x: &u8| config.climate_index_to_color(*x);
+            data.iter().flat_map(fun).collect()
+        }
     }
 }
 
@@ -200,76 +208,4 @@ fn continents_to_png(data: &[u8]) -> Vec<u8> {
 /// Expand one channel to an RGBA image.
 fn expand_monochrome(data: &[u8]) -> Vec<u8> {
     data.iter().flat_map(|x: &u8| [*x, *x, *x, 255]).collect()
-}
-
-/// Startup system
-///
-/// Initialize each map layer.
-pub fn startup_layers(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mut graphics: ResMut<MapGraphicsData>,
-    mut logics: ResMut<MapLogicData>,
-) {
-    // Create the default texture and material.
-    let empty_texture = make_image(1, 1, vec![0, 0, 0, 255]);
-    let empty_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(empty_texture.clone())),
-        unlit: true,
-        ..default()
-    });
-    graphics.empty_material = empty_material;
-    // Initialize all graphic and logical map layers.
-    for layer in MAP_DATA_LAYERS {
-        let material = materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(empty_texture.clone())),
-            unlit: true,
-            ..default()
-        });
-        graphics
-            .layers
-            .insert(layer, MapGraphicsLayer::new(material.clone()));
-        logics.put_layer(layer, vec![]);
-    }
-}
-
-/// Spawn a default sphere for the globe world model.
-pub fn spawn_default_globe(commands: &mut Commands, meshes: &mut Assets<Mesh>, graphics: &MapGraphicsData) {
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(
-                SphereMeshBuilder::new(
-                    2.0,
-                    bevy::render::mesh::SphereKind::Uv {
-                        sectors: 360,
-                        stacks: 180,
-                    },
-                )
-                .build(),
-            ),
-            material: graphics.empty_material.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..Default::default()
-        },
-        WorldGlobeMesh,
-    ));
-}
-
-/// Spawn a default plane for the flat world model.
-pub fn spawn_default_plane(commands: &mut Commands, meshes: &mut Assets<Mesh>, graphics: &MapGraphicsData) {
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE)),
-            material: graphics.empty_material.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                FRAC_PI_2,
-                0.0,
-                0.0,
-            )),
-            ..Default::default()
-        },
-        WorldMapMesh,
-        CurrentWorldModel,
-    ));
 }

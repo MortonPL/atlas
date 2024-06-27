@@ -1,24 +1,21 @@
 use atlas_lib::{
-    base::events::{resize_helper, EventStruct},
+    base::{events::EventStruct, map::resize_helper},
     bevy::prelude::*,
     config::{
         load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, AtlasConfig,
     },
     domain::{
         graphics::{
-            get_material, get_material_mut, make_image, MapGraphicsData, MapLogicData, WorldGlobeMesh,
-            WorldMapMesh, CLIMATEMAP_NAME, CLIMATEMAP_SIZE, PREVIEW_NAME,
+            data_to_view, get_material, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
+            CLIMATEMAP_NAME, CLIMATEMAP_SIZE, PREVIEW_NAME,
         },
         map::{MapDataLayer, EXPORT_DATA_LAYERS},
     },
 };
 
 use crate::{
-    config::AtlasGenConfig,
-    map::{
-        generation::{after_generate, generate},
-        internal::{data_to_view, CONFIG_NAME},
-    },
+    config::{AtlasGenConfig, CONFIG_NAME},
+    map::generation::{after_generate, generate},
 };
 
 /// Run condition
@@ -63,33 +60,18 @@ pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
     events.load_climatemap_request.is_some()
 }
 
-/// Update system
+/// Run condition
 ///
-/// Regenerate graphical layer based on logical layer data.
-pub fn update_event_regen(
-    mut events: ResMut<EventStruct>,
-    config: ResMut<AtlasGenConfig>,
-    mut graphics: ResMut<MapGraphicsData>,
-    logics: Res<MapLogicData>,
-    mut images: ResMut<Assets<Image>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let layers = events.regen_layer_request.take().expect("Always Some");
-    for layer in layers {
-        // Convert logical data to image data.
-        let mut data = data_to_view(&logics, layer, &config);
-        // Fetch handles.
-        let layer = graphics.get_layer_mut(layer);
-        let material = get_material_mut(&mut materials, &layer.material);
-        // Assign new texture.
-        let (width, height) = config.get_world_size();
-        let image = images.add(make_image(width, height, std::mem::take(&mut data)));
-        material.base_color_texture = Some(image);
-        // Graphical layer becomes valid again.
-        layer.invalid = false;
-    }
-    // Trigger material refresh.
-    events.viewed_layer_changed = Some(graphics.current);
+/// Check if "import world" event needs handling.
+pub fn check_event_import(events: Res<EventStruct>) -> bool {
+    events.import_world_request.is_some()
+}
+
+/// Run condition
+///
+/// Check if "export world" event needs handling.
+pub fn check_event_export(events: Res<EventStruct>) -> bool {
+    events.export_world_request.is_some()
 }
 
 /// Update system
@@ -285,7 +267,7 @@ pub fn update_event_export(
         events.error_window = result.err().map(|x| x.to_string());
     }
     // Export preview.
-    let preview = data_to_view(&logics, MapDataLayer::Preview, &config);
+    let preview = data_to_view(&logics, MapDataLayer::Preview, config.as_ref());
     let path = base_path.join(PREVIEW_NAME);
     let result = save_image(path, &preview, width, height);
     events.error_window = result.err().map(|x| x.to_string());

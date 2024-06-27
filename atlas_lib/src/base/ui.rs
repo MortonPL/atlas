@@ -229,7 +229,7 @@ pub trait UiCreator<C> {
         // Handle file dialog.
         Self::handle_file_dialog(config, events, ctx, ui_base);
         // Handle error window.
-        ErrorWindowHandler::default().handle(ctx, ui_base);
+        ErrorWindowHandler.handle(ctx, ui_base);
         // Handle about window.
         Self::handle_about(ctx, "Atlas History Simulator", &mut ui_base.about_open);
     }
@@ -246,19 +246,17 @@ pub trait UiCreator<C> {
 
     /// Create sidebar settings for the layer display.
     fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
-        ui.vertical(|ui| {
+        // Layer visibility dropdown.
+        // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
+        ui.horizontal(|ui| {
             let old = ui_base.current_layer;
-            // Layer visibility dropdown.
-            // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
-            ui.horizontal_wrapped(|ui| {
-                let selection =
-                    SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_base.current_layer).show(None);
-                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
-                // Trigger layer change event as needed.
-                if old != ui_base.current_layer {
-                    events.viewed_layer_changed = Some(ui_base.current_layer);
-                }
-            });
+            let selection =
+                SidebarEnumDropdown::new(ui, "Layer", &mut ui_base.current_layer).show(None);
+            SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
+            // Trigger layer change event as needed.
+            if old != ui_base.current_layer {
+                events.viewed_layer_changed = Some(ui_base.current_layer);
+            }
         });
     }
 
@@ -384,7 +382,7 @@ pub fn update_viewport(
     if !window.single().focused {
         return;
     }
-    let viewport_size = ui_base.viewport_size * settings.scale_factor as f32;
+    let viewport_size = ui_base.viewport_size * settings.scale_factor;
     // Layout: viewport on the left, sidebar on the right. Together they take up the entire screen space.
     let mut camera = cameras.single_mut();
     camera.viewport = Some(Viewport {
@@ -394,18 +392,9 @@ pub fn update_viewport(
     });
 }
 
-/// Helper function.
+/// Helper function
 ///
-/// Calculate viewport size to not overlap the sidebar.
-pub fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
-    let window_size = ui.clip_rect().size();
-    let ui_size = ui.max_rect().size();
-    ui_base.viewport_size = Vec2 {
-        x: (window_size.x - ui_size.x).max(1.0),
-        y: window_size.y.max(1.0),
-    };
-}
-
+/// Open the file dialog in requested mode.
 pub fn open_file_dialog(ui_base: &mut UiStateBase, mode: FileDialogMode) {
     let mut file_picker = match mode {
         FileDialogMode::SaveConfig => egui_file::FileDialog::save_file(None),
@@ -420,4 +409,16 @@ pub fn open_file_dialog(ui_base: &mut UiStateBase, mode: FileDialogMode) {
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);
     ui_base.file_dialog_mode = mode;
+}
+
+/// Helper function.
+///
+/// Calculate viewport size to not overlap the sidebar.
+fn adjust_viewport(ui: &mut Ui, ui_base: &mut UiStateBase) {
+    let window_size = ui.clip_rect().size();
+    let ui_size = ui.max_rect().size();
+    ui_base.viewport_size = Vec2 {
+        x: (window_size.x - ui_size.x).max(1.0),
+        y: window_size.y.max(1.0),
+    };
 }

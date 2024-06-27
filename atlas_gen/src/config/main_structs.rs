@@ -39,6 +39,33 @@ impl AtlasConfig for AtlasGenConfig {
     fn get_climate_preview(&self) -> ClimatePreviewMode {
         self.climate.preview_mode
     }
+
+    fn climate_index_to_color(&self, i: u8) -> [u8; 4] {
+        let biome = self.get_biome(i);
+        [biome.color[0], biome.color[1], biome.color[2], 255]
+    }
+
+    fn climate_index_to_color_simple(&self, i: u8) -> [u8; 4] {
+        let biome = self.get_biome(i);
+        [
+            biome.simple_color[0],
+            biome.simple_color[1],
+            biome.simple_color[2],
+            255,
+        ]
+    }
+}
+
+impl AtlasGenConfig {
+    /// Get reference to a biome based on its index.
+    pub fn get_biome(&self, i: u8) -> &BiomeConfig {
+        let i = i as usize;
+        if i > self.climate.biomes.len() {
+            &self.climate.default_biome
+        } else {
+            &self.climate.biomes[i]
+        }
+    }
 }
 
 /// Config for the general map settings.

@@ -12,12 +12,9 @@ use crate::{
         precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceMode, InfluenceShape,
         NoiseAlgorithm, ALTITUDE_STEP,
     },
-    map::{
-        internal::fetch_climate,
-        samplers::{
-            add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
-            fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,
-        },
+    map::samplers::{
+        add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
+        fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,
     },
 };
 
@@ -143,12 +140,12 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
                     }
                 }
                 ColorDisplayMode::SimplifiedClimate => {
-                    let climate = fetch_climate(climate_data[i] as usize, config);
-                    climate.simple_color
+                    let biome = config.get_biome(climate_data[i]);
+                    biome.simple_color
                 }
                 ColorDisplayMode::DetailedClimate => {
-                    let climate = fetch_climate(climate_data[i] as usize, config);
-                    climate.color
+                    let biome = config.get_biome(climate_data[i]);
+                    biome.color
                 }
             }
             .map(|x| x as f32 / 255.0);

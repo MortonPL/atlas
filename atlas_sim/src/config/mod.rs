@@ -6,6 +6,8 @@ pub use main_structs::*;
 
 use atlas_lib::bevy::prelude::*;
 
+pub const CONFIG_NAME: &str = "atlassim.toml";
+
 /// Plugin responsible for the simulator configuration and I/O.
 pub struct ConfigPlugin;
 

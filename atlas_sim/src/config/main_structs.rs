@@ -3,10 +3,7 @@ use atlas_lib::{
     bevy_egui,
     config::{AtlasConfig, ClimatePreviewMode, WorldModel},
     serde_derive::{Deserialize, Serialize},
-    ui::{
-        sidebar::{MakeUi, SidebarControl, SidebarSlider},
-        UiEditableEnum,
-    },
+    ui::{sidebar::SidebarControl, UiEditableEnum},
     MakeUi, UiEditableEnum,
 };
 
@@ -33,23 +30,32 @@ impl AtlasConfig for AtlasSimConfig {
     fn get_climate_preview(&self) -> ClimatePreviewMode {
         self.climate.preview_mode
     }
+
+    fn climate_index_to_color(&self, i: u8) -> [u8; 4] {
+        let biome = self.get_biome(i);
+        [biome.color[0], biome.color[1], biome.color[2], 255]
+    }
+
+    fn climate_index_to_color_simple(&self, i: u8) -> [u8; 4] {
+        let biome = self.get_biome(i);
+        [
+            biome.simple_color[0],
+            biome.simple_color[1],
+            biome.simple_color[2],
+            255,
+        ]
+    }
 }
 
 impl AtlasSimConfig {
-    pub fn world_to_map(&self, point: (f32, f32)) -> (u32, u32) {
-        let (width, height) = self.get_world_size();
-        (
-            (point.0 * 100.0 + width as f32 / 2.0) as u32,
-            (-point.1 * 100.0 + height as f32 / 2.0) as u32,
-        )
-    }
-
-    pub fn map_to_world(&self, point: (u32, u32)) -> (f32, f32) {
-        let (width, height) = self.get_world_size();
-        (
-            (point.0 as f32 - width as f32 / 2.0) / 100.0,
-            (height as f32 / 2.0 - (point.1 as f32)) / 100.0,
-        )
+    /// Get reference to a biome based on its index.
+    pub fn get_biome(&self, i: u8) -> &BiomeConfig {
+        let i = i as usize;
+        if i > self.climate.biomes.len() {
+            &self.climate.default_biome
+        } else {
+            &self.climate.biomes[i]
+        }
     }
 }
 
@@ -71,53 +77,59 @@ impl Default for GeneralConfig {
 }
 
 /// Initial scenario config.
-#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct ScenarioConfig {
     #[name("Number of Starting Points")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=255))]
     pub num_starts: u8,
+    #[name("Number of Starting Civilizations")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=255))]
+    pub num_civs: u8,
     #[name("Random Start Point Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub random_point_algorithm: StartPointAlgorithm,
+    #[name("Random Start Civilization Algorithm")]
+    #[control(SidebarEnumDropdown)]
+    pub random_civ_algorithm: StartCivAlgorithm,
     #[name("Starting Points")]
     #[control(SidebarStructList)]
     pub start_points: Vec<StartingPoint>,
+    #[name("Starting Civilizations")]
+    #[control(SidebarStructList)]
+    pub start_civs: Vec<Civilization>,
+}
+
+impl Default for ScenarioConfig {
+    fn default() -> Self {
+        Self {
+            num_starts: 10,
+            num_civs: 10,
+            random_point_algorithm: Default::default(),
+            random_civ_algorithm: Default::default(),
+            start_points: vec![],
+            start_civs: vec![],
+        }
+    }
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct StartingPoint {
-    #[name("Locked")]
+    #[name("Locked Position")]
     #[control(SidebarCheckbox)]
-    pub locked: bool,
+    pub position_locked: bool,
     #[name("Position")]
     #[control(SidebarSliderN)]
     pub position: [u32; 2],
-    #[name("Starting Point Owner")]
-    #[control(SidebarEnumSubsection)]
-    pub owner: StartingPointOwner,
-}
-
-#[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(crate = "atlas_lib::serde")]
-#[serde(rename_all = "lowercase")]
-pub enum StartingPointOwner {
-    #[default]
-    Random,
-    Picked(u8),
-}
-
-impl MakeUi for StartingPointOwner {
-    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        match self {
-            StartingPointOwner::Random => {}
-            StartingPointOwner::Picked(x) => {
-                SidebarSlider::new(ui, "Index", x).show(None);
-            }
-        }
-    }
+    #[name("Locked Owner")]
+    #[control(SidebarCheckbox)]
+    pub owner_locked: bool,
+    #[name("Civilization Index")]
+    #[control(SidebarSlider)]
+    pub owner: u8,
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
@@ -128,7 +140,22 @@ pub enum StartPointAlgorithm {
     Weighted,
     #[default]
     WeightedArea,
+    WeightedSquared,
+    WeightedSquaredArea,
 }
+
+#[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(crate = "atlas_lib::serde")]
+#[serde(rename_all = "lowercase")]
+pub enum StartCivAlgorithm {
+    Repeated,
+    #[default]
+    Choice,
+}
+
+#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
+pub struct Civilization {}
 
 /// Config for the climate rules.
 #[derive(Debug, Deserialize, Resource, Serialize)]

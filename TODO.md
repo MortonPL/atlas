@@ -19,7 +19,7 @@
 ## TO-DO List 2
 
 - High Priority
-  - Core app code: load world, config
+  - Core app code: load world
   - New scenario generation
     - Generate/load civs
   - Time flow and time flow control

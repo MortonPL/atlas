@@ -1,10 +1,6 @@
 use crate::{
     bevy::prelude::*,
-    config::{AtlasConfig, WorldModel},
-    domain::{
-        graphics::{CurrentWorldModel, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh},
-        map::{MapDataLayer, MapDataOverlay},
-    },
+    domain::map::{MapDataLayer, MapDataOverlay},
 };
 use std::path::Path;
 
@@ -76,113 +72,6 @@ impl Default for EventStruct {
             export_world_request: Default::default(),
             randomize_starts_request: Default::default(),
             error_window: Default::default(),
-        }
-    }
-}
-
-/// Run Condition
-///
-/// Check if "change world model" UI event needs handling.
-pub fn check_event_world_model(events: Res<EventStruct>) -> bool {
-    events.world_model_changed.is_some()
-}
-
-/// Run Condition
-///
-/// Check if "change viewed layer" UI event needs handling.
-pub fn check_event_changed(events: Res<EventStruct>) -> bool {
-    events.viewed_layer_changed.is_some()
-}
-
-/// Run condition
-///
-/// Check if "regen layer image" event needs handling.
-pub fn check_event_regen(events: Res<EventStruct>) -> bool {
-    events.regen_layer_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "import world" event needs handling.
-pub fn check_event_import(events: Res<EventStruct>) -> bool {
-    events.import_world_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "export world" event needs handling.
-pub fn check_event_export(events: Res<EventStruct>) -> bool {
-    events.export_world_request.is_some()
-}
-
-/// Update system
-///
-/// Handle "change world model" UI event.
-pub fn update_event_world_model<C: AtlasConfig>(
-    commands: Commands,
-    mut events: ResMut<EventStruct>,
-    config: Res<C>,
-    map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    graphics: Res<MapGraphicsData>,
-    logics: ResMut<MapLogicData>,
-) {
-    events.world_model_changed = None;
-    resize_helper(commands, config.as_ref(), map, globe, logics);
-    // Trigger material refresh.
-    events.viewed_layer_changed = Some(graphics.current);
-}
-
-/// Update system
-///
-/// Assign respective layer material to the world model.
-pub fn update_event_changed(
-    mut events: ResMut<EventStruct>,
-    mut graphics: ResMut<MapGraphicsData>,
-    mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
-) {
-    // Set layer as current.
-    let layer = events.viewed_layer_changed.take().expect("Always Some");
-    graphics.current = layer;
-    // Change worls model's material to this layer's material.
-    let layer = graphics.get_layer_mut(layer);
-    let mut mat = world.single_mut();
-    *mat = if layer.invalid {
-        graphics.empty_material.clone()
-    } else {
-        layer.material.clone()
-    };
-}
-
-/// Helper function
-///
-/// Switch and resize world models.
-pub fn resize_helper(
-    mut commands: Commands,
-    config: &impl AtlasConfig,
-    mut map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
-    mut globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
-    mut logics: ResMut<MapLogicData>,
-) {
-    // Run queries.
-    let (map_en, mut map_vis, mut map_tran) = map.single_mut();
-    let (globe_en, mut globe_vis) = globe.single_mut();
-    let (width, height) = config.get_world_size();
-    logics.resize_all_layers((width * height) as usize);
-    match config.get_preview_model() {
-        WorldModel::Flat => {
-            *map_vis = Visibility::Visible;
-            *globe_vis = Visibility::Hidden;
-            map_tran.scale.x = width as f32 / 100.0;
-            map_tran.scale.z = height as f32 / 100.0;
-            commands.entity(map_en).insert(CurrentWorldModel);
-            commands.entity(globe_en).remove::<CurrentWorldModel>();
-        }
-        WorldModel::Globe => {
-            *map_vis = Visibility::Hidden;
-            *globe_vis = Visibility::Visible;
-            commands.entity(globe_en).insert(CurrentWorldModel);
-            commands.entity(map_en).remove::<CurrentWorldModel>();
         }
     }
 }

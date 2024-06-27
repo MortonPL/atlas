@@ -10,6 +10,8 @@ pub use main_structs::*;
 
 use atlas_lib::bevy::prelude::*;
 
+pub const CONFIG_NAME: &str = "atlasgen.toml";
+
 /// Plugin responsible for the generator configuration and I/O.
 pub struct ConfigPlugin;
 

@@ -14,6 +14,7 @@ use atlas_lib::{
         egui::{self, Context, RichText, Ui},
         EguiContexts,
     },
+    config::AtlasConfig,
     domain::graphics::CurrentWorldModel,
     ui::{
         button_action, button_action_enabled,
@@ -134,27 +135,25 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
 
     /// Create sidebar settings for the layer display.
     fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
-        ui.vertical(|ui| {
-            // Layer visibility dropdown.
-            // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
-            ui.horizontal_wrapped(|ui| {
-                let old = ui_base.current_layer;
-                let selection =
-                    SidebarEnumDropdown::new(ui, "Viewed Layer", &mut ui_base.current_layer).show(None);
-                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
-                // Trigger layer change event as needed.
-                if old != ui_base.current_layer {
-                    events.viewed_layer_changed = Some(ui_base.current_layer);
-                }
-                let old = ui_base.current_overlay;
-                let selection =
-                    SidebarEnumDropdown::new(ui, "Viewed Overlay", &mut ui_base.current_overlay).show(None);
-                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_overlay);
-                // Trigger overlay change event as needed.
-                if old != ui_base.current_overlay {
-                    events.viewed_overlay_changed = Some(ui_base.current_overlay);
-                }
-            });
+        // Layer visibility dropdown.
+        // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
+        ui.horizontal(|ui| {
+            let old = ui_base.current_layer;
+            let selection =
+                SidebarEnumDropdown::new(ui, "Layer", &mut ui_base.current_layer).show(None);
+            SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
+            // Trigger layer change event as needed.
+            if old != ui_base.current_layer {
+                events.viewed_layer_changed = Some(ui_base.current_layer);
+            }
+            let old = ui_base.current_overlay;
+            let selection =
+                SidebarEnumDropdown::new(ui, "Overlay", &mut ui_base.current_overlay).show(None);
+            SidebarEnumDropdown::post_show(selection, &mut ui_base.current_overlay);
+            // Trigger overlay change event as needed.
+            if old != ui_base.current_overlay {
+                events.viewed_overlay_changed = Some(ui_base.current_overlay);
+            }
         });
     }
 
