@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::ui::UiEditableEnum;
 
+pub const MAX_WORLD_SIZE: u32 = 1000;
+
 /// World model describes the geometric model of the world which
 /// impacts the coordinate system, map visualisation and map border
 /// behavior.

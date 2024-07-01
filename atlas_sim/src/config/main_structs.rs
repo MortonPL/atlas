@@ -60,9 +60,12 @@ impl AtlasSimConfig {
 }
 
 /// Config for general world settings and preview.
-#[derive(Debug, Deserialize, Resource, Serialize)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
+    #[name("Tile Resolution [km]")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1.0..=100.0))]
     pub tile_resolution: f32,
     pub world_size: [u32; 2],
 }
@@ -158,11 +161,15 @@ pub enum StartCivAlgorithm {
 pub struct Civilization {}
 
 /// Config for the climate rules.
-#[derive(Debug, Deserialize, Resource, Serialize)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct ClimateConfig {
     #[serde(skip)]
+    #[name("Preview Mode")]
+    #[control(SidebarEnumDropdown)]
     pub preview_mode: ClimatePreviewMode,
+    #[name("")]
+    #[control(SidebarStructList)]
     pub biomes: Vec<BiomeConfig>,
     #[serde(skip)]
     pub default_biome: BiomeConfig,

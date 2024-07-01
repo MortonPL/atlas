@@ -1,5 +1,17 @@
 # TO-DO List
 
+## SIM
+
+- High Priority
+  - Basic Polity (map grabbing) component
+  - Population (representation, distribution, growth)
+
+- Low Priority
+  - Save/Load a simulation in progress
+    - Guarantee determinism as long as the seeds match
+
+## GEN
+
 - Low Priority
   - Make simple resource generator (needs economy system first)
   - Climate resource yield factor (needs economy system first)
@@ -15,16 +27,3 @@
 - Super Optional
   - Generalise everything? Noise, shapes, fromimage, latitude as samplers
     - Any number of samplers for panel/layer
-
-## TO-DO List 2
-
-- High Priority
-  - Core app code: load world
-  - New scenario generation
-    - Generate/load civs
-  - Time flow and time flow control
-  - Basic Polity (map grabbing) component
-
-- Low Priority
-  - Save/Load a simulation in progress
-    - Guarantee determinism as long as the seeds match

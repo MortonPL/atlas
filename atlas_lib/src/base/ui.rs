@@ -245,7 +245,7 @@ pub trait UiCreator<C> {
     );
 
     /// Create sidebar settings for the layer display.
-    fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
+    fn create_layer_view_settings(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
         // Layer visibility dropdown.
         // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
         ui.horizontal(|ui| {

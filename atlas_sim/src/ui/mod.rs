@@ -23,9 +23,9 @@ use atlas_lib::{
     },
 };
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::{MainPanelGeneral, MainPanelScenario};
+use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelScenario};
 
-use crate::config::AtlasSimConfig;
+use crate::{config::AtlasSimConfig, sim::SimControl};
 
 pub struct UiPlugin;
 
@@ -48,6 +48,7 @@ fn update_ui(
     mut contexts: EguiContexts,
     mut ui_base: ResMut<UiStateBase>,
     mut ui_state: ResMut<AtlasSimUi>,
+    mut sim_control: ResMut<SimControl>,
     mut events: ResMut<EventStruct>,
     mut exit: EventWriter<AppExit>,
     window: Query<&Window>,
@@ -55,6 +56,7 @@ fn update_ui(
     if !window.single().focused {
         return;
     }
+    ui_state.sim_control = sim_control.clone();
     ui_state.create_ui(
         contexts.ctx_mut(),
         &mut config,
@@ -62,12 +64,15 @@ fn update_ui(
         &mut events,
         &mut exit,
     );
+    sim_control.set_if_neq(ui_state.sim_control.clone());
 }
 
 #[derive(Resource)]
 struct AtlasSimUi {
-    /// Is the simulations not running yet? Can we still make changes to the configuration?
+    /// Is the simulation not running yet? Can we still make changes to the configuration?
     pub setup_mode: bool,
+    /// SimControl copy.
+    pub sim_control: SimControl,
     /// Currently viewed sidebar panel.
     pub current_panel: Box<dyn SidebarPanel<AtlasSimConfig, Self> + Sync + Send>,
     /// Current mouse cursor coords in world space.
@@ -78,6 +83,7 @@ impl Default for AtlasSimUi {
     fn default() -> Self {
         Self {
             setup_mode: true,
+            sim_control: default(),
             current_panel: Box::<MainPanelGeneral>::default(),
             cursor: None,
         }
@@ -133,31 +139,56 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
         });
     }
 
-    /// Create sidebar settings for the layer display.
-    fn create_layer_view_settings(&self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
+    /// Create sidebar settings for the layer display and time control.
+    fn create_layer_view_settings(
+        &mut self,
+        ui: &mut Ui,
+        ui_base: &mut UiStateBase,
+        events: &mut EventStruct,
+    ) {
         // Layer visibility dropdown.
         // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
-        ui.horizontal(|ui| {
-            let old = ui_base.current_layer;
-            let selection =
-                SidebarEnumDropdown::new(ui, "Layer", &mut ui_base.current_layer).show(None);
-            SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
-            // Trigger layer change event as needed.
-            if old != ui_base.current_layer {
-                events.viewed_layer_changed = Some(ui_base.current_layer);
-            }
-            let old = ui_base.current_overlay;
-            let selection =
-                SidebarEnumDropdown::new(ui, "Overlay", &mut ui_base.current_overlay).show(None);
-            SidebarEnumDropdown::post_show(selection, &mut ui_base.current_overlay);
-            // Trigger overlay change event as needed.
-            if old != ui_base.current_overlay {
-                events.viewed_overlay_changed = Some(ui_base.current_overlay);
-            }
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                let label = match (self.setup_mode, self.sim_control.paused) {
+                    (true, true) => "Start",
+                    (true, false) => "Resume",
+                    (false, true) => "Resume",
+                    (false, false) => "Pause",
+                };
+                button_action(ui, label, || {
+                    self.sim_control.paused = !self.sim_control.paused;
+                    self.setup_mode = self.sim_control.paused && self.setup_mode;
+                });
+                ui.add_enabled_ui(!self.setup_mode, |ui| {
+                    ui.label("Speed");
+                    ui.add(egui::DragValue::new(&mut self.sim_control.speed).prefix("x").clamp_range(0.0..=60.0));
+                    ui.label("Date:");
+                    ui.label(self.sim_control.time_to_string());
+                });
+            });
+            ui.separator();
+            ui.horizontal(|ui| {
+                let old = ui_base.current_layer;
+                let selection = SidebarEnumDropdown::new(ui, "Layer", &mut ui_base.current_layer).show(None);
+                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
+                // Trigger layer change event as needed.
+                if old != ui_base.current_layer {
+                    events.viewed_layer_changed = Some(ui_base.current_layer);
+                }
+                let old = ui_base.current_overlay;
+                let selection =
+                    SidebarEnumDropdown::new(ui, "Overlay", &mut ui_base.current_overlay).show(None);
+                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_overlay);
+                // Trigger overlay change event as needed.
+                if old != ui_base.current_overlay {
+                    events.viewed_overlay_changed = Some(ui_base.current_overlay);
+                }
+            });
         });
     }
 
-    fn create_panel_tabs(&mut self, ui: &mut Ui, _ui_base: &mut UiStateBase, _events: &mut EventStruct) {
+    fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
         ui.vertical(|ui| {
             let mut changed = false;
             egui::menu::bar(ui, |ui| {
@@ -169,27 +200,19 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     self.current_panel = Box::<MainPanelScenario>::default();
                     true
                 });
-                changed |= button_action(ui, "Tab 3", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
+                changed |= button_action(ui, "Climate", || {
+                    self.current_panel = Box::<MainPanelClimate>::default();
                     true
                 });
-                changed |= button_action(ui, "Tab 4", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
-                    true
-                });
-            });
-            egui::menu::bar(ui, |ui| {
-                changed |= button_action(ui, "Tab 5", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
-                    true
-                });
-                changed |= button_action(ui, "Tab 6", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
+                changed |= button_action(ui, "Civilizations", || {
+                    self.current_panel = Box::<MainPanelCiv>::default();
                     true
                 });
             });
             if changed {
-                // TODO
+                let layer = self.current_panel.get_layer();
+                events.viewed_layer_changed = Some(layer);
+                ui_base.current_layer = layer;
             }
         });
     }

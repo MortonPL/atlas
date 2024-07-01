@@ -2,6 +2,7 @@
 
 mod config;
 mod map;
+mod sim;
 mod ui;
 
 use atlas_lib::{
@@ -22,11 +23,13 @@ fn main() {
                 })
                 .set(ImagePlugin::default_nearest()),
         )
+        .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(EntropyPlugin::<WyRand>::default())
         .add_plugins(config::ConfigPlugin)
         .add_plugins(EventPlugin)
         .add_plugins(ui::UiPlugin)
         .add_plugins(map::MapPlugin)
+        .add_plugins(sim::SimPlugin)
         .add_systems(Startup, atlas_lib::set_window_icon)
         .run();
 }

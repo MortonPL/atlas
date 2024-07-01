@@ -1,7 +1,7 @@
 use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     bevy_egui,
-    config::{AtlasConfig, ClimatePreviewMode, WorldModel},
+    config::{AtlasConfig, ClimatePreviewMode, WorldModel, MAX_WORLD_SIZE},
     serde_derive::{Deserialize, Serialize},
     ui::{sidebar::*, UiEditableEnum},
     MakeUi, UiEditableEnum,
