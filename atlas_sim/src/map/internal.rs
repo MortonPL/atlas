@@ -1,5 +1,9 @@
 use atlas_lib::{
-    bevy::utils::{hashbrown::HashSet, HashMap},
+    bevy::{
+        prelude::*,
+        utils::{hashbrown::HashSet, HashMap},
+    },
+    config::AtlasConfig,
     domain::{graphics::MapLogicData, map::MapDataLayer},
     rand::Rng,
 };
@@ -8,7 +12,10 @@ use weighted_rand::{
     table::WalkerTable,
 };
 
-use crate::config::{AtlasSimConfig, StartCivAlgorithm, StartPointAlgorithm};
+use crate::{
+    config::{AtlasSimConfig, StartCivAlgorithm, StartPointAlgorithm},
+    ui::{MapOverlay, MapOverlayStart},
+};
 
 /// Calculate weights for random choice of starting points. Returns all weights and weight strips (horizontal).
 pub fn calc_start_point_weights(
@@ -71,7 +78,7 @@ pub fn randomize_start_points(
     strip_weights: &[u32],
     width: usize,
 ) -> bool {
-    let mut success = false;
+    let mut success = true;
     let strip_table = WalkerTableBuilder::new(strip_weights).build();
     let mut tables = HashMap::<usize, WalkerTable>::default();
     // Randomize all points.
@@ -140,6 +147,40 @@ pub fn randomize_civ_points(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
                 }
             }
         }
+    }
+}
+
+pub fn create_overlays(
+    config: &AtlasSimConfig,
+    mut commands: Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    mut query: Query<Entity, With<MapOverlayStart>>,
+) {
+    // Despawn old markers.
+    for entity in query.iter_mut() {
+        commands.entity(entity).despawn();
+    }
+    // Create new meshes and materials.
+    let mesh = meshes.add(Cuboid::from_size(Vec3::ONE / 50.0).mesh());
+    let material = materials.add(StandardMaterial {
+        base_color: Color::RED,
+        unlit: true,
+        ..Default::default()
+    });
+    // Spawn new markers.
+    for point in &config.scenario.start_points {
+        let coords = config.map_to_world((point.position[0], point.position[1]));
+        commands.spawn((
+            MaterialMeshBundle {
+                mesh: mesh.clone(),
+                material: material.clone(),
+                transform: Transform::from_xyz(coords.0, coords.1, 0.0),
+                ..default()
+            },
+            MapOverlay,
+            MapOverlayStart,
+        ));
     }
 }
 

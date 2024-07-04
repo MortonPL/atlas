@@ -54,6 +54,24 @@ pub trait AtlasConfig: Resource {
         )
     }
 
+    /// Convert a point from map space to Bevy world space.
+    fn map_to_world_centered(&self, point: (u32, u32)) -> (f32, f32) {
+        let (width, height) = self.get_world_size();
+        (
+            (point.0 as f32 - width as f32 / 2.0 + 0.5) / 100.0,
+            (height as f32 / 2.0 - (point.1 as f32) - 0.5) / 100.0,
+        )
+    }
+
+    /// Convert a float point from map space to Bevy world space.
+    fn centroid_to_world_centered(&self, point: (f32, f32)) -> (f32, f32) {
+        let (width, height) = self.get_world_size();
+        (
+            (point.0 - width as f32 / 2.0 + 0.5) / 100.0,
+            (height as f32 / 2.0 - point.1 - 0.5) / 100.0,
+        )
+    }
+
     /// Convert a point from map space to linear tile index.
     fn map_to_index(&self, point: (u32, u32)) -> u32 {
         let (width, _) = self.get_world_size();

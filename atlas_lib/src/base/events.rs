@@ -49,6 +49,8 @@ pub struct EventStruct {
     pub export_world_request: Option<Box<Path>>,
     /// The scenario starting points should be randomized.
     pub randomize_starts_request: Option<()>,
+    /// The simulation should begin.
+    pub simulation_start_request: Option<()>,
     /// An error has occured, and a popup window should display it.
     pub error_window: Option<String>,
 }
@@ -71,6 +73,7 @@ impl Default for EventStruct {
             import_world_request: Default::default(),
             export_world_request: Default::default(),
             randomize_starts_request: Default::default(),
+            simulation_start_request: Default::default(),
             error_window: Default::default(),
         }
     }

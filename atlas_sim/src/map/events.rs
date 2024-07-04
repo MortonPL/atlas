@@ -1,6 +1,8 @@
+use std::{cmp::min, f32::consts::FRAC_PI_2};
+
 use atlas_lib::{
     base::{events::EventStruct, map::resize_helper},
-    bevy::prelude::*,
+    bevy::{prelude::*, render::mesh::PlaneMeshBuilder},
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
     config::{load_config, load_image, load_image_grey, AtlasConfig},
@@ -12,8 +14,14 @@ use atlas_lib::{
 
 use crate::{
     config::{AtlasSimConfig, CONFIG_NAME},
-    map::internal::{calc_start_point_weights, randomize_start_points, randomize_civ_points},
-    ui::MapOverlay,
+    map::internal::{
+        calc_start_point_weights, create_overlays, randomize_civ_points, randomize_start_points,
+    },
+    sim::{
+        polity::{Ownership, Polity},
+        SimControl,
+    },
+    ui::{MapOverlay, MapOverlayPolity, MapOverlayStart},
 };
 
 /// Run condition
@@ -35,6 +43,13 @@ pub fn check_event_random_start(events: Res<EventStruct>) -> bool {
 /// Check if "changed viewed overlay" event needs handling.
 pub fn check_event_overlay_changed(events: Res<EventStruct>) -> bool {
     events.viewed_overlay_changed.is_some()
+}
+
+/// Run condition
+///
+/// Check if "start simulation" event needs handling.
+pub fn check_event_start_simulation(events: Res<EventStruct>) -> bool {
+    events.simulation_start_request.is_some()
 }
 
 /// Update system
@@ -100,6 +115,10 @@ pub fn update_event_random_start(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasSimConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<Entity, With<MapOverlayStart>>,
+    commands: Commands,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     events.randomize_starts_request.take().expect("Always Some");
@@ -113,16 +132,10 @@ pub fn update_event_random_start(
             Some("Failed to choose unique random locations for all points. Try again.".to_string());
     }
     randomize_civ_points(&mut config, rng.as_mut());
+    // Recreate overlay markers.
+    create_overlays(&config, commands, &mut meshes, &mut materials, query);
     // Switch / refresh overlay.
     events.viewed_overlay_changed = Some(MapDataOverlay::StartPoints);
-
-    // DEBUG
-    let weights = weights
-        .into_iter()
-        .map(|x| ((x * 255) / 9000000).min(255) as u8)
-        .collect();
-    logics.put_layer(MapDataLayer::ContinentsInfluence, weights);
-    events.regen_layer_request = Some(vec![MapDataLayer::ContinentsInfluence]);
 }
 
 /// Update system
@@ -130,38 +143,78 @@ pub fn update_event_random_start(
 /// Switch the currently visible overlay.
 pub fn update_event_overlay_changed(
     mut events: ResMut<EventStruct>,
-    mut commands: Commands,
-    mut query: Query<Entity, With<MapOverlay>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    config: Res<AtlasSimConfig>,
+    mut q_starts: Query<&mut Visibility, (With<MapOverlayStart>, Without<MapOverlayPolity>)>,
+    mut q_polities: Query<&mut Visibility, (With<MapOverlayPolity>, Without<MapOverlayStart>)>,
 ) {
     let overlay = events.viewed_overlay_changed.take().expect("Always Some");
-    // Clear all overlays.
-    for entity in query.iter_mut() {
-        commands.entity(entity).despawn();
+    // Hide all overlays.
+    for mut vis in q_starts.iter_mut() {
+        *vis = Visibility::Hidden;
     }
+    for mut vis in q_polities.iter_mut() {
+        *vis = Visibility::Hidden;
+    }
+    // Show some overlays.
     match overlay {
         MapDataOverlay::None => { /* do nothing */ }
         MapDataOverlay::StartPoints => {
-            let mesh = meshes.add(Cuboid::from_size(Vec3::ONE / 50.0).mesh());
-            let material = materials.add(StandardMaterial {
-                base_color: Color::RED,
-                unlit: true,
-                ..Default::default()
-            });
-            for point in &config.scenario.start_points {
-                let coords = config.map_to_world((point.position[0], point.position[1]));
-                commands.spawn((
-                    MaterialMeshBundle {
-                        mesh: mesh.clone(),
-                        material: material.clone(),
-                        transform: Transform::from_xyz(coords.0, coords.1, 0.0),
-                        ..default()
-                    },
-                    MapOverlay,
-                ));
+            for mut vis in q_starts.iter_mut() {
+                *vis = Visibility::Visible;
             }
         }
+        MapDataOverlay::Polities => {
+            for mut vis in q_polities.iter_mut() {
+                *vis = Visibility::Visible;
+            }
+        }
+    }
+}
+
+/// Update system
+///
+/// Set up everything needed to run the simulation.
+pub fn update_event_start_simulation(
+    mut events: ResMut<EventStruct>,
+    config: Res<AtlasSimConfig>,
+    mut sim: ResMut<SimControl>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands,
+) {
+    events.simulation_start_request.take();
+    sim.paused = false;
+    // Spawn polities
+    for start in &config.scenario.start_points {
+        let i = min(start.owner as usize, config.scenario.start_civs.len() - 1);
+        let owner = &config.scenario.start_civs[i];
+        let p = (start.position[0], start.position[1]);
+        let i = config.map_to_index(p);
+        let pw = config.map_to_world_centered(p);
+
+        commands.spawn((
+            Polity {
+                tiles: vec![i],
+                centroid: Vec2 {
+                    x: p.0 as f32,
+                    y: p.1 as f32,
+                },
+                xywh: [p.0, p.1, 1, 1],
+                ownership: Ownership::Independent,
+                color: [255, 0, 0], // TODO
+                need_visual_update: true,
+            },
+            PbrBundle {
+                mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE).build()),
+                material: materials.add(StandardMaterial::default()),
+                transform: Transform::from_xyz(pw.0, pw.1, 0.0)
+                    .with_rotation(Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0))
+                    .with_scale(Vec3::new(0.01, 0.01, 0.01)),
+                visibility: Visibility::Hidden,
+                ..Default::default()
+            },
+            MapOverlay,
+            MapOverlayPolity,
+        ));
     }
 }

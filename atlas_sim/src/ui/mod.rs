@@ -23,7 +23,7 @@ use atlas_lib::{
     },
 };
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelScenario};
+use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelPolities, MainPanelScenario, SimPanelPolities};
 
 use crate::{config::AtlasSimConfig, sim::SimControl};
 
@@ -156,11 +156,10 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     (false, true) => "Resume",
                     (false, false) => "Pause",
                 };
-                button_action(ui, label, || {
-                    self.sim_control.paused = !self.sim_control.paused;
-                    self.setup_mode = self.sim_control.paused && self.setup_mode;
-                });
                 ui.add_enabled_ui(!self.setup_mode, |ui| {
+                    button_action(ui, label, || {
+                        self.sim_control.paused = !self.sim_control.paused;
+                    });
                     ui.label("Speed");
                     ui.add(egui::DragValue::new(&mut self.sim_control.speed).prefix("x").clamp_range(0.0..=60.0));
                     ui.label("Date:");
@@ -191,28 +190,44 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
     fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
         ui.vertical(|ui| {
             let mut changed = false;
-            egui::menu::bar(ui, |ui| {
-                changed |= button_action(ui, "General", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
-                    true
+            if self.setup_mode {
+                egui::menu::bar(ui, |ui| {
+                    changed |= button_action(ui, "General", || {
+                        self.current_panel = Box::<MainPanelGeneral>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "Scenario", || {
+                        self.current_panel = Box::<MainPanelScenario>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "Climate", || {
+                        self.current_panel = Box::<MainPanelClimate>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "Civilizations", || {
+                        self.current_panel = Box::<MainPanelCiv>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "Polities", || {
+                        self.current_panel = Box::<MainPanelPolities>::default();
+                        true
+                    });
                 });
-                changed |= button_action(ui, "Scenario", || {
-                    self.current_panel = Box::<MainPanelScenario>::default();
-                    true
+            } else {
+                egui::menu::bar(ui, |ui| {
+                    changed |= button_action(ui, "Polities", || {
+                        self.current_panel = Box::<SimPanelPolities>::default(); // TODO
+                        true
+                    });
                 });
-                changed |= button_action(ui, "Climate", || {
-                    self.current_panel = Box::<MainPanelClimate>::default();
-                    true
-                });
-                changed |= button_action(ui, "Civilizations", || {
-                    self.current_panel = Box::<MainPanelCiv>::default();
-                    true
-                });
-            });
+            }
             if changed {
                 let layer = self.current_panel.get_layer();
+                let overlay = self.current_panel.get_overlay();
                 events.viewed_layer_changed = Some(layer);
+                events.viewed_overlay_changed = Some(overlay);
                 ui_base.current_layer = layer;
+                ui_base.current_overlay = overlay;
             }
         });
     }
@@ -324,3 +339,9 @@ fn update_location(
 /// A visible map overlay.
 #[derive(Component)]
 pub struct MapOverlay;
+
+#[derive(Component)]
+pub struct MapOverlayStart;
+
+#[derive(Component)]
+pub struct MapOverlayPolity;

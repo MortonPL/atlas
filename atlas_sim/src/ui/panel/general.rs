@@ -1,4 +1,12 @@
-use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::{MakeUi, SidebarPanel}};
+use atlas_lib::{
+    base::events::EventStruct,
+    bevy_egui::egui::Ui,
+    domain::map::MapDataLayer,
+    ui::{
+        button_action,
+        sidebar::{MakeUi, SidebarPanel},
+    },
+};
 
 use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
 
@@ -7,6 +15,19 @@ use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
 pub struct MainPanelGeneral;
 
 impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelGeneral {
+    fn extra_ui(
+        &mut self,
+        ui: &mut Ui,
+        _config: &mut AtlasSimConfig,
+        ui_state: &mut AtlasSimUi,
+        events: &mut EventStruct,
+    ) {
+        button_action(ui, "Begin Simulation", || {
+            events.simulation_start_request = Some(());
+            ui_state.setup_mode = false;
+        });
+    }
+
     fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
         config.general.make_ui(ui);
     }

@@ -1,11 +1,16 @@
 use atlas_lib::bevy::{ecs as bevy_ecs, prelude::*};
+use polity::PolityPlugin;
+
+pub mod polity;
 
 /// Plugin responsible for the actual simulation.
 pub struct SimPlugin;
 
 impl Plugin for SimPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SimControl>().add_systems(FixedUpdate, tick);
+        app.init_resource::<SimControl>()
+            .add_systems(FixedUpdate, tick)
+            .add_plugins(PolityPlugin);
     }
 }
 
@@ -44,7 +49,7 @@ impl SimControl {
 }
 
 /// FixedUpdate system
-/// 
+///
 /// Control the time flow of the simulation.
 fn tick(mut sim: ResMut<SimControl>, time: Res<Time<Fixed>>) {
     if sim.paused {
@@ -62,8 +67,8 @@ fn tick(mut sim: ResMut<SimControl>, time: Res<Time<Fixed>>) {
 }
 
 /// Run condition
-/// 
+///
 /// Only run simulation on active ticks.
-fn check_tick(sim: Res<SimControl>) -> bool {
+pub fn check_tick(sim: Res<SimControl>) -> bool {
     sim.tick
 }

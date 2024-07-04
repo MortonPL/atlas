@@ -81,4 +81,5 @@ pub enum MapDataOverlay {
     #[default]
     None,
     StartPoints,
+    Polities,
 }
