@@ -1,5 +1,7 @@
 mod io;
 
+use std::collections::BTreeSet;
+
 pub use io::*;
 
 use atlas_macro::UiEditableEnum;
@@ -82,5 +84,26 @@ pub trait AtlasConfig: Resource {
     fn index_to_map(&self, index: u32) -> (u32, u32) {
         let (width, _) = self.get_world_size();
         (index % width, index / width)
+    }
+
+    /// Get 4 border tiles for the specified tile index.
+    fn get_border_tiles(&self, index: u32) -> BTreeSet<u32> {
+        let (width, height) = self.get_world_size();
+        let mut result = BTreeSet::default();
+        let modi = index % width;
+        let divi = index / width;
+        if modi != 0 {
+            result.insert(index - 1);
+        };
+        if modi != width - 1 {
+            result.insert(index + 1);
+        }
+        if divi != 0 {
+            result.insert(index - width);
+        }
+        if divi != height - 1 {
+            result.insert(index + width);
+        }
+        result
     }
 }

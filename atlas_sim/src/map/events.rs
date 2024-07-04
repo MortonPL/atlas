@@ -19,7 +19,7 @@ use crate::{
     },
     sim::{
         polity::{Ownership, Polity},
-        SimControl,
+        SimControl, SimMapData,
     },
     ui::{MapOverlay, MapOverlayPolity, MapOverlayStart},
 };
@@ -59,6 +59,7 @@ pub fn update_event_import_start(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasSimConfig>,
+    mut extras: ResMut<SimMapData>,
     map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
     globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
     commands: Commands,
@@ -104,6 +105,7 @@ pub fn update_event_import_start(
     regen_layers.push(MapDataLayer::Preview);
     // Resize if needed.
     resize_helper(commands, config.as_ref(), map, globe, logics);
+    extras.tile_owner.resize((width * height) as usize, None);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
 }
@@ -177,6 +179,7 @@ pub fn update_event_start_simulation(
     mut events: ResMut<EventStruct>,
     config: Res<AtlasSimConfig>,
     mut sim: ResMut<SimControl>,
+    mut extras: ResMut<SimMapData>,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -184,17 +187,19 @@ pub fn update_event_start_simulation(
 ) {
     events.simulation_start_request.take();
     sim.paused = false;
-    // Spawn polities
+    // Spawn polities.
     for start in &config.scenario.start_points {
+        // Get all coords.
         let i = min(start.owner as usize, config.scenario.start_civs.len() - 1);
         let owner = &config.scenario.start_civs[i];
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);
         let pw = config.map_to_world_centered(p);
-
-        commands.spawn((
+        // Spawn.
+        let ec = commands.spawn((
             Polity {
                 tiles: vec![i],
+                border_tiles: config.get_border_tiles(i),
                 centroid: Vec2 {
                     x: p.0 as f32,
                     y: p.1 as f32,
@@ -216,5 +221,7 @@ pub fn update_event_start_simulation(
             MapOverlay,
             MapOverlayPolity,
         ));
+        // Post spawn actions.
+        extras.tile_owner[i as usize] = Some(ec.id());
     }
 }

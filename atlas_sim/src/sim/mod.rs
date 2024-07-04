@@ -9,8 +9,24 @@ pub struct SimPlugin;
 impl Plugin for SimPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SimControl>()
+            .init_resource::<SimMapData>()
             .add_systems(FixedUpdate, tick)
             .add_plugins(PolityPlugin);
+    }
+}
+
+/// Extra map data just for the simulation.
+#[derive(Resource)]
+pub struct SimMapData {
+    /// Owner polities of specific map tiles.
+    pub tile_owner: Vec<Option<Entity>>,
+}
+
+impl Default for SimMapData {
+    fn default() -> Self {
+        Self {
+            tile_owner: Default::default(),
+        }
     }
 }
 

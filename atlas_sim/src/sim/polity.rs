@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use atlas_lib::{
     bevy::{
         ecs as bevy_ecs,
@@ -7,17 +9,26 @@ use atlas_lib::{
             render_resource::{Extent3d, TextureDimension, TextureFormat},
         },
     },
+    bevy_prng::WyRand,
+    bevy_rand::resource::GlobalEntropy,
     config::AtlasConfig,
+    domain::{graphics::MapLogicData, map::MapDataLayer},
 };
+use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
 use crate::config::AtlasSimConfig;
+
+use crate::sim::check_tick;
+
+use super::SimMapData;
 
 /// Plugin responsible for the actual simulation.
 pub struct PolityPlugin;
 
 impl Plugin for PolityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, update_visuals);
+        app.add_systems(FixedUpdate, update_visuals)
+            .add_systems(FixedUpdate, (update_mapgrab).run_if(check_tick));
     }
 }
 
@@ -40,6 +51,8 @@ pub enum Ownership {
 pub struct Polity {
     /// Map tile indices that this polity owns.
     pub tiles: Vec<u32>,
+    /// Map tile indices outside of the polity border.
+    pub border_tiles: BTreeSet<u32>,
     /// Centroid of owned land, in map coords.
     pub centroid: Vec2,
     /// XYWH bounding box in map coordinates.
@@ -50,6 +63,75 @@ pub struct Polity {
     pub color: [u8; 3],
     /// Visuals need to be updated due to color or shape changes.
     pub need_visual_update: bool,
+}
+
+/// Update system
+///
+/// Claim map tiles.
+fn update_mapgrab(
+    config: Res<AtlasSimConfig>,
+    mut query: Query<(Entity, &mut Polity)>,
+    mut logics: Res<MapLogicData>,
+    mut extras: ResMut<SimMapData>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
+) {
+    let mapgrab_desire = 200.0;
+    let climate = logics.get_layer(MapDataLayer::Climate);
+    for (entity, mut polity) in query.iter_mut() {
+        // Only claim land when in the mood.
+        if mapgrab_desire <= 100.0 {
+            continue;
+        }
+        // Check border tiles for free land.
+        let weights: Vec<f32> = polity
+            .border_tiles
+            .iter()
+            .map(|i| {
+                let i = *i as usize;
+                match extras.tile_owner[i] {
+                    Some(_) => config.get_biome(climate[i]).habitability,
+                    None => config.get_biome(climate[i]).habitability,
+                }
+            })
+            .collect();
+        // Don't bother if all land is taken or very bad.
+        if weights.is_empty() || weights.iter().fold(0.0f32, |acc, x| acc.max(*x)) <= 0.1 {
+            continue;
+        }
+        // Choose one of the tiles.
+        let table = WalkerTableBuilder::new(&weights).build();
+        let i = table.next_rng(rng.as_mut());
+        // Add to polity.
+        let i = *polity.border_tiles.iter().nth(i).unwrap();
+        polity.border_tiles.remove(&i);
+        extras.tile_owner[i as usize] = Some(entity);
+        polity.tiles.push(i);
+        // Update xywh.
+        polity.tiles.sort();
+        let (width, _) = config.get_world_size();
+        let (first, last) = (polity.tiles[0], polity.tiles[polity.tiles.len() - 1]);
+        let mut min = width;
+        let mut max = 0;
+        for t in &polity.tiles {
+            let v = t % width;
+            min = std::cmp::min(min, v);
+            max = std::cmp::max(max, v);
+        }
+        let (x, y, w) = (min, first / width, max - min + 1);
+        let h = last / width + 1 - y;
+        polity.xywh = [x, y, w, h];
+        // Recalculate centroid.
+        polity.centroid = Vec2::new(x as f32 + w as f32 / 2.0, y as f32 + h as f32 / 2.0);
+        // Update polity borders.
+        polity.border_tiles.extend(
+            &mut config
+                .get_border_tiles(i)
+                .iter()
+                .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&entity))),
+        );
+        // Mark to redraw.
+        polity.need_visual_update = true;
+    }
 }
 
 /// Update system
