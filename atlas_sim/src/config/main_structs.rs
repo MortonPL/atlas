@@ -7,7 +7,7 @@ use atlas_lib::{
     MakeUi, UiEditableEnum,
 };
 
-use crate::config::{make_default_biomes, BiomeConfig};
+use crate::config::{make_default_biomes, BiomeConfig, RulesConfig};
 
 /// Complete configuration for the history simulator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -16,6 +16,7 @@ pub struct AtlasSimConfig {
     pub general: GeneralConfig,
     pub scenario: ScenarioConfig,
     pub climate: ClimateConfig,
+    pub rules: RulesConfig,
 }
 
 impl AtlasConfig for AtlasSimConfig {
@@ -63,17 +64,12 @@ impl AtlasSimConfig {
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
-    #[name("Tile Resolution [km]")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1.0..=100.0))]
-    pub tile_resolution: f32,
     pub world_size: [u32; 2],
 }
 
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            tile_resolution: 10.0,
             world_size: [360, 180],
         }
     }
@@ -102,7 +98,7 @@ pub struct ScenarioConfig {
     pub start_points: Vec<StartingPoint>,
     #[name("Starting Civilizations")]
     #[control(SidebarStructList)]
-    pub start_civs: Vec<Civilization>,
+    pub start_civs: Vec<CivConfig>,
 }
 
 impl Default for ScenarioConfig {
@@ -127,12 +123,18 @@ pub struct StartingPoint {
     #[name("Position")]
     #[control(SidebarSliderN)]
     pub position: [u32; 2],
-    #[name("Locked Owner")]
+    #[name("Locked Cilization")]
     #[control(SidebarCheckbox)]
-    pub owner_locked: bool,
+    pub civ_locked: bool,
     #[name("Civilization Index")]
     #[control(SidebarSlider)]
-    pub owner: u8,
+    pub civ: u8,
+    #[name("Locked Polity Color")]
+    #[control(SidebarCheckbox)]
+    pub color_locked: bool,
+    #[name("Polity")]
+    #[control(SidebarStructSection)]
+    pub polity: PolityConfig,
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
@@ -158,7 +160,15 @@ pub enum StartCivAlgorithm {
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
-pub struct Civilization {}
+pub struct CivConfig {}
+
+#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
+pub struct PolityConfig {
+    #[name("Color")]
+    #[control(SidebarColor)]
+    pub color: [u8; 3],
+}
 
 /// Config for the climate rules.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]

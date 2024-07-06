@@ -6,17 +6,17 @@ use atlas_lib::{
 
 use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
 
-/// Panel with civilization summary.
+/// Panel with simulation rules.
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelPolities;
+pub struct MainPanelRules;
 
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelPolities {
-    fn make_ui(&mut self, _ui: &mut Ui, _config: &mut AtlasSimConfig) {
-        // TODO
+impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRules {
+    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
+        config.rules.make_ui(ui);
     }
 
     fn get_heading(&self) -> &'static str {
-        "Polities"
+        "Rules"
     }
 
     fn get_layer(&self) -> MapDataLayer {

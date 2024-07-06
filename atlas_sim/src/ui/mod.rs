@@ -23,7 +23,10 @@ use atlas_lib::{
     },
 };
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelPolities, MainPanelScenario, SimPanelPolities};
+use panel::{
+    MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario,
+    SimPanelPolities,
+};
 
 use crate::{config::AtlasSimConfig, sim::SimControl};
 
@@ -77,6 +80,8 @@ struct AtlasSimUi {
     pub current_panel: Box<dyn SidebarPanel<AtlasSimConfig, Self> + Sync + Send>,
     /// Current mouse cursor coords in world space.
     pub cursor: Option<(u32, u32)>,
+    /// Pretend that the current panel has changed this frame.
+    pub force_changed: bool,
 }
 
 impl Default for AtlasSimUi {
@@ -86,6 +91,7 @@ impl Default for AtlasSimUi {
             sim_control: default(),
             current_panel: Box::<MainPanelGeneral>::default(),
             cursor: None,
+            force_changed: false,
         }
     }
 }
@@ -161,7 +167,11 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                         self.sim_control.paused = !self.sim_control.paused;
                     });
                     ui.label("Speed");
-                    ui.add(egui::DragValue::new(&mut self.sim_control.speed).prefix("x").clamp_range(0.0..=60.0));
+                    ui.add(
+                        egui::DragValue::new(&mut self.sim_control.speed)
+                            .prefix("x")
+                            .clamp_range(0.0..=60.0),
+                    );
                     ui.label("Date:");
                     ui.label(self.sim_control.time_to_string());
                 });
@@ -200,16 +210,16 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                         self.current_panel = Box::<MainPanelScenario>::default();
                         true
                     });
+                    changed |= button_action(ui, "Rules", || {
+                        self.current_panel = Box::<MainPanelRules>::default();
+                        true
+                    });
                     changed |= button_action(ui, "Climate", || {
                         self.current_panel = Box::<MainPanelClimate>::default();
                         true
                     });
                     changed |= button_action(ui, "Civilizations", || {
                         self.current_panel = Box::<MainPanelCiv>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Polities", || {
-                        self.current_panel = Box::<MainPanelPolities>::default();
                         true
                     });
                 });
@@ -221,7 +231,8 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     });
                 });
             }
-            if changed {
+            if changed || self.force_changed {
+                self.force_changed = false;
                 let layer = self.current_panel.get_layer();
                 let overlay = self.current_panel.get_overlay();
                 events.viewed_layer_changed = Some(layer);

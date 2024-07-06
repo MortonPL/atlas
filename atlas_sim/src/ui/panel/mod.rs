@@ -1,7 +1,7 @@
 mod civs;
 mod climate;
 mod general;
-mod polities;
+mod rules;
 mod scenario;
 
 mod sim_polities;
@@ -9,7 +9,7 @@ mod sim_polities;
 pub use civs::*;
 pub use climate::*;
 pub use general::*;
-pub use polities::*;
+pub use rules::*;
 pub use scenario::*;
 
 pub use sim_polities::*;

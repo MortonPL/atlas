@@ -69,8 +69,8 @@ pub trait AtlasConfig: Resource {
     fn centroid_to_world_centered(&self, point: (f32, f32)) -> (f32, f32) {
         let (width, height) = self.get_world_size();
         (
-            (point.0 - width as f32 / 2.0 + 0.5) / 100.0,
-            (height as f32 / 2.0 - point.1 - 0.5) / 100.0,
+            (point.0 - width as f32 / 2.0) / 100.0,
+            (height as f32 / 2.0 - point.1) / 100.0,
         )
     }
 

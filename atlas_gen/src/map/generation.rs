@@ -3,7 +3,7 @@ use atlas_lib::{
     config::WorldModel,
     domain::{
         graphics::{MapLogicData, CLIMATEMAP_SIZE},
-        map::MapDataLayer,
+        map::{is_sea, MapDataLayer},
     },
 };
 
@@ -454,9 +454,4 @@ fn handle_influence(
         let map_data = logics.get_layer(layer);
         apply_influence(data, map_data, influence_mode, influence_strength);
     }
-}
-
-/// Is this continent tile marked as water?
-fn is_sea(value: u8) -> bool {
-    value <= 127
 }

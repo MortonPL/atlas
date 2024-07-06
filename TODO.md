@@ -3,8 +3,14 @@
 ## SIM
 
 - High Priority
-  - Basic Polity (map grabbing) component
-  - Population (representation, distribution, growth)
+  - Improve map claiming system
+    - Expansion desire formula (stability + overcrowding + tradition)
+  - Improve polity system
+    - Tab Display
+    - Naming
+  - Colony convoy system
+  - Polity breakup system
+  - Population system (representation, distribution, growth)
 
 - Low Priority
   - Save/Load a simulation in progress

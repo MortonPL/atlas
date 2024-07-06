@@ -15,7 +15,8 @@ use atlas_lib::{
 use crate::{
     config::{AtlasSimConfig, CONFIG_NAME},
     map::internal::{
-        calc_start_point_weights, create_overlays, randomize_civ_points, randomize_start_points,
+        calc_start_point_weights, create_overlays, randomize_point_civ, randomize_point_color,
+        randomize_start_points,
     },
     sim::{
         polity::{Ownership, Polity},
@@ -133,7 +134,8 @@ pub fn update_event_random_start(
         events.error_window =
             Some("Failed to choose unique random locations for all points. Try again.".to_string());
     }
-    randomize_civ_points(&mut config, rng.as_mut());
+    randomize_point_civ(&mut config, rng.as_mut());
+    randomize_point_color(&mut config, rng.as_mut());
     // Recreate overlay markers.
     create_overlays(&config, commands, &mut meshes, &mut materials, query);
     // Switch / refresh overlay.
@@ -190,7 +192,7 @@ pub fn update_event_start_simulation(
     // Spawn polities.
     for start in &config.scenario.start_points {
         // Get all coords.
-        let i = min(start.owner as usize, config.scenario.start_civs.len() - 1);
+        let i = min(start.civ as usize, config.scenario.start_civs.len() - 1);
         let owner = &config.scenario.start_civs[i];
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);
@@ -206,8 +208,9 @@ pub fn update_event_start_simulation(
                 },
                 xywh: [p.0, p.1, 1, 1],
                 ownership: Ownership::Independent,
-                color: [255, 0, 0], // TODO
+                color: Color::rgb_u8(start.polity.color[0], start.polity.color[1], start.polity.color[2]),
                 need_visual_update: true,
+                expansion_desire: config.rules.starting_land_claim_points,
             },
             PbrBundle {
                 mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE).build()),

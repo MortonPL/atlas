@@ -83,3 +83,8 @@ pub enum MapDataOverlay {
     StartPoints,
     Polities,
 }
+
+/// Is this continent tile marked as water?
+pub fn is_sea(value: u8) -> bool {
+    value <= 127
+}

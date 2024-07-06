@@ -12,7 +12,7 @@ use atlas_lib::{
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
     config::AtlasConfig,
-    domain::{graphics::MapLogicData, map::MapDataLayer},
+    domain::{graphics::MapLogicData, map::{is_sea, MapDataLayer}},
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
@@ -60,9 +60,26 @@ pub struct Polity {
     /// Ownership status.
     pub ownership: Ownership,
     /// Polity map color.
-    pub color: [u8; 3],
+    pub color: Color,
     /// Visuals need to be updated due to color or shape changes.
     pub need_visual_update: bool,
+    /// The desire to claim border tiles.
+    pub expansion_desire: f32,
+}
+
+impl Default for Polity {
+    fn default() -> Self {
+        Self {
+            tiles: vec![0],
+            border_tiles: Default::default(),
+            centroid: Vec2::ZERO,
+            xywh: [0, 0, 1, 1],
+            ownership: Ownership::Independent,
+            color: Default::default(),
+            need_visual_update: true,
+            expansion_desire: 0.0,
+        }
+    }
 }
 
 /// Update system
@@ -71,15 +88,15 @@ pub struct Polity {
 fn update_mapgrab(
     config: Res<AtlasSimConfig>,
     mut query: Query<(Entity, &mut Polity)>,
-    mut logics: Res<MapLogicData>,
+    logics: Res<MapLogicData>,
     mut extras: ResMut<SimMapData>,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
-    let mapgrab_desire = 200.0;
     let climate = logics.get_layer(MapDataLayer::Climate);
+    let conts = logics.get_layer(MapDataLayer::Continents);
     for (entity, mut polity) in query.iter_mut() {
         // Only claim land when in the mood.
-        if mapgrab_desire <= 100.0 {
+        if polity.expansion_desire <= config.rules.land_claim_cost {
             continue;
         }
         // Check border tiles for free land.
@@ -89,8 +106,14 @@ fn update_mapgrab(
             .map(|i| {
                 let i = *i as usize;
                 match extras.tile_owner[i] {
-                    Some(_) => config.get_biome(climate[i]).habitability,
-                    None => config.get_biome(climate[i]).habitability,
+                    Some(_) => 0.0,
+                    None => {
+                        if is_sea(conts[i]) {
+                            0.0
+                        } else {
+                            config.get_biome(climate[i]).habitability
+                        }
+                    }
                 }
             })
             .collect();
@@ -168,7 +191,7 @@ fn update_visuals(
         tran.scale = Vec3::new(s.0, s.1, s.1);
         // Update the material (with tint) and texture (with shape).
         *mat = materials.add(StandardMaterial {
-            base_color: Color::rgb_u8(polity.color[0], polity.color[1], polity.color[2]),
+            base_color: polity.color,
             base_color_texture: Some(images.add(Image::new(
                 Extent3d {
                     width,

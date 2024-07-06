@@ -5,7 +5,7 @@ use atlas_lib::{
     },
     config::AtlasConfig,
     domain::{graphics::MapLogicData, map::MapDataLayer},
-    rand::Rng,
+    rand::{distributions::Uniform, Rng},
 };
 use weighted_rand::{
     builder::{NewBuilder, WalkerTableBuilder},
@@ -114,39 +114,53 @@ pub fn randomize_start_points(
     success
 }
 
-pub fn randomize_civ_points(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
+pub fn randomize_point_civ(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
     match config.scenario.random_civ_algorithm {
         StartCivAlgorithm::Repeated => {
             for point in &mut config.scenario.start_points {
-                if point.owner_locked {
+                if point.civ_locked {
                     continue;
                 }
-                point.owner = rng.gen_range(0..config.scenario.num_civs);
+                point.civ = rng.gen_range(0..config.scenario.num_civs);
             }
         }
         StartCivAlgorithm::Choice => {
             let mut num = config.scenario.num_civs;
             let mut civs: HashSet<u8> = (0..config.scenario.num_civs).collect();
             for point in &mut config.scenario.start_points {
-                if point.owner_locked {
-                    civs.remove(&point.owner);
+                if point.civ_locked {
+                    civs.remove(&point.civ);
                     num -= 1;
                 }
             }
             let mut civs: Vec<u8> = civs.into_iter().collect();
             for point in &mut config.scenario.start_points {
-                if point.owner_locked {
+                if point.civ_locked {
                     continue;
                 }
                 if num > 0 {
                     let i = rng.gen_range(0..num) as usize;
-                    point.owner = civs.remove(i as usize);
+                    point.civ = civs.remove(i as usize);
                     num -= 1;
                 } else {
-                    point.owner = 0;
+                    point.civ = 0;
                 }
             }
         }
+    }
+}
+
+pub fn randomize_point_color(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
+    let uniform_h = Uniform::new_inclusive(0.0, 360.0);
+    let uniform_s = Uniform::new_inclusive(0.7, 1.0);
+    let uniform_l = Uniform::new_inclusive(0.5, 1.0);
+    for point in &mut config.scenario.start_points {
+        if point.color_locked {
+            continue;
+        }
+        let (h, s, l) = (rng.sample(uniform_h), rng.sample(uniform_s), rng.sample(uniform_l));
+        let color = Color::hsl(h, s, l).as_rgba_u8();
+        point.polity.color = [color[0], color[1], color[2]];
     }
 }
 
@@ -163,18 +177,17 @@ pub fn create_overlays(
     }
     // Create new meshes and materials.
     let mesh = meshes.add(Cuboid::from_size(Vec3::ONE / 50.0).mesh());
-    let material = materials.add(StandardMaterial {
-        base_color: Color::RED,
-        unlit: true,
-        ..Default::default()
-    });
     // Spawn new markers.
     for point in &config.scenario.start_points {
         let coords = config.map_to_world((point.position[0], point.position[1]));
         commands.spawn((
             MaterialMeshBundle {
                 mesh: mesh.clone(),
-                material: material.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::rgb_u8(point.polity.color[0], point.polity.color[1], point.polity.color[2]),
+                    unlit: true,
+                    ..Default::default()
+                }),
                 transform: Transform::from_xyz(coords.0, coords.1, 0.0),
                 ..default()
             },
@@ -182,6 +195,20 @@ pub fn create_overlays(
             MapOverlayStart,
         ));
     }
+}
+
+pub fn make_similar_color(color: &Color, rng: &mut impl Rng) -> Color {
+    let uniform = Uniform::new_inclusive(-0.1, 0.1);
+    let hsla = color.as_hsla_f32();
+    let mut h = hsla[0] + rng.sample(uniform) * 50.0;
+    let s = (hsla[1] + rng.sample(uniform)).clamp(0.7, 1.0);
+    let l = (hsla[2] + rng.sample(uniform)).clamp(0.5, 1.0);
+    if h > 360.0 {
+        h -= 360.0;
+    } else if h < 0.0 {
+        h += 360.0;
+    }
+    Color::hsl(h, s, l)
 }
 
 fn habitability_weight<'a>(
