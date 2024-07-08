@@ -8,9 +8,10 @@ use atlas_lib::{
     },
 };
 
-use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
-
-use super::SimPanelPolities;
+use crate::{
+    config::AtlasSimConfig,
+    ui::{panel_sim::InfoPanelPolity, AtlasSimUi},
+};
 
 /// Panel with general simulation settings.
 #[derive(Default, Clone, Copy)]
@@ -27,7 +28,7 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelGeneral {
         button_action(ui, "Begin Simulation", || {
             events.simulation_start_request = Some(());
             ui_state.setup_mode = false;
-            ui_state.current_panel = Box::<SimPanelPolities>::default();
+            ui_state.current_panel = Box::<InfoPanelPolity>::default();
             ui_state.force_changed = true;
         });
     }

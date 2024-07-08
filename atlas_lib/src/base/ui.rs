@@ -245,13 +245,17 @@ pub trait UiCreator<C> {
     );
 
     /// Create sidebar settings for the layer display.
-    fn create_layer_view_settings(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
+    fn create_layer_view_settings(
+        &mut self,
+        ui: &mut Ui,
+        ui_base: &mut UiStateBase,
+        events: &mut EventStruct,
+    ) {
         // Layer visibility dropdown.
         // NOTE: `ui.horizontal_wrapped()` respects `ui.end_row()` used internally by a `SidebarControl`.
         ui.horizontal(|ui| {
             let old = ui_base.current_layer;
-            let selection =
-                SidebarEnumDropdown::new(ui, "Layer", &mut ui_base.current_layer).show(None);
+            let selection = SidebarEnumDropdown::new(ui, "Layer", &mut ui_base.current_layer).show(None);
             SidebarEnumDropdown::post_show(selection, &mut ui_base.current_layer);
             // Trigger layer change event as needed.
             if old != ui_base.current_layer {

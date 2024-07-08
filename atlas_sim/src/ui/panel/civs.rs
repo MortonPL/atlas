@@ -1,8 +1,4 @@
-use atlas_lib::{
-    bevy_egui::egui::Ui,
-    domain::map::MapDataLayer,
-    ui::sidebar::{MakeUi, SidebarPanel},
-};
+use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::SidebarPanel};
 
 use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
 

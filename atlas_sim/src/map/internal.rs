@@ -158,7 +158,11 @@ pub fn randomize_point_color(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
         if point.color_locked {
             continue;
         }
-        let (h, s, l) = (rng.sample(uniform_h), rng.sample(uniform_s), rng.sample(uniform_l));
+        let (h, s, l) = (
+            rng.sample(uniform_h),
+            rng.sample(uniform_s),
+            rng.sample(uniform_l),
+        );
         let color = Color::hsl(h, s, l).as_rgba_u8();
         point.polity.color = [color[0], color[1], color[2]];
     }
@@ -184,7 +188,11 @@ pub fn create_overlays(
             MaterialMeshBundle {
                 mesh: mesh.clone(),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::rgb_u8(point.polity.color[0], point.polity.color[1], point.polity.color[2]),
+                    base_color: Color::rgb_u8(
+                        point.polity.color[0],
+                        point.polity.color[1],
+                        point.polity.color[2],
+                    ),
                     unlit: true,
                     ..Default::default()
                 }),

@@ -171,6 +171,7 @@ pub fn update_event_overlay_changed(
                 *vis = Visibility::Visible;
             }
         }
+        MapDataOverlay::Civilizations => { /* TODO */ }
     }
 }
 
@@ -182,7 +183,6 @@ pub fn update_event_start_simulation(
     config: Res<AtlasSimConfig>,
     mut sim: ResMut<SimControl>,
     mut extras: ResMut<SimMapData>,
-    mut rng: ResMut<GlobalEntropy<WyRand>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
@@ -208,9 +208,13 @@ pub fn update_event_start_simulation(
                 },
                 xywh: [p.0, p.1, 1, 1],
                 ownership: Ownership::Independent,
-                color: Color::rgb_u8(start.polity.color[0], start.polity.color[1], start.polity.color[2]),
+                color: Color::rgb_u8(
+                    start.polity.color[0],
+                    start.polity.color[1],
+                    start.polity.color[2],
+                ),
                 need_visual_update: true,
-                expansion_desire: config.rules.starting_land_claim_points,
+                land_claim_points: config.rules.starting_land_claim_points,
             },
             PbrBundle {
                 mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE).build()),
@@ -221,6 +225,8 @@ pub fn update_event_start_simulation(
                 visibility: Visibility::Hidden,
                 ..Default::default()
             },
+            //PickableBundle::default(),
+            //On::<Pointer<Down>>::send_event::<UpdateSelectionEvent>(),
             MapOverlay,
             MapOverlayPolity,
         ));

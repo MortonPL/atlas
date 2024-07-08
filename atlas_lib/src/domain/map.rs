@@ -82,6 +82,7 @@ pub enum MapDataOverlay {
     None,
     StartPoints,
     Polities,
+    Civilizations,
 }
 
 /// Is this continent tile marked as water?

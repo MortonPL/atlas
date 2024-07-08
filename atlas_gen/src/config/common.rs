@@ -1,5 +1,10 @@
 use atlas_lib::{
-    bevy::{ecs as bevy_ecs, prelude::Resource}, bevy_egui, config::MAX_WORLD_SIZE, serde_derive::{Deserialize, Serialize}, ui::{sidebar::*, UiEditableEnum}, MakeUi, MakeUiEnum, UiEditableEnum
+    bevy::{ecs as bevy_ecs, prelude::Resource},
+    bevy_egui,
+    config::MAX_WORLD_SIZE,
+    serde_derive::{Deserialize, Serialize},
+    ui::{sidebar::*, UiEditableEnum},
+    MakeUi, MakeUiEnum, UiEditableEnum,
 };
 
 /// Algorithm describes the noise algorithm that should be used to generate a layer,

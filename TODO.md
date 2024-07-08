@@ -6,7 +6,6 @@
   - Improve map claiming system
     - Expansion desire formula (stability + overcrowding + tradition)
   - Improve polity system
-    - Tab Display
     - Naming
   - Colony convoy system
   - Polity breakup system

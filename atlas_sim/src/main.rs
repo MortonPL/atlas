@@ -8,6 +8,7 @@ mod ui;
 use atlas_lib::{
     base::events::EventPlugin, bevy::prelude::*, bevy_prng::WyRand, bevy_rand::prelude::EntropyPlugin,
 };
+use bevy_mod_picking::{highlight::DefaultHighlightingPlugin, DefaultPickingPlugins};
 
 /// Application entry point.
 fn main() {
@@ -22,6 +23,11 @@ fn main() {
                     ..Default::default()
                 })
                 .set(ImagePlugin::default_nearest()),
+        )
+        .add_plugins(
+            DefaultPickingPlugins
+                .build()
+                .disable::<DefaultHighlightingPlugin>(),
         )
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(EntropyPlugin::<WyRand>::default())

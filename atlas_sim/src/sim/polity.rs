@@ -9,20 +9,25 @@ use atlas_lib::{
             render_resource::{Extent3d, TextureDimension, TextureFormat},
         },
     },
+    bevy_egui,
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
     config::AtlasConfig,
-    domain::{graphics::MapLogicData, map::{is_sea, MapDataLayer}},
+    domain::{
+        graphics::{color_to_u8, MapLogicData},
+        map::{is_sea, MapDataLayer},
+    },
+    ui::{sidebar::SidebarControl, UiEditableEnum},
+    MakeUi,
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::config::AtlasSimConfig;
+use crate::{
+    config::AtlasSimConfig,
+    sim::{check_tick, SimMapData},
+};
 
-use crate::sim::check_tick;
-
-use super::SimMapData;
-
-/// Plugin responsible for the actual simulation.
+/// Polity simulation.
 pub struct PolityPlugin;
 
 impl Plugin for PolityPlugin {
@@ -33,7 +38,7 @@ impl Plugin for PolityPlugin {
 }
 
 /// Ownership status of a polity.
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub enum Ownership {
     /// This polity is independent and has no master.
     #[default]
@@ -44,6 +49,33 @@ pub enum Ownership {
     Integrated(Entity),
     /// This polity is occupied by an external force.
     Occupied(Entity),
+}
+
+impl UiEditableEnum for Ownership {
+    const LEN: usize = 4;
+
+    fn self_as_index(&self) -> usize {
+        match self {
+            Ownership::Independent => 0,
+            Ownership::Autonomous(_) => 1,
+            Ownership::Integrated(_) => 2,
+            Ownership::Occupied(_) => 3,
+        }
+    }
+
+    fn index_as_self(&self, _idx: usize) -> Self {
+        unreachable!()
+    }
+
+    fn index_to_str(idx: usize) -> &'static str {
+        match idx {
+            0 => "Independent",
+            1 => "Autonomous",
+            2 => "Integrated",
+            3 => "Occupied",
+            _ => unreachable!(),
+        }
+    }
 }
 
 /// A political entity that owns land and population.
@@ -57,14 +89,40 @@ pub struct Polity {
     pub centroid: Vec2,
     /// XYWH bounding box in map coordinates.
     pub xywh: [u32; 4],
-    /// Ownership status.
-    pub ownership: Ownership,
-    /// Polity map color.
-    pub color: Color,
     /// Visuals need to be updated due to color or shape changes.
     pub need_visual_update: bool,
+    /// Ownership status.
+    pub ownership: Ownership,
+    /// Map color.
+    pub color: Color,
     /// The desire to claim border tiles.
-    pub expansion_desire: f32,
+    pub land_claim_points: f32,
+}
+
+#[derive(Component, MakeUi)]
+pub struct PolityUi {
+    #[name("Ownership")]
+    #[control(SidebarEnumDropdown)]
+    /// Ownership status.
+    pub ownership: Ownership,
+    #[name("Color")]
+    #[control(SidebarColor)]
+    /// Polity map color.
+    pub color: [u8; 3],
+    #[name("Land Claim Points")]
+    #[control(SidebarSlider)]
+    /// The desire to claim border tiles.
+    pub land_claim_points: f32,
+}
+
+impl From<&Polity> for PolityUi {
+    fn from(value: &Polity) -> Self {
+        Self {
+            ownership: value.ownership,
+            color: color_to_u8(&value.color),
+            land_claim_points: value.land_claim_points,
+        }
+    }
 }
 
 impl Default for Polity {
@@ -77,7 +135,7 @@ impl Default for Polity {
             ownership: Ownership::Independent,
             color: Default::default(),
             need_visual_update: true,
-            expansion_desire: 0.0,
+            land_claim_points: 0.0,
         }
     }
 }
@@ -96,7 +154,7 @@ fn update_mapgrab(
     let conts = logics.get_layer(MapDataLayer::Continents);
     for (entity, mut polity) in query.iter_mut() {
         // Only claim land when in the mood.
-        if polity.expansion_desire <= config.rules.land_claim_cost {
+        if polity.land_claim_points <= config.rules.land_claim_cost {
             continue;
         }
         // Check border tiles for free land.

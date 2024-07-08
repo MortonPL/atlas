@@ -39,12 +39,15 @@ pub trait AtlasConfig: Resource {
     fn climate_index_to_color_simple(&self, i: u8) -> [u8; 4];
 
     /// Convert a point from Bevy world space to map space.
-    fn world_to_map(&self, point: (f32, f32)) -> (u32, u32) {
+    fn world_to_map(&self, point: (f32, f32)) -> Option<(u32, u32)> {
         let (width, height) = self.get_world_size();
-        (
-            (point.0 * 100.0 + width as f32 / 2.0) as u32,
-            (-point.1 * 100.0 + height as f32 / 2.0) as u32,
-        )
+        let (width, height) = (width as f32, height as f32);
+        let coords = ((point.0 * 100.0 + width / 2.0), (-point.1 * 100.0 + height / 2.0));
+        if coords.0 > 0.0 && coords.0 < width && coords.1 > 0.0 && coords.1 < height {
+            Some((coords.0 as u32, coords.1 as u32))
+        } else {
+            None
+        }
     }
 
     /// Convert a point from map space to Bevy world space.

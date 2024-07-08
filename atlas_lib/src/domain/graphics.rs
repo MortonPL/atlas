@@ -124,6 +124,11 @@ impl MapGraphicsLayer {
     }
 }
 
+pub fn color_to_u8(value: &Color) -> [u8; 3] {
+    let color = value.as_rgba_u8();
+    [color[0], color[1], color[2]]
+}
+
 /// Create a new texture.
 pub fn make_image(width: u32, height: u32, data: Vec<u8>) -> Image {
     Image::new(

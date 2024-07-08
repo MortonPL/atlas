@@ -1,5 +1,6 @@
 mod internal;
 mod panel;
+mod panel_sim;
 
 use atlas_lib::{
     base::{
@@ -22,13 +23,22 @@ use atlas_lib::{
         window,
     },
 };
-use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::{
-    MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario,
-    SimPanelPolities,
+use bevy_mod_picking::{
+    events::{Down, Pointer},
+    prelude::*,
 };
+use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
+use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario};
+use panel_sim::{InfoPanelCiv, InfoPanelMisc, InfoPanelPolity};
 
-use crate::{config::AtlasSimConfig, sim::SimControl};
+use crate::{
+    config::AtlasSimConfig,
+    sim::{
+        civ::{Civ, CivUi},
+        polity::{Polity, PolityUi},
+        SimControl, SimMapData,
+    },
+};
 
 pub struct UiPlugin;
 
@@ -39,7 +49,14 @@ impl Plugin for UiPlugin {
             .add_systems(Startup, startup_location)
             .add_systems(UiUpdate, update_ui)
             .add_systems(UiUpdate, update_viewport.after(update_ui))
-            .add_systems(UiUpdate, update_location.after(update_viewport));
+            .add_systems(UiUpdate, update_location.after(update_viewport))
+            .add_systems(UiUpdate, update_click_location)
+            .add_event::<UpdateSelectionEvent>()
+            .add_systems(
+                UiUpdate,
+                update_selection.run_if(on_event::<UpdateSelectionEvent>()),
+            )
+            .add_systems(UiUpdate, update_selection_data);
     }
 }
 
@@ -71,6 +88,13 @@ fn update_ui(
 }
 
 #[derive(Resource)]
+struct Selection {
+    pub entity: Entity,
+    pub polity: Option<PolityUi>,
+    pub civ: Option<CivUi>,
+}
+
+#[derive(Resource)]
 struct AtlasSimUi {
     /// Is the simulation not running yet? Can we still make changes to the configuration?
     pub setup_mode: bool,
@@ -82,6 +106,7 @@ struct AtlasSimUi {
     pub cursor: Option<(u32, u32)>,
     /// Pretend that the current panel has changed this frame.
     pub force_changed: bool,
+    pub selection: Option<Selection>,
 }
 
 impl Default for AtlasSimUi {
@@ -92,6 +117,7 @@ impl Default for AtlasSimUi {
             current_panel: Box::<MainPanelGeneral>::default(),
             cursor: None,
             force_changed: false,
+            selection: None,
         }
     }
 }
@@ -225,8 +251,16 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                 });
             } else {
                 egui::menu::bar(ui, |ui| {
-                    changed |= button_action(ui, "Polities", || {
-                        self.current_panel = Box::<SimPanelPolities>::default(); // TODO
+                    changed |= button_action(ui, "Selected", || {
+                        self.current_panel = Box::<InfoPanelMisc>::default(); // TODO
+                        true
+                    });
+                    changed |= button_action(ui, "Polity", || {
+                        self.current_panel = Box::<InfoPanelPolity>::default(); // TODO
+                        true
+                    });
+                    changed |= button_action(ui, "Civilization", || {
+                        self.current_panel = Box::<InfoPanelCiv>::default(); // TODO
                         true
                     });
                 });
@@ -343,8 +377,69 @@ fn update_location(
     };
     // Get the coords.
     let coords = ray.get_point(distance);
-    let coords = config.world_to_map((coords.x, coords.y));
-    ui_state.cursor = Some(coords);
+    ui_state.cursor = config.world_to_map((coords.x, coords.y));
+}
+
+#[derive(Event)]
+pub struct UpdateSelectionEvent(Entity);
+
+impl From<ListenerInput<Pointer<Down>>> for UpdateSelectionEvent {
+    fn from(event: ListenerInput<Pointer<Down>>) -> Self {
+        UpdateSelectionEvent(event.target)
+    }
+}
+
+fn update_click_location(
+    mut ui_state: ResMut<AtlasSimUi>,
+    extras: Res<SimMapData>,
+    config: Res<AtlasSimConfig>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+) {
+    if mouse_button.just_released(MouseButton::Left) {
+        if let Some(cursor) = ui_state.cursor {
+            let i = config.map_to_index(cursor) as usize;
+            if let Some(entity) = extras.tile_owner[i] {
+                ui_state.selection = Some(Selection {
+                    entity,
+                    polity: None,
+                    civ: None,
+                });
+            }
+        }
+    }
+}
+
+/// Update system
+///
+/// Update the selection if the user clicked.
+fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<UpdateSelectionEvent>) {
+    let event = if let Some(event) = event.read().next() {
+        event
+    } else {
+        return;
+    };
+    ui_state.selection = Some(Selection {
+        entity: event.0,
+        polity: None,
+        civ: None,
+    });
+}
+
+/// Update system
+///
+/// Update data of the current selection.
+fn update_selection_data(mut ui_state: ResMut<AtlasSimUi>, polities: Query<&Polity>, civs: Query<&Civ>) {
+    let selection = if let Some(selection) = &mut ui_state.selection {
+        selection
+    } else {
+        return;
+    };
+    if let Ok(polity) = polities.get(selection.entity) {
+        selection.polity = Some(polity.into());
+    }
+    if let Ok(civ) = civs.get(selection.entity) {
+        selection.civ = Some(civ.into());
+    }
 }
 
 /// A visible map overlay.
