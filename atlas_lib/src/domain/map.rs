@@ -13,7 +13,6 @@ pub enum MapDataLayer {
     Temperature,
     Precipitation,
     Climate,
-    #[invisible] // TODO
     Resources,
     #[invisible]
     RealTopography,
@@ -65,7 +64,7 @@ pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
 ];
 
 /// Array of all exportable [`MapDataLayer`]s.
-pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 7] = [
+pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 8] = [
     (MapDataLayer::Continents, "continents.png"),
     (MapDataLayer::Topography, "topography.png"),
     (MapDataLayer::RealTopography, "realtopography.png"),
@@ -73,6 +72,7 @@ pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 7] = [
     (MapDataLayer::Precipitation, "precipitation.png"),
     (MapDataLayer::Climate, "climate.png"),
     (MapDataLayer::Resources, "resources.png"),
+    (MapDataLayer::Preview, "preview.png"),
 ];
 
 /// A graphical overlay over the map, but not necessarily a full layer.

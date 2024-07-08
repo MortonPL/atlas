@@ -18,8 +18,7 @@ use atlas_lib::{
 };
 use internal::{clear_layer_clicked, reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{
-    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelTemperature,
-    MainPanelTopography,
+    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources, MainPanelTemperature, MainPanelTopography
 };
 
 use crate::config::AtlasGenConfig;
@@ -162,12 +161,10 @@ impl UiCreator<AtlasGenConfig> for AtlasGenUi {
                     self.current_panel = Box::<MainPanelClimate>::default();
                     true
                 });
-                /* TODO
                 changed |= button_action(ui, "Resources", || {
-                    ui_panel.current_panel = Box::<MainPanelResources>::default();
+                    self.current_panel = Box::<MainPanelResources>::default();
                     true
                 });
-                */
             });
             if changed {
                 let layer = self.current_panel.get_layer();

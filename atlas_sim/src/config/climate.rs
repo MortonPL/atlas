@@ -88,7 +88,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [90, 170, 140],
             simple_color: [90, 170, 140],
             productivity: 0.1, // TODO find good value
-            habitability: 0.7,
+            habitability: 0.5,
         },
         BiomeConfig {
             // 7
@@ -96,7 +96,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [40, 140, 100],
             simple_color: [90, 170, 140],
             productivity: 0.1, // TODO find good value
-            habitability: 0.7,
+            habitability: 0.5,
         },
         BiomeConfig {
             // 8
@@ -120,7 +120,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [180, 190, 130],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
-            habitability: 0.7,
+            habitability: 0.8,
         },
         BiomeConfig {
             // 11
@@ -128,7 +128,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [150, 190, 130],
             simple_color: [90, 200, 75],
             productivity: 0.1, // TODO find good value
-            habitability: 0.8,
+            habitability: 1.0,
         },
         BiomeConfig {
             // 12
@@ -225,6 +225,14 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             simple_color: [225, 220, 55],
             productivity: 0.1, // TODO find good value
             habitability: 0.0,
+        },
+        BiomeConfig {
+            // 24
+            name: "Mountains".to_string(),
+            color: [80, 70, 60],
+            simple_color: [80, 70, 60],
+            productivity: 0.1, // TODO find good value
+            habitability: 0.3,
         },
     ]
 }

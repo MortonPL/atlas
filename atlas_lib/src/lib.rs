@@ -12,6 +12,7 @@ pub use bevy_rand;
 pub use egui_file;
 pub use png;
 pub use rand;
+pub use rstar;
 pub use serde;
 pub use serde_derive;
 pub use serde_with;

@@ -1,10 +1,10 @@
-use bevy_egui::egui::{self, Grid, Ui};
+use bevy_egui::egui::{self, Grid, Ui, WidgetText};
 use std::{marker::PhantomData, ops::RangeInclusive};
 
 use crate::{
     base::events::EventStruct,
     domain::map::{MapDataLayer, MapDataOverlay},
-    ui::generic::UiEditableEnum,
+    ui::UiEditableEnum,
 };
 
 const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
@@ -61,7 +61,7 @@ pub trait MakeUi {
 /// Designed to be placed inside a two column grid.
 pub trait SidebarControl<'u, 'v, T: ?Sized> {
     /// Initialize this control.
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self;
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self;
 
     /// Show this control and handle input. Return a numeric value
     /// which means different things depending on the control.
@@ -75,7 +75,7 @@ pub trait SidebarControl<'u, 'v, T: ?Sized> {
 pub struct SidebarSlider<'u, 'v, T> {
     ui: &'u mut Ui,
     inner: egui::DragValue<'v>,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<T>,
 }
 
@@ -83,11 +83,11 @@ impl<'u, 'v, Num> SidebarControl<'u, 'v, Num> for SidebarSlider<'u, 'v, Num>
 where
     Num: egui::emath::Numeric,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut Num) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut Num) -> Self {
         Self {
             ui,
             inner: egui::DragValue::new(value),
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
@@ -120,7 +120,7 @@ where
 pub struct SidebarSliderN<'u, 'v, T: ?Sized> {
     ui: &'u mut Ui,
     inners: Vec<egui::DragValue<'v>>,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<T>,
 }
 
@@ -128,11 +128,11 @@ impl<'u, 'v, Num> SidebarControl<'u, 'v, [Num]> for SidebarSliderN<'u, 'v, [Num]
 where
     Num: egui::emath::Numeric,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, values: &'v mut [Num]) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, values: &'v mut [Num]) -> Self {
         Self {
             ui,
             inners: values.iter_mut().map(|v| egui::DragValue::new(v)).collect(),
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
@@ -174,7 +174,7 @@ where
 pub struct SidebarSliderRandom<'u, 'v, T> {
     ui: &'u mut Ui,
     inner: egui::DragValue<'v>,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<T>,
 }
 
@@ -183,11 +183,11 @@ where
     Num: egui::emath::Numeric,
     rand::distributions::Standard: rand::distributions::Distribution<Num>,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut Num) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut Num) -> Self {
         let new = Self {
             ui,
             inner: egui::DragValue::new(value),
-            label,
+            label: label.into(),
             __: PhantomData,
         };
         new
@@ -231,7 +231,7 @@ where
 pub struct SidebarCheckbox<'u, 'v, T> {
     ui: &'u mut Ui,
     inner: egui::Checkbox<'v>,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<T>,
 }
 
@@ -239,11 +239,11 @@ impl<'u, 'v, T: 'v> SidebarControl<'u, 'v, T> for SidebarCheckbox<'u, 'v, T>
 where
     &'v mut bool: From<&'v mut T>,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         Self {
             ui,
             inner: egui::Checkbox::without_text(value.into()),
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
@@ -267,7 +267,7 @@ impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarHeader<'u, 'v, T>
 where
     &'v T: Into<bevy_egui::egui::RichText>,
 {
-    fn new(ui: &'u mut Ui, _label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, _label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         Self { ui, value }
     }
 
@@ -282,7 +282,7 @@ where
 pub struct SidebarColor<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut [u8; 3],
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<T>,
 }
 
@@ -290,11 +290,11 @@ impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarColor<'u, 'v, T>
 where
     T: AsRgb,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         Self {
             ui,
             value: value.as_rgb(),
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
@@ -324,7 +324,7 @@ impl AsRgb for [u8; 3] {
 pub struct SidebarEnumDropdown<'u, 'v, T> {
     ui: &'u mut Ui,
     selection: usize,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<&'v T>,
 }
 
@@ -332,20 +332,21 @@ impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarEnumDropdown<'u, 'v, T>
 where
     T: UiEditableEnum,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         let selection = value.self_as_index();
         Self {
             ui,
             selection,
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
 
     fn show(mut self, hint: Option<&str>) -> usize {
         let hint = hint.unwrap_or(NO_HINT_MESSAGE);
+        let text = self.label.text().to_string();
         self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        egui::ComboBox::new(self.label, "")
+        egui::ComboBox::new(text, "")
             .show_index(self.ui, &mut self.selection, T::LEN, T::index_to_str)
             .on_hover_text_at_pointer(hint);
         self.ui.end_row();
@@ -363,7 +364,7 @@ where
 pub struct SidebarEnumSection<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<&'v T>,
 }
 
@@ -371,18 +372,18 @@ impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarEnumSection<'u, 'v, T>
 where
     T: UiEditableEnum + MakeUi,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         Self {
             ui,
             value,
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
 
     fn show(self, hint: Option<&str>) -> usize {
         self.ui
-            .heading(self.label)
+            .heading(self.label.text())
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
         self.ui.end_row();
         Self::inner_show(self.ui, self.label, self.value);
@@ -395,7 +396,7 @@ impl<'u, 'v, T> SidebarEnumSection<'u, 'v, T>
 where
     T: UiEditableEnum + MakeUi,
 {
-    fn inner_show(ui: &mut Ui, label: &'static str, value: &'v mut T) -> usize {
+    fn inner_show(ui: &mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> usize {
         let result = SidebarEnumDropdown::new(ui, label, value).show(Some("Select a variant"));
         SidebarEnumDropdown::post_show(result, value);
         value.make_ui(ui);
@@ -407,7 +408,7 @@ where
 pub struct SidebarEnumSubsection<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
-    label: &'static str,
+    label: WidgetText,
     __: PhantomData<&'v T>,
 }
 
@@ -415,11 +416,11 @@ impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarEnumSubsection<'u, 'v, T>
 where
     T: UiEditableEnum + MakeUi,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         Self {
             ui,
             value,
-            label,
+            label: label.into(),
             __: PhantomData,
         }
     }
@@ -434,7 +435,7 @@ impl<'u, 'v, T> SidebarEnumSubsection<'u, 'v, T>
 where
     T: UiEditableEnum + MakeUi,
 {
-    fn inner_show(ui: &mut Ui, label: &'static str, value: &'v mut T) -> usize {
+    fn inner_show(ui: &mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> usize {
         let result = SidebarEnumDropdown::new(ui, label, value).show(Some("Select a variant"));
         SidebarEnumDropdown::post_show(result, value);
         value.make_ui(ui);
@@ -446,20 +447,20 @@ where
 pub struct SidebarStructSection<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
-    label: &'static str,
+    label: WidgetText,
 }
 
 impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructSection<'u, 'v, T>
 where
     T: MakeUi,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
-        Self { ui, value, label }
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
+        Self { ui, value, label: label.into() }
     }
 
     fn show(self, hint: Option<&str>) -> usize {
         self.ui
-            .heading(self.label)
+            .heading(self.label.text())
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
         self.ui.end_row();
         self.value.make_ui(self.ui);
@@ -478,7 +479,7 @@ impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructSubsection<'u, 'v, T>
 where
     T: MakeUi,
 {
-    fn new(ui: &'u mut Ui, _label: &'static str, value: &'v mut T) -> Self {
+    fn new(ui: &'u mut Ui, _label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         Self { ui, value }
     }
 
@@ -493,7 +494,7 @@ where
 pub struct SidebarStructList<'u, 'v, T> {
     ui: &'u mut Ui,
     value: &'v mut T,
-    label: &'static str,
+    label: WidgetText,
 }
 
 impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructList<'u, 'v, T>
@@ -501,13 +502,13 @@ where
     T: AsVector,
     T::Item: MakeUi,
 {
-    fn new(ui: &'u mut Ui, label: &'static str, value: &'v mut T) -> Self {
-        Self { ui, value, label }
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
+        Self { ui, value, label: label.into() }
     }
 
     fn show(self, hint: Option<&str>) -> usize {
         self.ui
-            .heading(self.label)
+            .heading(self.label.text())
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
         self.ui.end_row();
         for element in self.value.as_vec() {

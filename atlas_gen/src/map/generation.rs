@@ -1,10 +1,11 @@
 use atlas_lib::{
-    bevy::utils::petgraph::matrix_graph::Zero,
-    config::WorldModel,
+    bevy::utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
+    config::{AtlasConfig, WorldModel},
     domain::{
         graphics::{MapLogicData, CLIMATEMAP_SIZE},
         map::{is_sea, MapDataLayer},
     },
+    rstar::RTree,
 };
 
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
 pub fn generate(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
-    config: &AtlasGenConfig,
+    config: &mut AtlasGenConfig,
 ) -> Vec<MapDataLayer> {
     let model = config.general.generation_model;
     let world_size = config.general.world_size;
@@ -33,7 +34,7 @@ pub fn generate(
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
         MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
-        MapDataLayer::Resources => todo!(), // TODO
+        MapDataLayer::Resources => generate_resources(logics, config, layer),
         // Influence
         MapDataLayer::ContinentsInfluence => {
             generate_influence(logics, &config.continents, model, world_size, layer)
@@ -57,7 +58,7 @@ pub fn generate(
 pub fn after_generate(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
-    config: &AtlasGenConfig,
+    config: &mut AtlasGenConfig,
 ) -> Vec<MapDataLayer> {
     let mut regen_layers = match layer {
         MapDataLayer::Continents => {
@@ -66,12 +67,14 @@ pub fn after_generate(
             generate_temperature(logics, config, MapDataLayer::Temperature);
             generate_precipitation(logics, config, MapDataLayer::Precipitation);
             generate_climate(logics, config, MapDataLayer::Climate);
+            generate_resources(logics, config, MapDataLayer::Resources);
             vec![
                 MapDataLayer::TopographyFilter,
                 MapDataLayer::RealTopography,
                 MapDataLayer::Temperature,
                 MapDataLayer::Precipitation,
                 MapDataLayer::Climate,
+                MapDataLayer::Resources,
             ]
         }
         MapDataLayer::Topography => {
@@ -80,21 +83,29 @@ pub fn after_generate(
             generate_temperature(logics, config, MapDataLayer::Temperature);
             generate_precipitation(logics, config, MapDataLayer::Precipitation);
             generate_climate(logics, config, MapDataLayer::Climate);
+            generate_resources(logics, config, MapDataLayer::Resources);
             vec![
                 MapDataLayer::TopographyFilter,
                 MapDataLayer::RealTopography,
                 MapDataLayer::Temperature,
                 MapDataLayer::Precipitation,
                 MapDataLayer::Climate,
+                MapDataLayer::Resources,
             ]
         }
         MapDataLayer::Temperature => {
             generate_climate(logics, config, MapDataLayer::Climate);
-            vec![MapDataLayer::Climate]
+            generate_resources(logics, config, MapDataLayer::Resources);
+            vec![MapDataLayer::Climate, MapDataLayer::Resources]
         }
         MapDataLayer::Precipitation => {
             generate_climate(logics, config, MapDataLayer::Climate);
-            vec![MapDataLayer::Climate]
+            generate_resources(logics, config, MapDataLayer::Resources);
+            vec![MapDataLayer::Climate, MapDataLayer::Resources]
+        }
+        MapDataLayer::Climate => {
+            generate_resources(logics, config, MapDataLayer::Resources);
+            vec![MapDataLayer::Resources]
         }
         _ => vec![],
     };
@@ -120,7 +131,11 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
     for i in 0..real_data.len() {
         let (r, g, b);
         if is_sea(cont_data[i]) {
-            (r, g, b) = (0, 160, 255);
+            (r, g, b) = (
+                config.climate.sea_color[0],
+                config.climate.sea_color[1],
+                config.climate.sea_color[2],
+            );
         } else {
             // Fetch preview color.
             let rgb = match climate_display {
@@ -171,7 +186,7 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
 
     // Set new layer data.
     logics.put_layer(MapDataLayer::Preview, preview_data);
-
+    // This layer should be refreshed.
     vec![MapDataLayer::Preview]
 }
 
@@ -207,10 +222,9 @@ fn generate_continents(
             *value = if *value > sea_level { 255 } else { 127 };
         }
     }
-
     // Set new layer data.
     logics.put_layer(layer, cont_data);
-
+    // This layer should be refreshed.
     vec![layer]
 }
 
@@ -271,7 +285,7 @@ fn generate_temperature(
     }
     // Set new layer data.
     logics.put_layer(layer, temp_data);
-
+    // This layer should be refreshed.
     vec![layer]
 }
 
@@ -341,7 +355,53 @@ fn generate_climate(
     }
     // Set new layer data.
     logics.put_layer(layer, clim_data);
+    // This layer should be refreshed.
+    vec![layer]
+}
 
+fn generate_resources(
+    logics: &mut MapLogicData,
+    config: &mut AtlasGenConfig,
+    layer: MapDataLayer,
+) -> Vec<MapDataLayer> {
+    // Move out layer data.
+    let mut res_data = logics.pop_layer(layer);
+    let clim_data = logics.get_layer(MapDataLayer::Climate);
+    let len = config.climate.biomes.len() as u8;
+    // Generate region centers.
+    // TODO
+    let points: Vec<(f32, f32)> = vec![(10.0, 10.0), (100.0, 100.0)];
+    // Generate region map, R-tree and partition the world.
+    let map: HashMap<u32, u16> = points
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let p = (p.0 as u32, p.1 as u32);
+            (config.map_to_index(p), i as u16)
+        })
+        .collect();
+    let rtree = RTree::bulk_load(points);
+    let (width, height) = config.get_world_size();
+    for y in 0..height {
+        for x in 0..width {
+            let query = (x as f32, y as f32);
+            let result: &(f32, f32) = rtree.nearest_neighbor(&query).unwrap();
+            let result = (result.0 as u32, result.1 as u32);
+            let result = config.map_to_index(result);
+            let region = *map.get(&result).unwrap();
+            let i = (x * width + y) as usize;
+            res_data[i * 2] = (region % 255) as u8;
+            res_data[i * 2 + 1] = (region / 255) as u8;
+            res_data[i * 2 + 3] = 255;
+        }
+    }
+    // Assign flora and fauna resources based on climate.
+    // TODO
+    // Assign other natural resources randomly.
+    // TODO
+    // Set new layer data.
+    logics.put_layer(layer, res_data);
+    // This layer should be refreshed.
     vec![layer]
 }
 
@@ -361,7 +421,7 @@ fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
     );
     // Set new layer data.
     logics.put_layer(MapDataLayer::RealTopography, real_data);
-
+    // This layer should be refreshed.
     vec![MapDataLayer::RealTopography]
 }
 
@@ -369,13 +429,14 @@ fn generate_utility_real_topo(logics: &mut MapLogicData) -> Vec<MapDataLayer> {
 fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<MapDataLayer> {
     let mut filter_data = logics.pop_layer(MapDataLayer::TopographyFilter);
     filter_data.fill(0);
-
+    // Fetch kernel size and world dimensions.
     let kernel: i32 = config.topography.coastal_erosion as i32;
     let (width, height) = (
         config.general.world_size[0] as i32,
         config.general.world_size[1] as i32,
     );
     let cont_data = logics.get_layer(MapDataLayer::Continents);
+    // If this feature is disabled, fill out the layer with 1s.
     if kernel == 0 {
         for y in 0..height {
             for x in 0..width {
@@ -388,7 +449,7 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConf
         logics.put_layer(MapDataLayer::TopographyFilter, filter_data);
         return vec![];
     }
-
+    // Simple NxN blur.
     match &config.general.generation_model {
         WorldModel::Flat => {
             let multiplier = (255 / ((kernel * 2 + 1).pow(2) - 1)) as u16;
@@ -416,10 +477,9 @@ fn generate_utility_topo_filter(logics: &mut MapLogicData, config: &AtlasGenConf
         }
         WorldModel::Globe => todo!(),
     }
-
     // Set new layer data.
     logics.put_layer(MapDataLayer::TopographyFilter, filter_data);
-
+    // This layer should be refreshed.
     vec![MapDataLayer::TopographyFilter]
 }
 

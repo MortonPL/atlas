@@ -54,6 +54,23 @@ pub struct LatitudinalTemperatureLerp {
     pub non_linear_tropics: bool,
 }
 
+impl Default for LatitudinalTemperatureLerp {
+    fn default() -> Self {
+        Self {
+            north_pole_value: -50.0,
+            north_arctic_value: -15.0,
+            north_temperate_value: 11.0,
+            north_tropic_value: 23.0,
+            equator_value: 30.0,
+            south_tropic_value: 23.0,
+            south_temperate_value: 11.0,
+            south_arctic_value: -15.0,
+            south_pole_value: -50.0,
+            non_linear_tropics: false,
+        }
+    }
+}
+
 /// Specialised multi-segment lerp operating on latitude coordinates.
 /// HACK: Different type for temperature and precipitation, because clamp limits are different.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
@@ -98,4 +115,21 @@ pub struct LatitudinalPrecipitationLerp {
     #[name("Non-Linear Tropics Bias")]
     #[control(SidebarCheckbox)]
     pub non_linear_tropics: bool,
+}
+
+impl Default for LatitudinalPrecipitationLerp {
+    fn default() -> Self {
+        Self {
+            south_pole_value: 0.0,
+            south_arctic_value: 300.0,
+            south_temperate_value: 1800.0,
+            south_tropic_value: 100.0,
+            equator_value: 4000.0,
+            north_tropic_value: 100.0,
+            north_temperate_value: 1800.0,
+            north_arctic_value: 300.0,
+            north_pole_value: 0.0,
+            non_linear_tropics: false,
+        }
+    }
 }

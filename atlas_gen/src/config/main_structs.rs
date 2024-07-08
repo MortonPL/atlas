@@ -7,12 +7,14 @@ use atlas_lib::{
     MakeUi, UiEditableEnum,
 };
 
-pub use crate::config::{common::*, latitudinal::*};
-
 use crate::config::{
     climate::{make_default_biomes, BiomeConfig},
-    ALTITUDE_MAX, ALTITUDE_MIN,
+    resource::{ResourceChunk, ResourceType},
+    FbmConfig, InfluenceShape, LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm,
+    QuadPointLerp, ALTITUDE_MAX, ALTITUDE_MIN,
 };
+
+use super::resource::make_default_resources;
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -87,10 +89,11 @@ pub struct GeneralConfig {
     #[name("World Model Preview")]
     #[control(SidebarEnumDropdown)]
     pub preview_model: WorldModel,
-    /* TODO make it work with generator?
+    /* NOTE: Disabled. Doesn't work with the generator.
     #[name("World Model Generation")]
     #[control(SidebarEnumDropdown)]
     */
+    #[serde(skip)]
     pub generation_model: WorldModel,
     #[name("World Size")]
     #[control(SidebarSliderN)]
@@ -241,18 +244,7 @@ pub struct TemperatureConfig {
 impl Default for TemperatureConfig {
     fn default() -> Self {
         Self {
-            latitudinal: LatitudinalTemperatureLerp {
-                north_pole_value: -50.0,
-                north_arctic_value: -15.0,
-                north_temperate_value: 11.0,
-                north_tropic_value: 23.0,
-                equator_value: 30.0,
-                south_tropic_value: 23.0,
-                south_temperate_value: 11.0,
-                south_arctic_value: -15.0,
-                south_pole_value: -50.0,
-                non_linear_tropics: false,
-            },
+            latitudinal: Default::default(),
             lapse_rate: 5.0,
             algorithm_strength: 0.1,
             algorithm: Default::default(),
@@ -305,18 +297,7 @@ pub struct PrecipitationConfig {
 impl Default for PrecipitationConfig {
     fn default() -> Self {
         Self {
-            latitudinal: LatitudinalPrecipitationLerp {
-                south_pole_value: 0.0,
-                south_arctic_value: 300.0,
-                south_temperate_value: 1800.0,
-                south_tropic_value: 100.0,
-                equator_value: 4000.0,
-                north_tropic_value: 100.0,
-                north_temperate_value: 1800.0,
-                north_arctic_value: 300.0,
-                north_pole_value: 0.0,
-                non_linear_tropics: false,
-            },
+            latitudinal: Default::default(),
             amp_point: 2000.0,
             drop_per_height: 1.5,
             algorithm_strength: 0.1,
@@ -346,6 +327,12 @@ pub struct ClimateConfig {
     #[name("Preview Mode")]
     #[control(SidebarEnumDropdown)]
     pub preview_mode: ClimatePreviewMode,
+    #[name("Mountains Biome Index")]
+    #[control(SidebarSlider)]
+    pub mountains_biome: u8,
+    #[name("Sea Color")]
+    #[control(SidebarSliderN)]
+    pub sea_color: [u8; 3],
     #[name("")]
     #[control(SidebarStructList)]
     pub biomes: Vec<BiomeConfig>,
@@ -357,6 +344,8 @@ impl Default for ClimateConfig {
     fn default() -> Self {
         Self {
             preview_mode: ClimatePreviewMode::DetailedColor,
+            mountains_biome: 24,
+            sea_color: [0, 160, 255],
             default_biome: BiomeConfig {
                 name: "Default Biome".to_string(),
                 color: [255, 0, 255],
@@ -368,6 +357,30 @@ impl Default for ClimateConfig {
 }
 
 /// Config for the resource generation.
-#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+#[derive(Debug, Deserialize, Resource, Serialize)]
 #[serde(crate = "atlas_lib::serde")]
-pub struct ResourcesConfig {}
+pub struct ResourcesConfig {
+    pub chunk_size: u8,
+    pub chunks: Vec<ResourceChunk>,
+    pub types: Vec<ResourceType>,
+}
+
+impl MakeUi for ResourcesConfig {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarSlider::new(ui, "Chunk Size", &mut self.chunk_size).show(None);
+        ui.add_enabled_ui(false, |ui| {
+            SidebarStructList::new(ui, "Resource Chunks", &mut self.chunks).show(None);
+        });
+        SidebarStructList::new(ui, "Resource Types", &mut self.types).show(None);
+    }
+}
+
+impl Default for ResourcesConfig {
+    fn default() -> Self {
+        Self {
+            chunk_size: 36,
+            chunks: Default::default(),
+            types: make_default_resources(),
+        }
+    }
+}

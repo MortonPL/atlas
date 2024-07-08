@@ -35,6 +35,9 @@ impl SidebarPanel<AtlasGenConfig, AtlasGenUi> for MainPanelClimate {
 
     fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasGenConfig) {
         config.climate.make_ui(ui);
+        if config.climate.mountains_biome as usize >= config.climate.biomes.len() {
+            config.climate.mountains_biome = 0
+        }
     }
 
     fn get_heading(&self) -> &'static str {

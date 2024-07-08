@@ -7,7 +7,7 @@ use atlas_lib::{
     bevy_rand::resource::GlobalEntropy,
     config::{load_config, load_image, load_image_grey, AtlasConfig},
     domain::{
-        graphics::{MapLogicData, WorldGlobeMesh, WorldMapMesh, PREVIEW_NAME},
+        graphics::{MapLogicData, WorldGlobeMesh, WorldMapMesh},
         map::{MapDataLayer, MapDataOverlay, EXPORT_DATA_LAYERS},
     },
 };
@@ -78,12 +78,17 @@ pub fn update_event_import_start(
             return;
         }
     }
-    // Import data layers.
+    // Import all layers.
     let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     let mut regen_layers = vec![];
     for (layer, name) in EXPORT_DATA_LAYERS {
         let path = base_path.join(name);
-        match load_image_grey(path, width, height) {
+        let result = match layer {
+            MapDataLayer::Preview => load_image(path, width, height),
+            MapDataLayer::Resources => load_image(path, width, height),
+            _ => load_image_grey(path, width, height),
+        };
+        match result {
             Ok(data) => {
                 logics.put_layer(layer, data);
                 regen_layers.push(layer);
@@ -94,15 +99,6 @@ pub fn update_event_import_start(
             }
         };
     }
-    // Import preview.
-    let path = base_path.join(PREVIEW_NAME);
-    match load_image(path, width, height) {
-        Ok(data) => logics.put_layer(MapDataLayer::Preview, data),
-        Err(error) => {
-            events.error_window = Some(error.to_string());
-            return;
-        }
-    };
     regen_layers.push(MapDataLayer::Preview);
     // Resize if needed.
     resize_helper(commands, config.as_ref(), map, globe, logics);

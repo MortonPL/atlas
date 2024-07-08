@@ -168,5 +168,11 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [255, 215, 0],
             simple_color: [225, 220, 55],
         },
+        BiomeConfig {
+            // 24
+            name: "Mountains".to_string(),
+            color: [80, 70, 60],
+            simple_color: [80, 70, 60],
+        },
     ]
 }

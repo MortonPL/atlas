@@ -10,7 +10,6 @@ use crate::{
     domain::map::MapDataLayer,
 };
 
-pub const PREVIEW_NAME: &str = "preview.png";
 pub const CLIMATEMAP_NAME: &str = "climatemap.png";
 pub const CLIMATEMAP_SIZE: usize = 256;
 
@@ -68,6 +67,7 @@ impl MapLogicData {
         for (layer, data) in self.layers.iter_mut() {
             let bpp = match layer {
                 MapDataLayer::Preview => 4,
+                MapDataLayer::Resources => 4,
                 _ => 1,
             };
             data.resize(size * bpp, 0);
@@ -176,7 +176,7 @@ pub fn data_to_view<C: AtlasConfig>(data_layers: &MapLogicData, layer: MapDataLa
         MapDataLayer::TemperatureInfluence => expand_monochrome(data),
         MapDataLayer::Precipitation => expand_monochrome(data),
         MapDataLayer::PrecipitationInfluence => expand_monochrome(data),
-        MapDataLayer::Resources => expand_monochrome(data),
+        MapDataLayer::Resources => data.to_vec(),
         MapDataLayer::RealTopography => expand_monochrome(data),
         MapDataLayer::TopographyFilter => expand_monochrome(data),
         MapDataLayer::Climate => climate_to_view(data, config),

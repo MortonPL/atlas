@@ -3,9 +3,11 @@ mod common;
 mod conversions;
 mod latitudinal;
 mod main_structs;
+mod resource;
 
-pub use climate::*;
+pub use common::*;
 pub use conversions::*;
+pub use latitudinal::*;
 pub use main_structs::*;
 
 use atlas_lib::bevy::prelude::*;

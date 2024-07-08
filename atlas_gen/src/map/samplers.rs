@@ -12,6 +12,7 @@ use crate::config::{
 };
 
 impl QuadPointLerp {
+    /// Clone the struct and precalculate difference values.
     pub fn clone_precalc(&self) -> Self {
         Self {
             start: self.start,
@@ -25,7 +26,7 @@ impl QuadPointLerp {
         }
     }
 
-    /// Interpolate a value in [0; 1] range. NOTE: Self should have precalc'd diff1 and diff2!
+    /// Interpolate a value in [0.0, 1.0] range. NOTE: Self should have precalc'd diff1 and diff2 beforehand!
     pub fn lerp(&self, x: f32) -> f32 {
         if x <= self.midpoint_position {
             lerp(self.start..=self.midpoint, x / self.midpoint_position)
@@ -43,12 +44,14 @@ impl QuadPointLerp {
     }
 }
 
+/// A Sampler allows to sample (obtain) a value in [0.0, 1.0] range in 2D space.
 trait Sampler {
     fn offset_origin(self, offset: Vec2) -> Self;
     fn set_scale(self, scale: f32) -> Self;
     fn sample(&self, p: Vec2) -> f32;
 }
 
+/// Sample "closeness" (radius - distance) to the center of a circle.
 struct CircleSampler {
     offset: Vec2,
     radius: f32,
@@ -86,6 +89,7 @@ impl Sampler for CircleSampler {
     }
 }
 
+/// Sample "closeness" (radius - distance) to a strip defined by two circles connected by a thick strip.
 struct StripSampler {
     offset: Vec2,
     start: Vec2,
@@ -183,6 +187,7 @@ impl Sampler for StripSampler {
     }
 }
 
+/// Sample Fbm noise value in 2D space.
 struct FbmSampler<N> {
     origin: Vec2,
     scale: f32,
@@ -234,6 +239,7 @@ where
     }
 }
 
+/// Sample data by transforming point latitude (height) with a 9-point lerp.
 struct LatitudinalSampler {
     pub south_value: f32,
     pub south_arctic_value: f32,
@@ -343,6 +349,7 @@ impl Sampler for LatitudinalSampler {
     }
 }
 
+/// Sample the entire world space with a latitudinal sampler and replace existing data.
 pub fn fill_latitudinal_temp(
     data: &mut [u8],
     model: WorldModel,
@@ -353,6 +360,7 @@ pub fn fill_latitudinal_temp(
     sample_fill(data, sampler, model, world_size);
 }
 
+/// Sample the entire world space with a latitudinal sampler and replace existing data.
 pub fn fill_latitudinal_precip(
     data: &mut [u8],
     model: WorldModel,
@@ -363,6 +371,7 @@ pub fn fill_latitudinal_precip(
     sample_fill(data, sampler, model, world_size);
 }
 
+/// Sample the entire world space with a noise sampler and add it to existing data.
 pub fn add_with_algorithm(
     data: &mut [u8],
     model: WorldModel,
@@ -399,7 +408,7 @@ pub fn add_with_algorithm(
     }
 }
 
-/// Fill a data layer with specified noise algorithm.
+/// Sample the entire world space with a noise sampler and replace existing data.
 pub fn fill_with_algorithm(
     data: &mut [u8],
     model: WorldModel,
@@ -509,10 +518,13 @@ pub fn apply_influence_from_src(
     }
 }
 
-fn sample_add<T>(data: &mut [u8], sampler: T, model: WorldModel, world_size: [u32; 2], strength: f32)
-where
-    T: Sampler,
-{
+fn sample_add(
+    data: &mut [u8],
+    sampler: impl Sampler,
+    model: WorldModel,
+    world_size: [u32; 2],
+    strength: f32,
+) {
     match model {
         WorldModel::Flat => {
             let width = world_size[0] as i32;
@@ -535,9 +547,7 @@ where
     }
 }
 
-fn sample_fill<T>(data: &mut [u8], sampler: T, model: WorldModel, world_size: [u32; 2])
-where
-    T: Sampler,
+fn sample_fill(data: &mut [u8], sampler: impl Sampler, model: WorldModel, world_size: [u32; 2])
 {
     match model {
         WorldModel::Flat => {

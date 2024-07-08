@@ -6,8 +6,8 @@ use atlas_lib::{
     },
     domain::{
         graphics::{
-            data_to_view, get_material, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh,
-            CLIMATEMAP_NAME, CLIMATEMAP_SIZE, PREVIEW_NAME,
+            get_material, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME,
+            CLIMATEMAP_SIZE,
         },
         map::{MapDataLayer, EXPORT_DATA_LAYERS},
     },
@@ -80,13 +80,13 @@ pub fn check_event_export(events: Res<EventStruct>) -> bool {
 pub fn update_event_loaded(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
-    config: Res<AtlasGenConfig>,
+    mut config: ResMut<AtlasGenConfig>,
 ) {
     let (layer, data) = events.load_layer_request.take().expect("Always Some");
     // Assign data.
     logics.put_layer(layer, data);
-    // Handle post generation.
-    post_generation(layer, &mut logics, &mut events, &config, vec![layer]);
+    // Handle post generation, which refreshes the texture and dependant layers.
+    post_generation(layer, &mut logics, &mut events, &mut config, vec![layer]);
 }
 
 /// Update system
@@ -98,10 +98,13 @@ pub fn update_event_saved(
     config: Res<AtlasGenConfig>,
 ) {
     let (layer, path) = events.save_layer_request.take().expect("Always Some");
+    // Get layer data.
     let data = logics.get_layer(layer);
     let (width, height) = config.get_world_size();
+    // Save in color for preview (purely cosmetic) or resources (specially coded), otherwise in greyscale.
     let result = match layer {
         MapDataLayer::Preview => save_image(path, data, width, height),
+        MapDataLayer::Resources => save_image(path, data, width, height),
         _ => save_image_grey(path, data, width, height),
     };
     events.error_window = result.err().map(|x| x.to_string());
@@ -146,10 +149,9 @@ pub fn update_event_clear(
     mut graphics: ResMut<MapGraphicsData>,
 ) {
     let layer = events.clear_layer_request.take().expect("Always Some");
-    let logic = logics.get_layer_mut(layer);
-    logic.fill(0);
-    let graphic = graphics.get_layer_mut(layer);
-    graphic.invalid = true;
+    // Fill logic layer with 0s, mark texture for regeneration.
+    logics.get_layer_mut(layer).fill(0);
+    graphics.get_layer_mut(layer).invalid = true;
     // Trigger material refresh.
     events.viewed_layer_changed = Some(graphics.current);
 }
@@ -160,19 +162,20 @@ pub fn update_event_clear(
 pub fn update_event_generate(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
-    config: Res<AtlasGenConfig>,
+    mut config: ResMut<AtlasGenConfig>,
 ) {
     let (layer, regen_influence) = events.generate_request.take().expect("Always Some");
     let mut regen_layers: Vec<MapDataLayer> = vec![];
+    // If this layer has an associated influence layer, forcefully regenerate it as well.
     if regen_influence {
         if let Some(layer2) = layer.get_influence_layer() {
-            regen_layers.extend(generate(layer2, &mut logics, &config));
+            regen_layers.extend(generate(layer2, &mut logics, &mut config));
         }
     }
     // Run generation procedure based on generator type and layer.
-    regen_layers.extend(generate(layer, &mut logics, &config));
+    regen_layers.extend(generate(layer, &mut logics, &mut config));
     // Handle post generation.
-    post_generation(layer, &mut logics, &mut events, &config, regen_layers);
+    post_generation(layer, &mut logics, &mut events, &mut config, regen_layers);
 }
 
 /// Update system
@@ -208,12 +211,17 @@ pub fn update_event_import(
             return;
         }
     }
-    // Import data layers.
+    // Import all layers.
     let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     let mut regen_layers = vec![];
     for (layer, name) in EXPORT_DATA_LAYERS {
         let path = base_path.join(name);
-        match load_image_grey(path, width, height) {
+        let result = match layer {
+            MapDataLayer::Preview => load_image(path, width, height),
+            MapDataLayer::Resources => load_image(path, width, height),
+            _ => load_image_grey(path, width, height),
+        };
+        match result {
             Ok(data) => {
                 logics.put_layer(layer, data);
                 regen_layers.push(layer);
@@ -224,16 +232,6 @@ pub fn update_event_import(
             }
         };
     }
-    // Import preview.
-    let path = base_path.join(PREVIEW_NAME);
-    match load_image(path, width, height) {
-        Ok(data) => logics.put_layer(MapDataLayer::Preview, data),
-        Err(error) => {
-            events.error_window = Some(error.to_string());
-            return;
-        }
-    };
-    regen_layers.push(MapDataLayer::Preview);
     // Import climate map.
     let path = base_path.join(CLIMATEMAP_NAME);
     match load_image_grey(path, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32) {
@@ -258,21 +256,20 @@ pub fn update_event_export(
     config: Res<AtlasGenConfig>,
 ) {
     let base_path = events.export_world_request.take().expect("Always Some");
-    // Export data layers.
+    // Export all layers.
     let (width, height) = (config.general.world_size[0], config.general.world_size[1]);
     for (layer, name) in EXPORT_DATA_LAYERS {
         let data = logics.get_layer(layer);
         let path = base_path.join(name);
-        let result = save_image_grey(path, data, width, height);
+        let result = match layer {
+            MapDataLayer::Preview => save_image(path, data, width, height),
+            MapDataLayer::Resources => save_image(path, data, width, height),
+            _ => save_image_grey(path, data, width, height),
+        };
         events.error_window = result.err().map(|x| x.to_string());
-    }
-    // Export preview.
-    let preview = data_to_view(&logics, MapDataLayer::Preview, config.as_ref());
-    let path = base_path.join(PREVIEW_NAME);
-    let result = save_image(path, &preview, width, height);
-    events.error_window = result.err().map(|x| x.to_string());
-    if events.error_window.is_some() {
-        return;
+        if events.error_window.is_some() {
+            return;
+        }
     }
     // Export climate map.
     let climatemap = logics.get_climatemap();
@@ -295,7 +292,7 @@ fn post_generation(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
     events: &mut EventStruct,
-    config: &AtlasGenConfig,
+    config: &mut AtlasGenConfig,
     mut regen_layers: Vec<MapDataLayer>,
 ) {
     // Adjust other layers if needed.
