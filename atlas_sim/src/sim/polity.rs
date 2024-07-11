@@ -8,6 +8,7 @@ use atlas_lib::{
             render_asset::RenderAssetUsages,
             render_resource::{Extent3d, TextureDimension, TextureFormat},
         },
+        utils::hashbrown::HashMap,
     },
     bevy_egui,
     bevy_prng::WyRand,
@@ -17,8 +18,10 @@ use atlas_lib::{
         graphics::{color_to_u8, MapLogicData},
         map::{is_sea, MapDataLayer},
     },
-    ui::{sidebar::SidebarControl, UiEditableEnum},
-    MakeUi,
+    ui::{
+        sidebar::{MakeUi, SidebarColor, SidebarControl, SidebarEnumDropdown, SidebarSlider},
+        UiEditableEnum,
+    },
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
@@ -33,7 +36,7 @@ pub struct PolityPlugin;
 impl Plugin for PolityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, update_visuals)
-            .add_systems(FixedUpdate, (update_mapgrab).run_if(check_tick));
+            .add_systems(FixedUpdate, (update_mapgrab, update_resources).run_if(check_tick));
     }
 }
 
@@ -79,7 +82,7 @@ impl UiEditableEnum for Ownership {
 }
 
 /// A political entity that owns land and population.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Polity {
     /// Map tile indices that this polity owns.
     pub tiles: Vec<u32>,
@@ -97,30 +100,50 @@ pub struct Polity {
     pub color: Color,
     /// The desire to claim border tiles.
     pub land_claim_points: f32,
+    /// Map of # of tiles owned in resource chunks.
+    pub resource_chunks: HashMap<u32, u16>,
+    /// Map of available resources.
+    pub resources: HashMap<u32, f32>,
 }
 
-#[derive(Component, MakeUi)]
+impl Polity {
+    pub fn rcrs(&mut self) -> (&HashMap<u32, u16>, &mut HashMap<u32, f32>) {
+        (&self.resource_chunks, &mut self.resources)
+    }
+
+    pub fn into_ui(&self, config: &AtlasSimConfig) -> PolityUi {
+        PolityUi {
+            ownership: self.ownership,
+            color: color_to_u8(&self.color),
+            land_claim_points: self.land_claim_points,
+            resources: self
+                .resources
+                .iter()
+                .map(|(k, v)| (config.resources.types[*k as usize].name.clone(), *v))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Component)]
 pub struct PolityUi {
-    #[name("Ownership")]
-    #[control(SidebarEnumDropdown)]
     /// Ownership status.
     pub ownership: Ownership,
-    #[name("Color")]
-    #[control(SidebarColor)]
     /// Polity map color.
     pub color: [u8; 3],
-    #[name("Land Claim Points")]
-    #[control(SidebarSlider)]
     /// The desire to claim border tiles.
     pub land_claim_points: f32,
+    /// Map of available resources.
+    pub resources: Vec<(String, f32)>,
 }
 
-impl From<&Polity> for PolityUi {
-    fn from(value: &Polity) -> Self {
-        Self {
-            ownership: value.ownership,
-            color: color_to_u8(&value.color),
-            land_claim_points: value.land_claim_points,
+impl MakeUi for PolityUi {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
+        SidebarColor::new(ui, "Color", &mut self.color).show(None);
+        SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
+        for (k, v) in &mut self.resources {
+            SidebarSlider::new(ui, format!("Resource type '{}'", k), v).show(None);
         }
     }
 }
@@ -128,7 +151,7 @@ impl From<&Polity> for PolityUi {
 impl Default for Polity {
     fn default() -> Self {
         Self {
-            tiles: vec![0],
+            tiles: vec![],
             border_tiles: Default::default(),
             centroid: Vec2::ZERO,
             xywh: [0, 0, 1, 1],
@@ -136,6 +159,8 @@ impl Default for Polity {
             color: Default::default(),
             need_visual_update: true,
             land_claim_points: 0.0,
+            resource_chunks: Default::default(),
+            resources: Default::default(),
         }
     }
 }
@@ -184,34 +209,32 @@ fn update_mapgrab(
         let i = table.next_rng(rng.as_mut());
         // Add to polity.
         let i = *polity.border_tiles.iter().nth(i).unwrap();
-        polity.border_tiles.remove(&i);
-        extras.tile_owner[i as usize] = Some(entity);
-        polity.tiles.push(i);
-        // Update xywh.
-        polity.tiles.sort();
-        let (width, _) = config.get_world_size();
-        let (first, last) = (polity.tiles[0], polity.tiles[polity.tiles.len() - 1]);
-        let mut min = width;
-        let mut max = 0;
-        for t in &polity.tiles {
-            let v = t % width;
-            min = std::cmp::min(min, v);
-            max = std::cmp::max(max, v);
+        polity.claim_tile(i, Some(entity.clone()), &mut extras, &config);
+    }
+}
+
+fn update_resources(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
+    for mut polity in query.iter_mut() {
+        // Set all resources to 0.
+        for (_, amount) in polity.resources.iter_mut() {
+            *amount = 0.0;
         }
-        let (x, y, w) = (min, first / width, max - min + 1);
-        let h = last / width + 1 - y;
-        polity.xywh = [x, y, w, h];
-        // Recalculate centroid.
-        polity.centroid = Vec2::new(x as f32 + w as f32 / 2.0, y as f32 + h as f32 / 2.0);
-        // Update polity borders.
-        polity.border_tiles.extend(
-            &mut config
-                .get_border_tiles(i)
-                .iter()
-                .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&entity))),
-        );
-        // Mark to redraw.
-        polity.need_visual_update = true;
+        // Add resource chunk deposits.
+        let (resource_chunks, resources) = polity.rcrs();
+        for (chunk, count) in resource_chunks {
+            let chunk = &config.resources.chunks[*chunk as usize];
+            let percent_owned = *count as f32 / chunk.tile_count as f32;
+            for (resource, amount) in &chunk.resources {
+                let amount = amount * percent_owned;
+                if let Some(x) = resources.get_mut(resource) {
+                    *x += amount;
+                } else {
+                    resources.insert(*resource, amount);
+                }
+            }
+        }
+        // Process jobs.
+        // TODO
     }
 }
 
@@ -267,5 +290,56 @@ fn update_visuals(
         });
 
         polity.need_visual_update = false;
+    }
+}
+
+impl Polity {
+    pub fn claim_tile(
+        &mut self,
+        tile: u32,
+        entity: Option<Entity>,
+        extras: &mut SimMapData,
+        config: &AtlasSimConfig,
+    ) {
+        self.border_tiles.remove(&tile);
+        extras.tile_owner[tile as usize] = entity;
+        self.tiles.push(tile);
+        // Update xywh.
+        self.tiles.sort();
+        let (width, _) = config.get_world_size();
+        let (first, last) = (self.tiles[0], self.tiles[self.tiles.len() - 1]);
+        let mut min = width;
+        let mut max = 0;
+        for t in &self.tiles {
+            let v = t % width;
+            min = std::cmp::min(min, v);
+            max = std::cmp::max(max, v);
+        }
+        let (x, y, w) = (min, first / width, max - min + 1);
+        let h = last / width + 1 - y;
+        self.xywh = [x, y, w, h];
+        // Recalculate centroid.
+        self.centroid = Vec2::new(x as f32 + w as f32 / 2.0, y as f32 + h as f32 / 2.0);
+        // Update polity borders.
+        if let Some(entity) = entity {
+            self.border_tiles.extend(
+                &mut config
+                    .get_border_tiles(tile)
+                    .iter()
+                    .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&entity))),
+            );
+        } else {
+            self.border_tiles
+                .extend(&mut config.get_border_tiles(tile).iter());
+        };
+        // Update resource chunk coverage.
+        let j = config.index_to_chunk(tile, config.resources.chunk_size as u32);
+        if let Some(chunk) = self.resource_chunks.get_mut(&j) {
+            *chunk += 1;
+        } else {
+            self.resource_chunks.insert(j, 1);
+        }
+        // Mark to redraw.
+        self.need_visual_update = true;
     }
 }

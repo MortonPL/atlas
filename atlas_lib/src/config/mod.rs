@@ -89,6 +89,14 @@ pub trait AtlasConfig: Resource {
         (index % width, index / width)
     }
 
+    /// Find the chunk that contains this map point.
+    fn index_to_chunk(&self, index: u32, chunk_size: u32) -> u32 {
+        let (width, _) = self.get_world_size();
+        let (x, y) = (index % width, index / width);
+        let width_in_chunks = width.div_ceil(chunk_size);
+        (y / chunk_size) * width_in_chunks + x / chunk_size
+    }
+
     /// Get 4 border tiles for the specified tile index.
     fn get_border_tiles(&self, index: u32) -> BTreeSet<u32> {
         let (width, height) = self.get_world_size();

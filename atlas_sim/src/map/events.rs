@@ -193,25 +193,23 @@ pub fn update_event_start_simulation(
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);
         let pw = config.map_to_world_centered(p);
+        // Prep polity component.
+        let mut polity = Polity {
+            ownership: Ownership::Independent,
+            color: Color::rgb_u8(
+                start.polity.color[0],
+                start.polity.color[1],
+                start.polity.color[2],
+            ),
+            need_visual_update: true,
+            land_claim_points: config.rules.starting_land_claim_points,
+            ..Default::default()
+        };
+        // Claim initial tile.
+        polity.claim_tile(i, None, &mut extras, &config);
         // Spawn.
         let ec = commands.spawn((
-            Polity {
-                tiles: vec![i],
-                border_tiles: config.get_border_tiles(i),
-                centroid: Vec2 {
-                    x: p.0 as f32,
-                    y: p.1 as f32,
-                },
-                xywh: [p.0, p.1, 1, 1],
-                ownership: Ownership::Independent,
-                color: Color::rgb_u8(
-                    start.polity.color[0],
-                    start.polity.color[1],
-                    start.polity.color[2],
-                ),
-                need_visual_update: true,
-                land_claim_points: config.rules.starting_land_claim_points,
-            },
+            polity.clone(),
             PbrBundle {
                 mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE).build()),
                 material: materials.add(StandardMaterial::default()),

@@ -7,7 +7,9 @@ use atlas_lib::{
     MakeUi, UiEditableEnum,
 };
 
-use crate::config::{make_default_biomes, BiomeConfig, RulesConfig};
+use crate::config::{
+    make_default_biomes, make_default_resources, BiomeConfig, ResourceChunk, ResourceType, RulesConfig,
+};
 
 /// Complete configuration for the history simulator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -17,6 +19,7 @@ pub struct AtlasSimConfig {
     pub scenario: ScenarioConfig,
     pub climate: ClimateConfig,
     pub rules: RulesConfig,
+    pub resources: ResourcesConfig,
 }
 
 impl AtlasConfig for AtlasSimConfig {
@@ -194,9 +197,34 @@ impl Default for ClimateConfig {
                 color: [255, 0, 255],
                 simple_color: [255, 0, 255],
                 habitability: 1.0,
-                productivity: 1.0,
             },
             biomes: make_default_biomes(),
+        }
+    }
+}
+
+/// Config for the resource generation.
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+#[serde(crate = "atlas_lib::serde")]
+pub struct ResourcesConfig {
+    #[name("Chunk Size")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=255))]
+    pub chunk_size: u8,
+    #[name("Resource Types")]
+    #[control(SidebarStructList)]
+    pub types: Vec<ResourceType>,
+    #[name("Resource Chunks")]
+    #[control(SidebarStructList)]
+    pub chunks: Vec<ResourceChunk>,
+}
+
+impl Default for ResourcesConfig {
+    fn default() -> Self {
+        Self {
+            chunk_size: 36,
+            chunks: Default::default(),
+            types: make_default_resources(),
         }
     }
 }

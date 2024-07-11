@@ -395,7 +395,7 @@ fn update_click_location(
     config: Res<AtlasSimConfig>,
     mouse_button: Res<ButtonInput<MouseButton>>,
 ) {
-    if mouse_button.just_released(MouseButton::Left) {
+    if mouse_button.just_released(MouseButton::Left) && !ui_state.setup_mode {
         if let Some(cursor) = ui_state.cursor {
             let i = config.map_to_index(cursor) as usize;
             if let Some(entity) = extras.tile_owner[i] {
@@ -428,14 +428,14 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
 /// Update system
 ///
 /// Update data of the current selection.
-fn update_selection_data(mut ui_state: ResMut<AtlasSimUi>, polities: Query<&Polity>, civs: Query<&Civ>) {
+fn update_selection_data(mut ui_state: ResMut<AtlasSimUi>, polities: Query<&Polity>, civs: Query<&Civ>, config: Res<AtlasSimConfig>) {
     let selection = if let Some(selection) = &mut ui_state.selection {
         selection
     } else {
         return;
     };
     if let Ok(polity) = polities.get(selection.entity) {
-        selection.polity = Some(polity.into());
+        selection.polity = Some(polity.into_ui(&config));
     }
     if let Ok(civ) = civs.get(selection.entity) {
         selection.civ = Some(civ.into());

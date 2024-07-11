@@ -345,6 +345,7 @@ impl Default for ClimateConfig {
                 color: [255, 0, 255],
                 simple_color: [255, 0, 255],
                 resources: vec![],
+                habitability: 0.0,
             },
             biomes: make_default_biomes(),
         }

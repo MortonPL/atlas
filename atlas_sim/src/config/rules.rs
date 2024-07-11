@@ -2,8 +2,8 @@ use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     bevy_egui,
     serde_derive::{Deserialize, Serialize},
-    ui::{sidebar::SidebarControl, UiEditableEnum},
-    MakeUi, UiEditableEnum,
+    ui::sidebar::SidebarControl,
+    MakeUi,
 };
 
 /// Config for general world settings and preview.

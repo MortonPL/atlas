@@ -22,6 +22,10 @@ pub struct BiomeConfig {
     #[name("Resources")]
     #[control(SidebarStructList)]
     pub resources: Vec<BiomeResourceYield>,
+    #[name("Habitability")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub habitability: f32,
 }
 
 #[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
@@ -59,6 +63,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [80, 200, 255],
             simple_color: [80, 200, 255],
             resources: vec![BiomeResourceYield::new(4, 1.0, 0.6)],
+            habitability: 1.0,
         },
         BiomeConfig {
             // 1
@@ -66,6 +71,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [225, 245, 250],
             simple_color: [225, 245, 250],
             resources: vec![],
+            habitability: 0.0,
         },
         BiomeConfig {
             // 2
@@ -78,6 +84,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.1, 0.1),
                 BiomeResourceYield::new(3, 0.1, 0.1),
             ],
+            habitability: 0.1,
         },
         BiomeConfig {
             // 3
@@ -90,6 +97,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.1, 0.1),
                 BiomeResourceYield::new(3, 0.1, 0.1),
             ],
+            habitability: 0.1,
         },
         BiomeConfig {
             // 4
@@ -102,6 +110,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.3, 0.2),
                 BiomeResourceYield::new(3, 0.3, 0.2),
             ],
+            habitability: 0.3,
         },
         BiomeConfig {
             // 5
@@ -114,6 +123,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.4, 0.2),
                 BiomeResourceYield::new(3, 0.4, 0.2),
             ],
+            habitability: 0.3,
         },
         BiomeConfig {
             // 6
@@ -126,6 +136,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.6, 0.2),
                 BiomeResourceYield::new(3, 1.0, 0.3),
             ],
+            habitability: 0.5,
         },
         BiomeConfig {
             // 7
@@ -138,6 +149,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.7, 0.2),
                 BiomeResourceYield::new(3, 1.2, 0.3),
             ],
+            habitability: 0.5,
         },
         BiomeConfig {
             // 8
@@ -150,6 +162,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.1, 0.1),
                 BiomeResourceYield::new(3, 0.1, 0.1),
             ],
+            habitability: 0.1,
         },
         BiomeConfig {
             // 9
@@ -162,6 +175,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.2, 0.1),
                 BiomeResourceYield::new(3, 0.2, 0.1),
             ],
+            habitability: 0.3,
         },
         BiomeConfig {
             // 10
@@ -174,6 +188,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.3, 0.1),
                 BiomeResourceYield::new(3, 0.3, 0.1),
             ],
+            habitability: 0.8,
         },
         BiomeConfig {
             // 11
@@ -186,6 +201,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.4, 0.1),
                 BiomeResourceYield::new(3, 0.4, 0.1),
             ],
+            habitability: 1.0,
         },
         BiomeConfig {
             // 12
@@ -198,6 +214,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.8, 0.2),
                 BiomeResourceYield::new(3, 0.8, 0.2),
             ],
+            habitability: 1.0,
         },
         BiomeConfig {
             // 13
@@ -210,6 +227,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.8, 0.2),
                 BiomeResourceYield::new(3, 1.0, 0.3),
             ],
+            habitability: 1.0,
         },
         BiomeConfig {
             // 14
@@ -222,6 +240,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.9, 0.2),
                 BiomeResourceYield::new(3, 1.1, 0.3),
             ],
+            habitability: 0.9,
         },
         BiomeConfig {
             // 15
@@ -234,6 +253,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 1.0, 0.3),
                 BiomeResourceYield::new(3, 1.2, 0.3),
             ],
+            habitability: 0.9,
         },
         BiomeConfig {
             // 16
@@ -246,6 +266,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 1.0, 0.3),
                 BiomeResourceYield::new(3, 1.2, 0.3),
             ],
+            habitability: 0.9,
         },
         BiomeConfig {
             // 17
@@ -258,6 +279,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.9, 0.2),
                 BiomeResourceYield::new(3, 1.1, 0.3),
             ],
+            habitability: 0.9,
         },
         BiomeConfig {
             // 18
@@ -270,6 +292,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.9, 0.2),
                 BiomeResourceYield::new(3, 1.1, 0.3),
             ],
+            habitability: 1.0,
         },
         BiomeConfig {
             // 19
@@ -282,6 +305,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.6, 0.2),
                 BiomeResourceYield::new(3, 0.6, 0.2),
             ],
+            habitability: 0.8,
         },
         BiomeConfig {
             // 20
@@ -294,6 +318,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.2, 0.1),
                 BiomeResourceYield::new(3, 0.2, 0.1),
             ],
+            habitability: 0.2,
         },
         BiomeConfig {
             // 21
@@ -306,6 +331,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.1, 0.1),
                 BiomeResourceYield::new(3, 0.1, 0.1),
             ],
+            habitability: 0.1,
         },
         BiomeConfig {
             // 22
@@ -318,6 +344,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.5, 0.3),
                 BiomeResourceYield::new(3, 0.5, 0.3),
             ],
+            habitability: 0.5,
         },
         BiomeConfig {
             // 23
@@ -325,6 +352,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             color: [255, 215, 0],
             simple_color: [225, 220, 55],
             resources: vec![],
+            habitability: 0.0,
         },
         BiomeConfig {
             // 24
@@ -337,6 +365,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
                 BiomeResourceYield::new(2, 0.3, 0.2),
                 BiomeResourceYield::new(3, 0.4, 0.2),
             ],
+            habitability: 0.3,
         },
     ]
 }

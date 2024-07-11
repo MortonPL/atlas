@@ -1,9 +1,11 @@
 mod climate;
 mod main_structs;
+mod resource;
 mod rules;
 
 pub use climate::*;
 pub use main_structs::*;
+pub use resource::*;
 pub use rules::*;
 
 use atlas_lib::bevy::prelude::*;
