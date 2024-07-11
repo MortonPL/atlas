@@ -227,6 +227,37 @@ where
     }
 }
 
+/// A textbox for a string value.
+pub struct SidebarTextbox<'u, 'v, T> {
+    ui: &'u mut Ui,
+    inner: egui::TextEdit<'v>,
+    label: WidgetText,
+    __: PhantomData<T>,
+}
+
+impl<'u, 'v, T: 'v> SidebarControl<'u, 'v, T> for SidebarTextbox<'u, 'v, T>
+where
+    &'v mut String: From<&'v mut T>
+{
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
+        let string = Into::<&mut String>::into(value);
+        Self {
+            ui,
+            inner: egui::TextEdit::singleline(string),
+            label: label.into(),
+            __: PhantomData,
+        }
+    }
+
+    fn show(self, hint: Option<&str>) -> usize {
+        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
+        self.ui.label(self.label).on_hover_text_at_pointer(hint);
+        self.ui.add(self.inner).on_hover_text_at_pointer(hint);
+        self.ui.end_row();
+        0
+    }
+}
+
 /// A checkbox for a boolean value.
 pub struct SidebarCheckbox<'u, 'v, T> {
     ui: &'u mut Ui,

@@ -9,6 +9,7 @@ pub use common::*;
 pub use conversions::*;
 pub use latitudinal::*;
 pub use main_structs::*;
+pub use resource::*;
 
 use atlas_lib::bevy::prelude::*;
 

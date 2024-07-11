@@ -9,12 +9,10 @@ use atlas_lib::{
 
 use crate::config::{
     climate::{make_default_biomes, BiomeConfig},
-    resource::{ResourceChunk, ResourceType},
+    resource::{ResourceChunk, ResourceType, make_default_resources},
     FbmConfig, InfluenceShape, LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm,
     QuadPointLerp, ALTITUDE_MAX, ALTITUDE_MIN,
 };
-
-use super::resource::make_default_resources;
 
 /// Complete configuration for the map generator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
@@ -330,9 +328,6 @@ pub struct ClimateConfig {
     #[name("Mountains Biome Index")]
     #[control(SidebarSlider)]
     pub mountains_biome: u8,
-    #[name("Sea Color")]
-    #[control(SidebarSliderN)]
-    pub sea_color: [u8; 3],
     #[name("")]
     #[control(SidebarStructList)]
     pub biomes: Vec<BiomeConfig>,
@@ -345,11 +340,11 @@ impl Default for ClimateConfig {
         Self {
             preview_mode: ClimatePreviewMode::DetailedColor,
             mountains_biome: 24,
-            sea_color: [0, 160, 255],
             default_biome: BiomeConfig {
                 name: "Default Biome".to_string(),
                 color: [255, 0, 255],
                 simple_color: [255, 0, 255],
+                resources: vec![],
             },
             biomes: make_default_biomes(),
         }
@@ -357,22 +352,19 @@ impl Default for ClimateConfig {
 }
 
 /// Config for the resource generation.
-#[derive(Debug, Deserialize, Resource, Serialize)]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 #[serde(crate = "atlas_lib::serde")]
 pub struct ResourcesConfig {
+    #[name("Chunk Size")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1..=255))]
     pub chunk_size: u8,
-    pub chunks: Vec<ResourceChunk>,
+    #[name("Resource Types")]
+    #[control(SidebarStructList)]
     pub types: Vec<ResourceType>,
-}
-
-impl MakeUi for ResourcesConfig {
-    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarSlider::new(ui, "Chunk Size", &mut self.chunk_size).show(None);
-        ui.add_enabled_ui(false, |ui| {
-            SidebarStructList::new(ui, "Resource Chunks", &mut self.chunks).show(None);
-        });
-        SidebarStructList::new(ui, "Resource Types", &mut self.types).show(None);
-    }
+    #[name("Resource Chunks")]
+    #[control(SidebarStructList)]
+    pub chunks: Vec<ResourceChunk>,
 }
 
 impl Default for ResourcesConfig {

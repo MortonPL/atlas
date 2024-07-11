@@ -6,7 +6,10 @@ use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
     domain::map::MapDataLayer,
-    ui::sidebar::{MakeUi, SidebarPanel},
+    ui::{
+        button,
+        sidebar::{MakeUi, SidebarPanel},
+    },
 };
 
 #[derive(Default, Clone, Copy)]
@@ -32,8 +35,15 @@ impl SidebarPanel<AtlasGenConfig, AtlasGenUi> for MainPanelResources {
     }
 
     fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Resources
+        MapDataLayer::Preview
     }
 }
 
-impl SidebarPanelGen for MainPanelResources {}
+impl SidebarPanelGen for MainPanelResources {
+    /// Create a "Generate Layer" button.
+    fn button_layer(&self, ui: &mut Ui, events: &mut EventStruct) {
+        if button(ui, "Generate Layer") {
+            events.generate_request = Some((MapDataLayer::Resources, false));
+        }
+    }
+}

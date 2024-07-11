@@ -1,17 +1,19 @@
 use atlas_lib::{
-    bevy::utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
+    bevy::utils::petgraph::matrix_graph::Zero,
+    bevy_prng::WyRand,
+    bevy_rand::resource::GlobalEntropy,
     config::{AtlasConfig, WorldModel},
     domain::{
         graphics::{MapLogicData, CLIMATEMAP_SIZE},
         map::{is_sea, MapDataLayer},
     },
-    rstar::RTree,
+    rand::Rng,
 };
 
 use crate::{
     config::{
         precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceMode, InfluenceShape,
-        NoiseAlgorithm, ALTITUDE_STEP,
+        NoiseAlgorithm, ResourceChunk, ALTITUDE_STEP,
     },
     map::samplers::{
         add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
@@ -24,6 +26,7 @@ pub fn generate(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
     config: &mut AtlasGenConfig,
+    rng: &mut GlobalEntropy<WyRand>,
 ) -> Vec<MapDataLayer> {
     let model = config.general.generation_model;
     let world_size = config.general.world_size;
@@ -34,7 +37,7 @@ pub fn generate(
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
         MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
-        MapDataLayer::Resources => generate_resources(logics, config, layer),
+        MapDataLayer::Resources => generate_resources(logics, config, layer, rng),
         // Influence
         MapDataLayer::ContinentsInfluence => {
             generate_influence(logics, &config.continents, model, world_size, layer)
@@ -59,6 +62,7 @@ pub fn after_generate(
     layer: MapDataLayer,
     logics: &mut MapLogicData,
     config: &mut AtlasGenConfig,
+    rng: &mut GlobalEntropy<WyRand>,
 ) -> Vec<MapDataLayer> {
     let mut regen_layers = match layer {
         MapDataLayer::Continents => {
@@ -67,14 +71,13 @@ pub fn after_generate(
             generate_temperature(logics, config, MapDataLayer::Temperature);
             generate_precipitation(logics, config, MapDataLayer::Precipitation);
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources);
+            generate_resources(logics, config, MapDataLayer::Resources, rng);
             vec![
                 MapDataLayer::TopographyFilter,
                 MapDataLayer::RealTopography,
                 MapDataLayer::Temperature,
                 MapDataLayer::Precipitation,
                 MapDataLayer::Climate,
-                MapDataLayer::Resources,
             ]
         }
         MapDataLayer::Topography => {
@@ -83,29 +86,28 @@ pub fn after_generate(
             generate_temperature(logics, config, MapDataLayer::Temperature);
             generate_precipitation(logics, config, MapDataLayer::Precipitation);
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources);
+            generate_resources(logics, config, MapDataLayer::Resources, rng);
             vec![
                 MapDataLayer::TopographyFilter,
                 MapDataLayer::RealTopography,
                 MapDataLayer::Temperature,
                 MapDataLayer::Precipitation,
                 MapDataLayer::Climate,
-                MapDataLayer::Resources,
             ]
         }
         MapDataLayer::Temperature => {
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources);
-            vec![MapDataLayer::Climate, MapDataLayer::Resources]
+            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            vec![MapDataLayer::Climate]
         }
         MapDataLayer::Precipitation => {
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources);
-            vec![MapDataLayer::Climate, MapDataLayer::Resources]
+            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            vec![MapDataLayer::Climate]
         }
         MapDataLayer::Climate => {
-            generate_resources(logics, config, MapDataLayer::Resources);
-            vec![MapDataLayer::Resources]
+            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            vec![]
         }
         _ => vec![],
     };
@@ -123,67 +125,59 @@ fn generate_preview(logics: &mut MapLogicData, config: &AtlasGenConfig) -> Vec<M
     let real_data = logics.get_layer(MapDataLayer::RealTopography);
     let cont_data = logics.get_layer(MapDataLayer::Continents);
     let climate_data = logics.get_layer(MapDataLayer::Climate);
-
+    // Get relevant config settings.
     let climate_display = config.general.color_display;
     let height_levels = config.general.height_levels as f32;
     let highest = (config.general.altitude_limit / ALTITUDE_STEP).floor();
-
+    // Paint preview.
     for i in 0..real_data.len() {
-        let (r, g, b);
-        if is_sea(cont_data[i]) {
-            (r, g, b) = (
-                config.climate.sea_color[0],
-                config.climate.sea_color[1],
-                config.climate.sea_color[2],
-            );
-        } else {
-            // Fetch preview color.
-            let rgb = match climate_display {
-                ColorDisplayMode::Topography => {
-                    if real_data[i] < 5 {
-                        [70, 180, 75]
-                    } else if real_data[i] < 13 {
-                        [110, 190, 70]
-                    } else if real_data[i] < 25 {
-                        [240, 230, 60]
-                    } else if real_data[i] < 38 {
-                        [190, 130, 80]
-                    } else if real_data[i] < 50 {
-                        [180, 85, 40]
-                    } else {
-                        [140, 140, 140]
-                    }
-                }
-                ColorDisplayMode::SimplifiedClimate => {
-                    let biome = config.get_biome(climate_data[i]);
-                    biome.simple_color
-                }
-                ColorDisplayMode::DetailedClimate => {
-                    let biome = config.get_biome(climate_data[i]);
-                    biome.color
+        // Fetch preview color.
+        let rgb = match climate_display {
+            ColorDisplayMode::Topography => {
+                if is_sea(cont_data[i]) {
+                    [0, 160, 255]
+                } else if real_data[i] < 5 {
+                    [70, 180, 75]
+                } else if real_data[i] < 13 {
+                    [110, 190, 70]
+                } else if real_data[i] < 25 {
+                    [240, 230, 60]
+                } else if real_data[i] < 38 {
+                    [190, 130, 80]
+                } else if real_data[i] < 50 {
+                    [180, 85, 40]
+                } else {
+                    [140, 140, 140]
                 }
             }
-            .map(|x| x as f32 / 255.0);
-            let mut v = 1.0;
-            // Shift color value according to height.
-            if !highest.is_zero() {
-                let height = real_data[i] as f32 / highest;
-                v = (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels).clamp(0.2, 1.0);
+            ColorDisplayMode::SimplifiedClimate => {
+                let biome = config.get_biome(climate_data[i]);
+                biome.simple_color
             }
-            // Set final color.
-            (r, g, b) = (
-                (rgb[0] * v * 255.0) as u8,
-                (rgb[1] * v * 255.0) as u8,
-                (rgb[2] * v * 255.0) as u8,
-            );
+            ColorDisplayMode::DetailedClimate => {
+                let biome = config.get_biome(climate_data[i]);
+                biome.color
+            }
         }
+        .map(|x| x as f32 / 255.0);
+        let mut v = 1.0;
+        // Shift color value according to height.
+        if !highest.is_zero() {
+            let height = real_data[i] as f32 / highest;
+            v = (((1.0 - height.clamp(0.0, 1.0)) * height_levels).ceil() / height_levels).clamp(0.2, 1.0);
+        }
+        // Set final color.
+        let (r, g, b) = (
+            (rgb[0] * v * 255.0) as u8,
+            (rgb[1] * v * 255.0) as u8,
+            (rgb[2] * v * 255.0) as u8,
+        );
         let j = i * 4;
         preview_data[j] = r;
         preview_data[j + 1] = g;
         preview_data[j + 2] = b;
         preview_data[j + 3] = 255;
     }
-
     // Set new layer data.
     logics.put_layer(MapDataLayer::Preview, preview_data);
     // This layer should be refreshed.
@@ -343,14 +337,19 @@ fn generate_climate(
 ) -> Vec<MapDataLayer> {
     // Move out layer data.
     let mut clim_data = logics.pop_layer(layer);
+    let cont_data = logics.get_layer(MapDataLayer::Continents);
     let temp_data = logics.get_layer(MapDataLayer::Temperature);
     let prec_data = logics.get_layer(MapDataLayer::Precipitation);
     let len = config.climate.biomes.len() as u8;
     // Use climate map.
     let climatemap = logics.get_climatemap();
     for i in 0..clim_data.len() {
-        let map_index = prec_data[i] as usize * CLIMATEMAP_SIZE + temp_data[i] as usize;
-        let climate = climatemap[map_index];
+        let climate = if is_sea(cont_data[i]) {
+            0
+        } else {
+            let map_index = prec_data[i] as usize * CLIMATEMAP_SIZE + temp_data[i] as usize;
+            climatemap[map_index]
+        };
         clim_data[i] = if climate < len { climate } else { 0 };
     }
     // Set new layer data.
@@ -362,47 +361,55 @@ fn generate_climate(
 fn generate_resources(
     logics: &mut MapLogicData,
     config: &mut AtlasGenConfig,
-    layer: MapDataLayer,
+    _layer: MapDataLayer,
+    rng: &mut GlobalEntropy<WyRand>,
 ) -> Vec<MapDataLayer> {
-    // Move out layer data.
-    let mut res_data = logics.pop_layer(layer);
+    // Get layer data.
+    let cont_data = logics.get_layer(MapDataLayer::Continents);
     let clim_data = logics.get_layer(MapDataLayer::Climate);
-    let len = config.climate.biomes.len() as u8;
-    // Generate region centers.
-    // TODO
-    let points: Vec<(f32, f32)> = vec![(10.0, 10.0), (100.0, 100.0)];
-    // Generate region map, R-tree and partition the world.
-    let map: HashMap<u32, u16> = points
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            let p = (p.0 as u32, p.1 as u32);
-            (config.map_to_index(p), i as u16)
-        })
-        .collect();
-    let rtree = RTree::bulk_load(points);
+    // Generate region chunks.
     let (width, height) = config.get_world_size();
-    for y in 0..height {
-        for x in 0..width {
-            let query = (x as f32, y as f32);
-            let result: &(f32, f32) = rtree.nearest_neighbor(&query).unwrap();
-            let result = (result.0 as u32, result.1 as u32);
-            let result = config.map_to_index(result);
-            let region = *map.get(&result).unwrap();
-            let i = (x * width + y) as usize;
-            res_data[i * 2] = (region % 255) as u8;
-            res_data[i * 2 + 1] = (region / 255) as u8;
-            res_data[i * 2 + 3] = 255;
+    let cwidth = width.div_ceil(config.resources.chunk_size as u32) as usize;
+    let cheight = height.div_ceil(config.resources.chunk_size as u32) as usize;
+    let (width, height) = (width as usize, height as usize);
+    let chunk_count = cwidth * cheight;
+    let size = config.resources.chunk_size as usize;
+    let mut chunks = vec![ResourceChunk::default(); chunk_count];
+    for i in 0..(width * height) {
+        // Find the chunk for this tile.
+        let j = ((i / width) / size) * cwidth + (i % width) / size;
+        let chunk = &mut chunks[j];
+        if !is_sea(cont_data[i]) {
+            chunk.tile_count += 1;
+        }
+        // Assign flora and fauna resources based on climate.
+        let biome = config.get_biome(clim_data[i]);
+        for resource in &biome.resources {
+            if let Some(v) = chunk.resources.get_mut(&resource.id) {
+                *v += resource.average + rng.gen_range(-resource.deviation..=resource.deviation);
+            } else {
+                let v = resource.average + rng.gen_range(-resource.deviation..=resource.deviation);
+                chunk.resources.insert(resource.id, v);
+            }
+        }
+        // Assign other natural resources randomly.
+        for (id, resource) in config.resources.types.iter().enumerate() {
+            if !resource.random_deposits || !rng.gen_bool(resource.random_chance as f64) {
+                continue;
+            }
+            if let Some(v) = chunk.resources.get_mut(&(id as u32)) {
+                *v += resource.random_average
+                    + rng.gen_range(-resource.random_deviation..=resource.random_deviation);
+            } else {
+                let v = resource.random_average
+                    + rng.gen_range(-resource.random_deviation..=resource.random_deviation);
+                chunk.resources.insert(id as u32, v);
+            }
         }
     }
-    // Assign flora and fauna resources based on climate.
-    // TODO
-    // Assign other natural resources randomly.
-    // TODO
-    // Set new layer data.
-    logics.put_layer(layer, res_data);
-    // This layer should be refreshed.
-    vec![layer]
+    config.resources.chunks = chunks;
+    // Don't refresh any layer.
+    vec![]
 }
 
 /// Generate FINAL topography data.

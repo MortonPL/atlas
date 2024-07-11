@@ -13,6 +13,7 @@ pub enum MapDataLayer {
     Temperature,
     Precipitation,
     Climate,
+    #[invisible]
     Resources,
     #[invisible]
     RealTopography,
@@ -46,14 +47,14 @@ impl MapDataLayer {
 }
 
 /// Array of all [`MapDataLayer`] variants.
-pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
+pub const MAP_DATA_LAYERS: [MapDataLayer; 12] = [
     MapDataLayer::Preview,
     MapDataLayer::Continents,
     MapDataLayer::Topography,
     MapDataLayer::Temperature,
     MapDataLayer::Precipitation,
     MapDataLayer::Climate,
-    MapDataLayer::Resources,
+    //MapDataLayer::Resources, NOTE: Not a true layer
     MapDataLayer::RealTopography,
     MapDataLayer::TopographyFilter,
     // Influence
@@ -64,14 +65,13 @@ pub const MAP_DATA_LAYERS: [MapDataLayer; 13] = [
 ];
 
 /// Array of all exportable [`MapDataLayer`]s.
-pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 8] = [
+pub const EXPORT_DATA_LAYERS: [(MapDataLayer, &str); 7] = [
     (MapDataLayer::Continents, "continents.png"),
     (MapDataLayer::Topography, "topography.png"),
     (MapDataLayer::RealTopography, "realtopography.png"),
     (MapDataLayer::Temperature, "temperature.png"),
     (MapDataLayer::Precipitation, "precipitation.png"),
     (MapDataLayer::Climate, "climate.png"),
-    (MapDataLayer::Resources, "resources.png"),
     (MapDataLayer::Preview, "preview.png"),
 ];
 

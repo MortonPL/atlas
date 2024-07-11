@@ -1,16 +1,13 @@
 use atlas_lib::{
-    base::{events::EventStruct, map::resize_helper},
-    bevy::prelude::*,
-    config::{
+    base::{events::EventStruct, map::resize_helper}, bevy::prelude::*, bevy_prng::WyRand, bevy_rand::resource::GlobalEntropy, config::{
         load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, AtlasConfig,
-    },
-    domain::{
+    }, domain::{
         graphics::{
             get_material, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME,
             CLIMATEMAP_SIZE,
         },
         map::{MapDataLayer, EXPORT_DATA_LAYERS},
-    },
+    }
 };
 
 use crate::{
@@ -81,12 +78,13 @@ pub fn update_event_loaded(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasGenConfig>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let (layer, data) = events.load_layer_request.take().expect("Always Some");
     // Assign data.
     logics.put_layer(layer, data);
     // Handle post generation, which refreshes the texture and dependant layers.
-    post_generation(layer, &mut logics, &mut events, &mut config, vec![layer]);
+    post_generation(layer, &mut logics, &mut events, &mut config, vec![layer], &mut rng);
 }
 
 /// Update system
@@ -163,19 +161,20 @@ pub fn update_event_generate(
     mut events: ResMut<EventStruct>,
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasGenConfig>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let (layer, regen_influence) = events.generate_request.take().expect("Always Some");
     let mut regen_layers: Vec<MapDataLayer> = vec![];
     // If this layer has an associated influence layer, forcefully regenerate it as well.
     if regen_influence {
         if let Some(layer2) = layer.get_influence_layer() {
-            regen_layers.extend(generate(layer2, &mut logics, &mut config));
+            regen_layers.extend(generate(layer2, &mut logics, &mut config, &mut rng));
         }
     }
     // Run generation procedure based on generator type and layer.
-    regen_layers.extend(generate(layer, &mut logics, &mut config));
+    regen_layers.extend(generate(layer, &mut logics, &mut config, &mut rng));
     // Handle post generation.
-    post_generation(layer, &mut logics, &mut events, &mut config, regen_layers);
+    post_generation(layer, &mut logics, &mut events, &mut config, regen_layers, &mut rng);
 }
 
 /// Update system
@@ -218,7 +217,6 @@ pub fn update_event_import(
         let path = base_path.join(name);
         let result = match layer {
             MapDataLayer::Preview => load_image(path, width, height),
-            MapDataLayer::Resources => load_image(path, width, height),
             _ => load_image_grey(path, width, height),
         };
         match result {
@@ -263,7 +261,6 @@ pub fn update_event_export(
         let path = base_path.join(name);
         let result = match layer {
             MapDataLayer::Preview => save_image(path, data, width, height),
-            MapDataLayer::Resources => save_image(path, data, width, height),
             _ => save_image_grey(path, data, width, height),
         };
         events.error_window = result.err().map(|x| x.to_string());
@@ -294,9 +291,10 @@ fn post_generation(
     events: &mut EventStruct,
     config: &mut AtlasGenConfig,
     mut regen_layers: Vec<MapDataLayer>,
+    rng: &mut GlobalEntropy<WyRand>,
 ) {
     // Adjust other layers if needed.
-    let regen_layers_2 = after_generate(layer, logics, config);
+    let regen_layers_2 = after_generate(layer, logics, config, rng);
     regen_layers.extend(regen_layers_2);
     // Trigger texture regeneration.
     events.regen_layer_request = Some(regen_layers);
