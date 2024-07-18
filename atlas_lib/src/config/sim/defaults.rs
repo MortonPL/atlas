@@ -68,19 +68,58 @@ impl Default for TechnologiesConfig {
             base_speed: 0.001,
             max_level: 100.0,
             techs: [
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
-                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
+                TechConfig {
+                    strength: 1.0,
+                    cost: 1.0,
+                },
             ],
         }
     }

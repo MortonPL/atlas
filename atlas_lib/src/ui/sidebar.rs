@@ -237,7 +237,7 @@ pub struct SidebarTextbox<'u, 'v, T> {
 
 impl<'u, 'v, T: 'v> SidebarControl<'u, 'v, T> for SidebarTextbox<'u, 'v, T>
 where
-    &'v mut String: From<&'v mut T>
+    &'v mut String: From<&'v mut T>,
 {
     fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
         let string = Into::<&mut String>::into(value);
@@ -486,7 +486,11 @@ where
     T: MakeUi,
 {
     fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
-        Self { ui, value, label: label.into() }
+        Self {
+            ui,
+            value,
+            label: label.into(),
+        }
     }
 
     fn show(self, hint: Option<&str>) -> usize {
@@ -534,7 +538,11 @@ where
     T::Item: MakeUi,
 {
     fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
-        Self { ui, value, label: label.into() }
+        Self {
+            ui,
+            value,
+            label: label.into(),
+        }
     }
 
     fn show(self, hint: Option<&str>) -> usize {

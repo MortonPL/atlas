@@ -271,6 +271,9 @@ pub struct TechConfig {
 
 impl Default for TechConfig {
     fn default() -> Self {
-        Self { strength: 1.0, cost: 1.0 }
+        Self {
+            strength: 1.0,
+            cost: 1.0,
+        }
     }
 }

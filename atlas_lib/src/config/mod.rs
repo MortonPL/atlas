@@ -1,7 +1,7 @@
 pub mod climate;
+pub mod deposit;
 pub mod gen;
 mod io;
-pub mod deposit;
 pub mod sim;
 
 use crate::ui::UiEditableEnum;

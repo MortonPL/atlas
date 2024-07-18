@@ -136,10 +136,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             name: "Arctic Desert".to_string(),
             color: [170, 185, 190],
             simple_color: [225, 245, 250],
-            deposits: vec![
-                BiomeDeposit::new(3, 0.15),
-                BiomeDeposit::new(4, 0.15),
-            ],
+            deposits: vec![BiomeDeposit::new(3, 0.15), BiomeDeposit::new(4, 0.15)],
             habitability: 0.1,
         },
         BiomeConfig {
@@ -147,10 +144,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             name: "Arctic Desert (Wet)".to_string(),
             color: [145, 160, 160],
             simple_color: [225, 245, 250],
-            deposits: vec![
-                BiomeDeposit::new(3, 0.15),
-                BiomeDeposit::new(4, 0.15),
-            ],
+            deposits: vec![BiomeDeposit::new(3, 0.15), BiomeDeposit::new(4, 0.15)],
             habitability: 0.1,
         },
         BiomeConfig {
@@ -381,10 +375,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             name: "Hot Desert".to_string(),
             color: [225, 220, 55],
             simple_color: [225, 220, 55],
-            deposits: vec![
-                BiomeDeposit::new(3, 0.15),
-                BiomeDeposit::new(4, 0.15),
-            ],
+            deposits: vec![BiomeDeposit::new(3, 0.15), BiomeDeposit::new(4, 0.15)],
             habitability: 0.2,
         },
         BiomeConfig {
@@ -392,10 +383,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             name: "Hot Desert (Arid)".to_string(),
             color: [220, 195, 80],
             simple_color: [225, 220, 55],
-            deposits: vec![
-                BiomeDeposit::new(3, 0.15),
-                BiomeDeposit::new(4, 0.15),
-            ],
+            deposits: vec![BiomeDeposit::new(3, 0.15), BiomeDeposit::new(4, 0.15)],
             habitability: 0.1,
         },
         BiomeConfig {
