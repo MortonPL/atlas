@@ -14,14 +14,14 @@ use atlas_lib::{
         egui::{self, Context, RichText, Ui},
         EguiContexts,
     },
+    config::gen::AtlasGenConfig,
     ui::{button_action, sidebar::SidebarPanel, window},
 };
 use internal::{clear_layer_clicked, reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{
-    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources, MainPanelTemperature, MainPanelTopography
+    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources,
+    MainPanelTemperature, MainPanelTopography,
 };
-
-use crate::config::AtlasGenConfig;
 
 /// Plugin responsible for the entire GUI and viewport rectangle.
 pub struct UiPlugin;

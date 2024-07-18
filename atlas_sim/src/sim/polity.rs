@@ -8,12 +8,12 @@ use atlas_lib::{
             render_asset::RenderAssetUsages,
             render_resource::{Extent3d, TextureDimension, TextureFormat},
         },
-        utils::hashbrown::HashMap,
+        utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
     },
     bevy_egui,
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
-    config::AtlasConfig,
+    config::{sim::AtlasSimConfig, AtlasConfig},
     domain::{
         graphics::{color_to_u8, MapLogicData},
         map::{is_sea, MapDataLayer},
@@ -25,18 +25,21 @@ use atlas_lib::{
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::{
-    config::AtlasSimConfig,
-    sim::{check_tick, SimMapData},
-};
+use crate::sim::{check_tick, SimMapData};
+
+use super::check_tick_annual;
 
 /// Polity simulation.
 pub struct PolityPlugin;
 
 impl Plugin for PolityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, update_visuals)
-            .add_systems(FixedUpdate, (update_mapgrab, update_resources).run_if(check_tick));
+        app.add_systems(FixedUpdate, update_visuals).add_systems(
+            FixedUpdate,
+            (update_mapgrab, update_pops, update_jobs, update_resources)
+                .chain()
+                .run_if(check_tick),
+        );
     }
 }
 
@@ -102,24 +105,39 @@ pub struct Polity {
     pub land_claim_points: f32,
     /// Map of # of tiles owned in resource chunks.
     pub resource_chunks: HashMap<u32, u16>,
-    /// Map of available resources.
-    pub resources: HashMap<u32, f32>,
+    /// Map of available deposits.
+    pub deposits: HashMap<u32, f32>,
+    /// Amount of supply points produced.
+    pub supply: f32,
+    /// Amount of industry points produced.
+    pub industry: f32,
+    /// Amount of wealth points produced.
+    pub wealth: f32,
+    /// Total polity population.
+    pub population: f32,
+    /// Job pop group.
+    pub jobs: HashMap<u32, f32>,
 }
 
 impl Polity {
-    pub fn rcrs(&mut self) -> (&HashMap<u32, u16>, &mut HashMap<u32, f32>) {
-        (&self.resource_chunks, &mut self.resources)
-    }
-
     pub fn into_ui(&self, config: &AtlasSimConfig) -> PolityUi {
         PolityUi {
             ownership: self.ownership,
             color: color_to_u8(&self.color),
             land_claim_points: self.land_claim_points,
-            resources: self
-                .resources
+            deposits: self
+                .deposits
                 .iter()
-                .map(|(k, v)| (config.resources.types[*k as usize].name.clone(), *v))
+                .map(|(k, v)| (config.deposits.types[*k as usize].name.clone(), *v))
+                .collect(),
+            supply: self.supply,
+            industry: self.industry,
+            wealth: self.wealth,
+            population: self.population,
+            jobs: self
+                .jobs
+                .iter()
+                .map(|(k, v)| (config.jobs.types[*k as usize].name.clone(), *v))
                 .collect(),
         }
     }
@@ -133,8 +151,18 @@ pub struct PolityUi {
     pub color: [u8; 3],
     /// The desire to claim border tiles.
     pub land_claim_points: f32,
-    /// Map of available resources.
-    pub resources: Vec<(String, f32)>,
+    /// Map of available deposits.
+    pub deposits: Vec<(String, f32)>,
+    /// Amount of supply points produced.
+    pub supply: f32,
+    /// Amount of industry points produced.
+    pub industry: f32,
+    /// Amount of wealth points produced.
+    pub wealth: f32,
+    /// Total polity population.
+    pub population: f32,
+    /// List of pop job groups.
+    pub jobs: Vec<(String, f32)>,
 }
 
 impl MakeUi for PolityUi {
@@ -142,8 +170,21 @@ impl MakeUi for PolityUi {
         SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
         SidebarColor::new(ui, "Color", &mut self.color).show(None);
         SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
-        for (k, v) in &mut self.resources {
-            SidebarSlider::new(ui, format!("Resource type '{}'", k), v).show(None);
+        ui.heading("Resources");
+        ui.end_row();
+        SidebarSlider::new(ui, "Supply", &mut self.supply).show(None);
+        SidebarSlider::new(ui, "Industry", &mut self.industry).show(None);
+        SidebarSlider::new(ui, "Wealth", &mut self.wealth).show(None);
+        ui.heading("Population & Jobs");
+        ui.end_row();
+        SidebarSlider::new(ui, "Population", &mut self.population).show(None);
+        for (k, v) in &mut self.jobs {
+            SidebarSlider::new(ui, k.clone(), v).show(None);
+        }
+        ui.heading("Deposits");
+        ui.end_row();
+        for (k, v) in &mut self.deposits {
+            SidebarSlider::new(ui, k.clone(), v).show(None);
         }
     }
 }
@@ -160,7 +201,12 @@ impl Default for Polity {
             need_visual_update: true,
             land_claim_points: 0.0,
             resource_chunks: Default::default(),
-            resources: Default::default(),
+            deposits: Default::default(),
+            population: 0.0,
+            jobs: Default::default(),
+            supply: 0.0,
+            industry: 0.0,
+            wealth: 0.0,
         }
     }
 }
@@ -213,28 +259,41 @@ fn update_mapgrab(
     }
 }
 
+/// Update system
+///
+/// Grow/shrink population based on supply.
+fn update_pops(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
+    for mut polity in query.iter_mut() {
+        // How much % of the population is supplied and can survive.
+        // Any surplus should boost growth beyond the base rate.
+        let consumption = polity.get_supply_consumption(&config);
+        let coverage = if consumption.is_zero() {
+            1.0
+        } else {
+            (polity.supply / consumption).min(2.0)
+        };
+        let base_coverage = coverage.min(1.0);
+        // Grow the population.
+        polity.population =
+            (polity.population * (1.0 * base_coverage + config.rules.pop_growth * coverage)).max(1.0);
+    }
+}
+
+/// Update system
+///
+/// Update resources (supply/industry/wealth).
 fn update_resources(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
     for mut polity in query.iter_mut() {
-        // Set all resources to 0.
-        for (_, amount) in polity.resources.iter_mut() {
-            *amount = 0.0;
-        }
-        // Add resource chunk deposits.
-        let (resource_chunks, resources) = polity.rcrs();
-        for (chunk, count) in resource_chunks {
-            let chunk = &config.resources.chunks[*chunk as usize];
-            let percent_owned = *count as f32 / chunk.tile_count as f32;
-            for (resource, amount) in &chunk.resources {
-                let amount = amount * percent_owned;
-                if let Some(x) = resources.get_mut(resource) {
-                    *x += amount;
-                } else {
-                    resources.insert(*resource, amount);
-                }
-            }
-        }
-        // Process jobs.
-        // TODO
+        polity.update_resources(&config);
+    }
+}
+
+/// Update system
+///
+/// Assign jobs.
+fn update_jobs(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
+    for mut polity in query.iter_mut() {
+        polity.update_jobs(&config);
     }
 }
 
@@ -333,13 +392,116 @@ impl Polity {
                 .extend(&mut config.get_border_tiles(tile).iter());
         };
         // Update resource chunk coverage.
-        let j = config.index_to_chunk(tile, config.resources.chunk_size as u32);
-        if let Some(chunk) = self.resource_chunks.get_mut(&j) {
+        let j = config.index_to_chunk(tile, config.deposits.chunk_size as u32);
+        let coverage = if let Some(chunk) = self.resource_chunks.get_mut(&j) {
             *chunk += 1;
+            *chunk
         } else {
             self.resource_chunks.insert(j, 1);
+            1
+        };
+        // Update available deposits.
+        let chunk = &config.deposits.chunks[j as usize];
+        let coverage = coverage as f32 / chunk.tile_count as f32;
+        for (resource, amount) in &chunk.deposits {
+            let amount = amount * coverage;
+            if let Some(x) = self.deposits.get_mut(resource) {
+                *x += amount;
+            } else {
+                self.deposits.insert(*resource, amount);
+            }
         }
         // Mark to redraw.
         self.need_visual_update = true;
+    }
+
+    pub fn update_resources(&mut self, config: &AtlasSimConfig) {
+        // Calculate potential resources.
+        let mut supply_max = 0.0;
+        let mut industry_max = 0.0;
+        let mut wealth_max = 0.0;
+        let mut supply_amount = 0.0;
+        let mut industry_amount = 0.0;
+        let mut wealth_amount = 0.0;
+        for (id, amount) in self.deposits.iter() {
+            let deposit = &config.deposits.types[*id as usize];
+            supply_max += amount * deposit.supply; // TODO * get_supply_modifier_for_deposit()
+            supply_amount += amount * deposit.supply;
+            industry_max += amount * deposit.industry;
+            industry_amount += amount * deposit.industry;
+            wealth_max += amount * deposit.wealth;
+            wealth_amount += amount * deposit.wealth;
+        }
+        let supply_bonus = if supply_max.is_zero() {
+            0.0
+        } else {
+            supply_max / supply_amount
+        };
+        let industry_bonus = if industry_max.is_zero() {
+            0.0
+        } else {
+            industry_max / industry_amount
+        };
+        let wealth_bonus = if wealth_max.is_zero() {
+            0.0
+        } else {
+            wealth_max / wealth_amount
+        };
+        // Calculate work output.
+        self.supply = (*self.jobs.get(&0).unwrap_or(&0.0) * config.jobs.types[0].efficiency * supply_bonus)
+            .min(supply_max); // * TODO get_supply_modifier()
+        self.industry =
+            (*self.jobs.get(&1).unwrap_or(&0.0) * config.jobs.types[1].efficiency * industry_bonus)
+                .min(industry_max);
+        self.wealth = (*self.jobs.get(&2).unwrap_or(&0.0) * config.jobs.types[2].efficiency * wealth_bonus)
+            .min(wealth_max);
+        // TODO Advanced jobs
+    }
+
+    pub fn update_jobs(&mut self, config: &AtlasSimConfig) {
+        // Reset jobs.
+        self.jobs.clear();
+        let manpower = self.population; // TODO get_population_manpower_ratio()
+                                        // Calculate potential supply.
+        let mut supply_max = 0.0;
+        let mut supply_amount = 0.0;
+        for (id, amount) in self.deposits.iter() {
+            let deposit = &config.deposits.types[*id as usize];
+            supply_max += amount * deposit.supply; // TODO * get_supply_modifier_for_deposit()
+            supply_amount += amount * deposit.supply;
+        }
+        // Early exit if no supplies to be made.
+        if supply_max.is_zero() {
+            self.jobs.insert(0, manpower);
+            return;
+        }
+        let supply_bonus = supply_max / supply_amount;
+        // Consumption target should always be met.
+        let consumption = self.get_supply_consumption(&config);
+        let minimum_supply_manpower = consumption / config.jobs.types[0].efficiency / supply_bonus; // TODO / get_supply_modifier()
+        let minimum_supply_manpower = minimum_supply_manpower.min(manpower);
+        let spare_manpower = manpower - minimum_supply_manpower;
+        // Early exit if we used up all manpower.
+        if spare_manpower <= 0.0 {
+            self.jobs.insert(0, minimum_supply_manpower);
+            return;
+        }
+        // Assign spare manpower to other sectors.
+        let manpower_split = [0.1, 0.45, 0.45]; // TODO: Should be decided by govt / culture.
+        let supply_manpower = minimum_supply_manpower + spare_manpower * manpower_split[0];
+        let industry_manpower = spare_manpower * manpower_split[1];
+        let wealth_manpower = spare_manpower * manpower_split[2];
+        self.jobs.insert(0, supply_manpower);
+        self.jobs.insert(1, industry_manpower);
+        self.jobs.insert(2, wealth_manpower);
+        // TODO Assign manpower to secondary sectors.
+    }
+
+    fn get_supply_consumption(&self, config: &AtlasSimConfig) -> f32 {
+        if config.rules.supply_per_pop.is_zero() {
+            0.0
+        } else {
+            self.population * config.rules.supply_per_pop
+        }
     }
 }

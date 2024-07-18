@@ -1,42 +1,37 @@
+pub mod climate;
+pub mod gen;
 mod io;
+pub mod deposit;
+pub mod sim;
 
-use std::collections::BTreeSet;
+use crate::ui::UiEditableEnum;
+use atlas_macro::UiEditableEnum;
+use bevy::prelude::*;
+use climate::{BiomeConfig, ClimatePreviewMode};
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, marker::PhantomData};
 
 pub use io::*;
 
-use atlas_macro::UiEditableEnum;
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
-
-use crate::ui::UiEditableEnum;
-
 pub const MAX_WORLD_SIZE: u32 = 1000;
 
-/// World model describes the geometric model of the world which
-/// impacts the coordinate system, map visualisation and map border
-/// behavior.
-#[derive(Copy, Clone, Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum WorldModel {
-    #[default]
-    Flat,
-    Globe,
+/// Plugin responsible for the generator/simulator configuration and I/O.
+#[derive(Default)]
+pub struct ConfigPlugin<C: AtlasConfig> {
+    __: PhantomData<C>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum ClimatePreviewMode {
-    SimplifiedColor,
-    #[default]
-    DetailedColor,
+impl<C: AtlasConfig> Plugin for ConfigPlugin<C> {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<C>();
+    }
 }
 
-pub trait AtlasConfig: Resource {
+pub trait AtlasConfig: Resource + Default {
     fn get_world_size(&self) -> (u32, u32);
     fn get_preview_model(&self) -> WorldModel;
     fn get_climate_preview(&self) -> ClimatePreviewMode;
-    fn climate_index_to_color(&self, i: u8) -> [u8; 4];
-    fn climate_index_to_color_simple(&self, i: u8) -> [u8; 4];
+    fn get_biome(&self, i: u8) -> &BiomeConfig;
 
     /// Convert a point from Bevy world space to map space.
     fn world_to_map(&self, point: (f32, f32)) -> Option<(u32, u32)> {
@@ -117,4 +112,16 @@ pub trait AtlasConfig: Resource {
         }
         result
     }
+}
+
+pub trait IntoSimConfig {
+    fn into_sim_config(&self) -> Self;
+}
+
+#[derive(Copy, Clone, Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum WorldModel {
+    #[default]
+    Flat,
+    Globe,
 }

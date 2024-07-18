@@ -1,6 +1,7 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
+    config::sim::AtlasSimConfig,
     domain::map::MapDataLayer,
     ui::{
         button_action,
@@ -8,10 +9,7 @@ use atlas_lib::{
     },
 };
 
-use crate::{
-    config::AtlasSimConfig,
-    ui::{panel_sim::InfoPanelPolity, AtlasSimUi},
-};
+use crate::ui::{panel_sim::InfoPanelPolity, AtlasSimUi};
 
 /// Panel with general simulation settings.
 #[derive(Default, Clone, Copy)]

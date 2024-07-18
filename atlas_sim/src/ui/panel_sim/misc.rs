@@ -1,10 +1,11 @@
 use atlas_lib::{
     bevy_egui::egui::Ui,
+    config::sim::AtlasSimConfig,
     domain::map::{MapDataLayer, MapDataOverlay},
-    ui::sidebar::{MakeUi, SidebarPanel},
+    ui::sidebar::SidebarPanel,
 };
 
-use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
+use crate::ui::AtlasSimUi;
 
 /// Panel with selected object info.
 #[derive(Default, Clone, Copy)]

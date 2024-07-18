@@ -1,14 +1,14 @@
 mod events;
 mod internal;
 
-use atlas_lib::{base::map::MapPluginBase, bevy::prelude::*};
+use atlas_lib::{base::map::MapPluginBase, bevy::prelude::*, config::sim::AtlasSimConfig};
 use events::{
     check_event_import_start, check_event_overlay_changed, check_event_random_start,
     check_event_start_simulation, update_event_overlay_changed, update_event_random_start,
     update_event_start_simulation,
 };
 
-use crate::{config::AtlasSimConfig, map::events::update_event_import_start};
+use crate::map::events::update_event_import_start;
 
 /// Plugin responsible for the world graphics and generation.
 pub struct MapPlugin;

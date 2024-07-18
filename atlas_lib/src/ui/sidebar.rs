@@ -530,7 +530,7 @@ pub struct SidebarStructList<'u, 'v, T> {
 
 impl<'u, 'v, T> SidebarControl<'u, 'v, T> for SidebarStructList<'u, 'v, T>
 where
-    T: AsVector,
+    T: AsSlice,
     T::Item: MakeUi,
 {
     fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
@@ -542,7 +542,7 @@ where
             .heading(self.label.text())
             .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
         self.ui.end_row();
-        for element in self.value.as_vec() {
+        for element in self.value.as_slice() {
             element.make_ui(self.ui);
             self.ui.end_row();
         }
@@ -550,16 +550,24 @@ where
     }
 }
 
-trait AsVector {
+trait AsSlice {
     type Item;
 
-    fn as_vec(&mut self) -> &mut Vec<Self::Item>;
+    fn as_slice(&mut self) -> &mut [Self::Item];
 }
 
-impl<T> AsVector for std::vec::Vec<T> {
+impl<T> AsSlice for std::vec::Vec<T> {
     type Item = T;
 
-    fn as_vec(&mut self) -> &mut Vec<Self::Item> {
+    fn as_slice(&mut self) -> &mut [Self::Item] {
+        self
+    }
+}
+
+impl<T> AsSlice for [T; 3] {
+    type Item = T;
+
+    fn as_slice(&mut self) -> &mut [Self::Item] {
         self
     }
 }

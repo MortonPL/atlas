@@ -2,7 +2,7 @@ use atlas_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     bevy_egui,
     domain::graphics::color_to_u8,
-    ui::sidebar::SidebarControl,
+    ui::sidebar::*,
     MakeUi,
 };
 
@@ -10,7 +10,7 @@ use atlas_lib::{
 pub struct CivPlugin;
 
 impl Plugin for CivPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // TODO
     }
 }

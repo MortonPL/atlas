@@ -5,7 +5,11 @@ use atlas_lib::{
     bevy::{prelude::*, render::mesh::PlaneMeshBuilder},
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
-    config::{load_config, load_image, load_image_grey, AtlasConfig},
+    config::{
+        load_config, load_image, load_image_grey,
+        sim::{AtlasSimConfig, CONFIG_NAME},
+        AtlasConfig,
+    },
     domain::{
         graphics::{MapLogicData, WorldGlobeMesh, WorldMapMesh},
         map::{MapDataLayer, MapDataOverlay, EXPORT_DATA_LAYERS},
@@ -13,7 +17,6 @@ use atlas_lib::{
 };
 
 use crate::{
-    config::{AtlasSimConfig, CONFIG_NAME},
     map::internal::{
         calc_start_point_weights, create_overlays, randomize_point_civ, randomize_point_color,
         randomize_start_points,
@@ -203,10 +206,13 @@ pub fn update_event_start_simulation(
             ),
             need_visual_update: true,
             land_claim_points: config.rules.starting_land_claim_points,
+            population: start.polity.population,
             ..Default::default()
         };
         // Claim initial tile.
         polity.claim_tile(i, None, &mut extras, &config);
+        polity.update_jobs(&config);
+        polity.update_resources(&config);
         // Spawn.
         let ec = commands.spawn((
             polity.clone(),

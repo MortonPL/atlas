@@ -3,7 +3,10 @@ use atlas_lib::{
         prelude::*,
         utils::{hashbrown::HashSet, HashMap},
     },
-    config::AtlasConfig,
+    config::{
+        sim::{AtlasSimConfig, StartCivAlgorithm, StartPointAlgorithm},
+        AtlasConfig,
+    },
     domain::{graphics::MapLogicData, map::MapDataLayer},
     rand::{distributions::Uniform, Rng},
 };
@@ -12,10 +15,7 @@ use weighted_rand::{
     table::WalkerTable,
 };
 
-use crate::{
-    config::{AtlasSimConfig, StartCivAlgorithm, StartPointAlgorithm},
-    ui::{MapOverlay, MapOverlayStart},
-};
+use crate::ui::{MapOverlay, MapOverlayStart};
 
 /// Calculate weights for random choice of starting points. Returns all weights and weight strips (horizontal).
 pub fn calc_start_point_weights(

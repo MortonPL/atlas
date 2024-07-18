@@ -15,7 +15,7 @@ use atlas_lib::{
         egui::{self, Context, RichText, Ui},
         EguiContexts,
     },
-    config::AtlasConfig,
+    config::{sim::AtlasSimConfig, AtlasConfig},
     domain::graphics::CurrentWorldModel,
     ui::{
         button_action, button_action_enabled,
@@ -31,13 +31,10 @@ use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario};
 use panel_sim::{InfoPanelCiv, InfoPanelMisc, InfoPanelPolity};
 
-use crate::{
-    config::AtlasSimConfig,
-    sim::{
-        civ::{Civ, CivUi},
-        polity::{Polity, PolityUi},
-        SimControl, SimMapData,
-    },
+use crate::sim::{
+    civ::{Civ, CivUi},
+    polity::{Polity, PolityUi},
+    SimControl, SimMapData,
 };
 
 pub struct UiPlugin;
@@ -428,7 +425,12 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
 /// Update system
 ///
 /// Update data of the current selection.
-fn update_selection_data(mut ui_state: ResMut<AtlasSimUi>, polities: Query<&Polity>, civs: Query<&Civ>, config: Res<AtlasSimConfig>) {
+fn update_selection_data(
+    mut ui_state: ResMut<AtlasSimUi>,
+    polities: Query<&Polity>,
+    civs: Query<&Civ>,
+    config: Res<AtlasSimConfig>,
+) {
     let selection = if let Some(selection) = &mut ui_state.selection {
         selection
     } else {

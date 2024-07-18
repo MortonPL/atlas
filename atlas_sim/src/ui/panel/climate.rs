@@ -1,10 +1,11 @@
 use atlas_lib::{
     bevy_egui::egui::Ui,
+    config::sim::AtlasSimConfig,
     domain::map::MapDataLayer,
     ui::sidebar::{MakeUi, SidebarPanel},
 };
 
-use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
+use crate::ui::AtlasSimUi;
 
 /// Panel with climate generation settings.
 #[derive(Default, Clone, Copy)]

@@ -1,14 +1,12 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
+    config::gen::{AtlasGenConfig, InfluenceShape},
     domain::map::MapDataLayer,
     ui::sidebar::{MakeUi, SidebarPanel},
 };
 
-use crate::{
-    config::{AtlasGenConfig, InfluenceShape},
-    ui::{panel::SidebarPanelGen, AtlasGenUi},
-};
+use crate::ui::{panel::SidebarPanelGen, AtlasGenUi};
 
 /// Panel with continents generation settings.
 #[derive(Default, Clone, Copy)]

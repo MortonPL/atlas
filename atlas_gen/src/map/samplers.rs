@@ -1,48 +1,16 @@
 use atlas_lib::{
     bevy::{math::Vec2, utils::petgraph::matrix_graph::Zero},
     bevy_egui::egui::lerp,
-    config::WorldModel,
+    config::{
+        climate::{celsius_to_fraction, precip_to_fraction},
+        gen::{
+            FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceShape, InfluenceStripConfig,
+            LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm, QuadPointLerp,
+        },
+        WorldModel,
+    },
 };
 use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
-
-use crate::config::{
-    celsius_to_fraction, precip_to_fraction, FbmConfig, InfluenceCircleConfig, InfluenceMode, InfluenceShape,
-    InfluenceStripConfig, LatitudinalPrecipitationLerp, LatitudinalTemperatureLerp, NoiseAlgorithm,
-    QuadPointLerp,
-};
-
-impl QuadPointLerp {
-    /// Clone the struct and precalculate difference values.
-    pub fn clone_precalc(&self) -> Self {
-        Self {
-            start: self.start,
-            midpoint: self.midpoint,
-            midpoint2: self.midpoint2,
-            end: self.end,
-            midpoint_position: self.midpoint_position,
-            midpoint2_position: self.midpoint2_position,
-            diff1: self.midpoint2_position - self.midpoint_position,
-            diff2: 1.0 - self.midpoint2_position,
-        }
-    }
-
-    /// Interpolate a value in [0.0, 1.0] range. NOTE: Self should have precalc'd diff1 and diff2 beforehand!
-    pub fn lerp(&self, x: f32) -> f32 {
-        if x <= self.midpoint_position {
-            lerp(self.start..=self.midpoint, x / self.midpoint_position)
-        } else if x <= self.midpoint2_position {
-            lerp(
-                self.midpoint..=self.midpoint2,
-                (x - self.midpoint_position) / self.diff1,
-            )
-        } else {
-            lerp(
-                self.midpoint2..=self.end,
-                (x - self.midpoint2_position) / self.diff2,
-            )
-        }
-    }
-}
 
 /// A Sampler allows to sample (obtain) a value in [0.0, 1.0] range in 2D space.
 trait Sampler {
@@ -547,8 +515,7 @@ fn sample_add(
     }
 }
 
-fn sample_fill(data: &mut [u8], sampler: impl Sampler, model: WorldModel, world_size: [u32; 2])
-{
+fn sample_fill(data: &mut [u8], sampler: impl Sampler, model: WorldModel, world_size: [u32; 2]) {
     match model {
         WorldModel::Flat => {
             let width = world_size[0] as i32;

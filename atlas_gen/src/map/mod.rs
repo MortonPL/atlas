@@ -2,16 +2,13 @@ mod events;
 mod generation;
 mod samplers;
 
-use atlas_lib::{base::map::MapPluginBase, bevy::prelude::*};
+use atlas_lib::{base::map::MapPluginBase, bevy::prelude::*, config::gen::AtlasGenConfig};
 
-use crate::{
-    config::AtlasGenConfig,
-    map::events::{
-        check_event_clear, check_event_climatemap, check_event_export, check_event_generate,
-        check_event_import, check_event_loaded, check_event_rendered, check_event_saved, update_event_clear,
-        update_event_climatemap, update_event_export, update_event_generate, update_event_import,
-        update_event_loaded, update_event_rendered, update_event_saved,
-    },
+use crate::map::events::{
+    check_event_clear, check_event_climatemap, check_event_export, check_event_generate, check_event_import,
+    check_event_loaded, check_event_rendered, check_event_saved, update_event_clear, update_event_climatemap,
+    update_event_export, update_event_generate, update_event_import, update_event_loaded,
+    update_event_rendered, update_event_saved,
 };
 
 /// Plugin responsible for the world graphics and generation.

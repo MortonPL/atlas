@@ -1,6 +1,8 @@
-use atlas_lib::{bevy_egui::egui::Ui, domain::map::MapDataLayer, ui::sidebar::SidebarPanel};
+use atlas_lib::{
+    bevy_egui::egui::Ui, config::sim::AtlasSimConfig, domain::map::MapDataLayer, ui::sidebar::SidebarPanel,
+};
 
-use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
+use crate::ui::AtlasSimUi;
 
 /// Panel with civilization summary.
 #[derive(Default, Clone, Copy)]

@@ -71,11 +71,11 @@ pub fn make_ui_derive(input: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::sidebar::MakeUi for #struct_name #type_generics #where_clause {
+        impl #impl_generics MakeUi for #struct_name #type_generics #where_clause {
             fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
                 #(
-                    let result = atlas_lib::ui::sidebar::#controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints);
-                    atlas_lib::ui::sidebar::#controls::post_show(result, &mut self.#idents);
+                    let result = #controls::new(ui, #labels, &mut self.#idents)#(.#all_funs)*.show(#hints);
+                    #controls::post_show(result, &mut self.#idents);
                 )*
             }
         }
@@ -110,7 +110,7 @@ pub fn make_ui_enum_derive(input: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        impl #impl_generics atlas_lib::ui::sidebar::MakeUi for #enum_name #type_generics #where_clause {
+        impl #impl_generics MakeUi for #enum_name #type_generics #where_clause {
             fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
                 match self {
                     #(Self::#idents(x) => x.make_ui(ui),)*

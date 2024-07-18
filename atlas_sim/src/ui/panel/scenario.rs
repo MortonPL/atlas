@@ -1,6 +1,7 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
+    config::sim::{AtlasSimConfig, CivConfig, StartingPoint},
     domain::map::{MapDataLayer, MapDataOverlay},
     ui::{
         button,
@@ -8,10 +9,7 @@ use atlas_lib::{
     },
 };
 
-use crate::{
-    config::{AtlasSimConfig, CivConfig, StartingPoint},
-    ui::AtlasSimUi,
-};
+use crate::ui::AtlasSimUi;
 
 /// Panel with initial scenario settings.
 #[derive(Default, Clone, Copy)]

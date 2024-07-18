@@ -2,7 +2,12 @@ use atlas_lib::{
     bevy::utils::petgraph::matrix_graph::Zero,
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
-    config::{AtlasConfig, WorldModel},
+    config::{
+        climate::{precip_clamp, precip_to_byte, ALTITUDE_STEP},
+        deposit::DepositChunk,
+        gen::{AtlasGenConfig, ColorDisplayMode, InfluenceMode, InfluenceShape, NoiseAlgorithm},
+        AtlasConfig, WorldModel,
+    },
     domain::{
         graphics::{MapLogicData, CLIMATEMAP_SIZE},
         map::{is_sea, MapDataLayer},
@@ -10,15 +15,9 @@ use atlas_lib::{
     rand::Rng,
 };
 
-use crate::{
-    config::{
-        precip_clamp, precip_to_byte, AtlasGenConfig, ColorDisplayMode, InfluenceMode, InfluenceShape,
-        NoiseAlgorithm, ResourceChunk, ALTITUDE_STEP,
-    },
-    map::samplers::{
-        add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence,
-        fill_latitudinal_precip, fill_latitudinal_temp, fill_with_algorithm,
-    },
+use crate::map::samplers::{
+    add_with_algorithm, apply_influence, apply_influence_from_src, fill_influence, fill_latitudinal_precip,
+    fill_latitudinal_temp, fill_with_algorithm,
 };
 
 /// Choose relevant generation procedure based on layer.
@@ -369,12 +368,12 @@ fn generate_resources(
     let clim_data = logics.get_layer(MapDataLayer::Climate);
     // Generate region chunks.
     let (width, height) = config.get_world_size();
-    let cwidth = width.div_ceil(config.resources.chunk_size as u32) as usize;
-    let cheight = height.div_ceil(config.resources.chunk_size as u32) as usize;
+    let cwidth = width.div_ceil(config.deposits.chunk_size as u32) as usize;
+    let cheight = height.div_ceil(config.deposits.chunk_size as u32) as usize;
     let (width, height) = (width as usize, height as usize);
     let chunk_count = cwidth * cheight;
-    let size = config.resources.chunk_size as usize;
-    let mut chunks = vec![ResourceChunk::default(); chunk_count];
+    let size = config.deposits.chunk_size as usize;
+    let mut chunks = vec![DepositChunk::default(); chunk_count];
     for i in 0..(width * height) {
         // Find the chunk for this tile.
         let j = ((i / width) / size) * cwidth + (i % width) / size;
@@ -384,30 +383,43 @@ fn generate_resources(
         }
         // Assign flora and fauna resources based on climate.
         let biome = config.get_biome(clim_data[i]);
-        for resource in &biome.resources {
-            if let Some(v) = chunk.resources.get_mut(&resource.id) {
-                *v += resource.average + rng.gen_range(-resource.deviation..=resource.deviation);
+        for biome_deposit in &biome.deposits {
+            let deposit = config.deposits.types.get(biome_deposit.id as usize);
+            if deposit.is_none()
+                || biome_deposit.chance.is_zero()
+                || !rng.gen_bool(biome_deposit.chance as f64)
+            {
+                continue;
+            }
+            let deposit = deposit.unwrap();
+            if let Some(v) = chunk.deposits.get_mut(&biome_deposit.id) {
+                *v += (deposit.gen_average + rng.gen_range(-deposit.gen_deviation..=deposit.gen_deviation))
+                    .max(0.0);
             } else {
-                let v = resource.average + rng.gen_range(-resource.deviation..=resource.deviation);
-                chunk.resources.insert(resource.id, v);
+                let v = (deposit.gen_average + rng.gen_range(-deposit.gen_deviation..=deposit.gen_deviation))
+                    .max(0.0);
+                chunk.deposits.insert(biome_deposit.id, v);
             }
         }
         // Assign other natural resources randomly.
-        for (id, resource) in config.resources.types.iter().enumerate() {
-            if !resource.random_deposits || !rng.gen_bool(resource.random_chance as f64) {
+        for (id, deposit) in config.deposits.types.iter().enumerate() {
+            if deposit.gen_chance.is_zero()
+                || !rng.gen_bool(deposit.gen_chance as f64)
+                || is_sea(cont_data[i])
+            {
                 continue;
             }
-            if let Some(v) = chunk.resources.get_mut(&(id as u32)) {
-                *v += resource.random_average
-                    + rng.gen_range(-resource.random_deviation..=resource.random_deviation);
+            if let Some(v) = chunk.deposits.get_mut(&(id as u32)) {
+                *v += (deposit.gen_average + rng.gen_range(-deposit.gen_deviation..=deposit.gen_deviation))
+                    .max(0.0);
             } else {
-                let v = resource.random_average
-                    + rng.gen_range(-resource.random_deviation..=resource.random_deviation);
-                chunk.resources.insert(id as u32, v);
+                let v = (deposit.gen_average + rng.gen_range(-deposit.gen_deviation..=deposit.gen_deviation))
+                    .max(0.0);
+                chunk.deposits.insert(id as u32, v);
             }
         }
     }
-    config.resources.chunks = chunks;
+    config.deposits.chunks = chunks;
     // Don't refresh any layer.
     vec![]
 }

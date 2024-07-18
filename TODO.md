@@ -9,12 +9,11 @@
     - Naming
   - Colony convoy system
   - Polity breakup system
-  - Population system (representation, distribution, growth)
-  - Economy system (jobs, resources)
-
-- Low Priority
-  - Save/Load a simulation in progress
-    - Guarantee determinism as long as the seeds match
+  - Wealth-based economy (research, culture, luxury)
+  - Industry-based economy (construction, goods, military)
+  - Research system
+  - Culture system
+  - Polity government and leaders
 
 ## GEN
 

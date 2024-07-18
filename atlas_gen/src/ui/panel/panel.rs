@@ -1,13 +1,11 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
+    config::gen::{AtlasGenConfig, InfluenceShape},
     ui::{button, sidebar::SidebarPanel},
 };
 
-use crate::{
-    config::{AtlasGenConfig, InfluenceShape},
-    ui::AtlasGenUi,
-};
+use crate::ui::AtlasGenUi;
 
 /// A sidebar page/panel.
 pub trait SidebarPanelGen: SidebarPanel<AtlasGenConfig, AtlasGenUi> {

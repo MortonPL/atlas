@@ -1,10 +1,8 @@
-use crate::{
-    config::AtlasGenConfig,
-    ui::{panel::SidebarPanelGen, AtlasGenUi},
-};
+use crate::ui::{panel::SidebarPanelGen, AtlasGenUi};
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
+    config::gen::AtlasGenConfig,
     domain::map::MapDataLayer,
     ui::{
         button,
@@ -17,7 +15,7 @@ pub struct MainPanelResources;
 
 impl SidebarPanel<AtlasGenConfig, AtlasGenUi> for MainPanelResources {
     fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasGenConfig) {
-        config.resources.make_ui(ui);
+        config.deposits.make_ui(ui);
     }
 
     fn extra_ui(

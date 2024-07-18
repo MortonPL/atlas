@@ -2,14 +2,11 @@ use std::path::Path;
 
 use atlas_lib::{
     base::{events::EventStruct, ui::HandleFileDialog},
-    config::{load_config, save_config},
+    config::{load_config, save_config, sim::AtlasSimConfig},
     domain::map::MapDataLayer,
 };
 
-use crate::{
-    config::AtlasSimConfig,
-    ui::{panel::MainPanelGeneral, AtlasSimUi},
-};
+use crate::ui::{panel::MainPanelGeneral, AtlasSimUi};
 
 /// Reset generator config to defaults.
 pub fn reset_config_clicked(

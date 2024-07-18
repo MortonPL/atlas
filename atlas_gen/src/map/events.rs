@@ -1,19 +1,24 @@
 use atlas_lib::{
-    base::{events::EventStruct, map::resize_helper}, bevy::prelude::*, bevy_prng::WyRand, bevy_rand::resource::GlobalEntropy, config::{
-        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey, AtlasConfig,
-    }, domain::{
+    base::{events::EventStruct, map::resize_helper},
+    bevy::prelude::*,
+    bevy_prng::WyRand,
+    bevy_rand::resource::GlobalEntropy,
+    config::{
+        gen::{AtlasGenConfig, CONFIG_NAME as CONFIG_NAME_GEN},
+        load_config, load_image, load_image_grey, save_config, save_image, save_image_grey,
+        sim::CONFIG_NAME as CONFIG_NAME_SIM,
+        AtlasConfig,
+    },
+    domain::{
         graphics::{
             get_material, MapGraphicsData, MapLogicData, WorldGlobeMesh, WorldMapMesh, CLIMATEMAP_NAME,
             CLIMATEMAP_SIZE,
         },
         map::{MapDataLayer, EXPORT_DATA_LAYERS},
-    }
+    },
 };
 
-use crate::{
-    config::{AtlasGenConfig, CONFIG_NAME},
-    map::generation::{after_generate, generate},
-};
+use crate::map::generation::{after_generate, generate};
 
 /// Run condition
 ///
@@ -84,7 +89,14 @@ pub fn update_event_loaded(
     // Assign data.
     logics.put_layer(layer, data);
     // Handle post generation, which refreshes the texture and dependant layers.
-    post_generation(layer, &mut logics, &mut events, &mut config, vec![layer], &mut rng);
+    post_generation(
+        layer,
+        &mut logics,
+        &mut events,
+        &mut config,
+        vec![layer],
+        &mut rng,
+    );
 }
 
 /// Update system
@@ -174,7 +186,14 @@ pub fn update_event_generate(
     // Run generation procedure based on generator type and layer.
     regen_layers.extend(generate(layer, &mut logics, &mut config, &mut rng));
     // Handle post generation.
-    post_generation(layer, &mut logics, &mut events, &mut config, regen_layers, &mut rng);
+    post_generation(
+        layer,
+        &mut logics,
+        &mut events,
+        &mut config,
+        regen_layers,
+        &mut rng,
+    );
 }
 
 /// Update system
@@ -199,7 +218,7 @@ pub fn update_event_import(
 ) {
     let base_path = events.import_world_request.take().expect("Always Some");
     // Import config.
-    let path = base_path.join(CONFIG_NAME);
+    let path = base_path.join(CONFIG_NAME_GEN);
     match load_config(path) {
         Ok(data) => {
             *config = data;
@@ -277,8 +296,14 @@ pub fn update_event_export(
         return;
     }
     // Export config.
-    let path = base_path.join(CONFIG_NAME);
+    let path = base_path.join(CONFIG_NAME_GEN);
     let result = save_config(config.as_ref(), path);
+    events.error_window = result.err().map(|x| x.to_string());
+    if events.error_window.is_some() {
+        return;
+    }
+    let path = base_path.join(CONFIG_NAME_SIM);
+    let result = save_config(&config.into_sim_config(), path);
     events.error_window = result.err().map(|x| x.to_string());
 }
 

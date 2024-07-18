@@ -1,6 +1,7 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::{Grid, Ui},
+    config::gen::AtlasGenConfig,
     domain::map::MapDataLayer,
     ui::{
         button,
@@ -9,10 +10,7 @@ use atlas_lib::{
     },
 };
 
-use crate::{
-    config::AtlasGenConfig,
-    ui::{panel::SidebarPanelGen, AtlasGenUi},
-};
+use crate::ui::{panel::SidebarPanelGen, AtlasGenUi};
 
 /// Panel with general world gen and preview settings.
 #[derive(Default, Clone, Copy)]

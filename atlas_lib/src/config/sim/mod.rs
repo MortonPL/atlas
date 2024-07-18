@@ -1,25 +1,31 @@
-use atlas_lib::{
-    bevy::{ecs as bevy_ecs, prelude::*},
+mod defaults;
+
+use defaults::make_default_jobs;
+
+use crate::{
+    bevy::prelude::*,
     bevy_egui,
-    config::{AtlasConfig, ClimatePreviewMode, WorldModel},
+    config::{
+        climate::BiomeConfig, climate::ClimateConfig, deposit::DepositsConfig, AtlasConfig,
+        ClimatePreviewMode, WorldModel,
+    },
     serde_derive::{Deserialize, Serialize},
+    ui::sidebar::*,
     ui::{sidebar::SidebarControl, UiEditableEnum},
     MakeUi, UiEditableEnum,
 };
 
-use crate::config::{
-    make_default_biomes, make_default_resources, BiomeConfig, ResourceChunk, ResourceType, RulesConfig,
-};
+pub const CONFIG_NAME: &str = "atlassim.toml";
 
 /// Complete configuration for the history simulator.
 #[derive(Debug, Default, Deserialize, Resource, Serialize)]
-#[serde(crate = "atlas_lib::serde")]
 pub struct AtlasSimConfig {
     pub general: GeneralConfig,
     pub scenario: ScenarioConfig,
-    pub climate: ClimateConfig,
     pub rules: RulesConfig,
-    pub resources: ResourcesConfig,
+    pub jobs: JobsConfig,
+    pub deposits: DepositsConfig,
+    pub climate: ClimateConfig,
 }
 
 impl AtlasConfig for AtlasSimConfig {
@@ -35,25 +41,8 @@ impl AtlasConfig for AtlasSimConfig {
         self.climate.preview_mode
     }
 
-    fn climate_index_to_color(&self, i: u8) -> [u8; 4] {
-        let biome = self.get_biome(i);
-        [biome.color[0], biome.color[1], biome.color[2], 255]
-    }
-
-    fn climate_index_to_color_simple(&self, i: u8) -> [u8; 4] {
-        let biome = self.get_biome(i);
-        [
-            biome.simple_color[0],
-            biome.simple_color[1],
-            biome.simple_color[2],
-            255,
-        ]
-    }
-}
-
-impl AtlasSimConfig {
     /// Get reference to a biome based on its index.
-    pub fn get_biome(&self, i: u8) -> &BiomeConfig {
+    fn get_biome(&self, i: u8) -> &BiomeConfig {
         let i = i as usize;
         if i > self.climate.biomes.len() {
             &self.climate.default_biome
@@ -65,22 +54,12 @@ impl AtlasSimConfig {
 
 /// Config for general world settings and preview.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
 pub struct GeneralConfig {
     pub world_size: [u32; 2],
 }
 
-impl Default for GeneralConfig {
-    fn default() -> Self {
-        Self {
-            world_size: [360, 180],
-        }
-    }
-}
-
 /// Initial scenario config.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
 pub struct ScenarioConfig {
     #[name("Number of Starting Points")]
     #[control(SidebarSlider)]
@@ -104,21 +83,7 @@ pub struct ScenarioConfig {
     pub start_civs: Vec<CivConfig>,
 }
 
-impl Default for ScenarioConfig {
-    fn default() -> Self {
-        Self {
-            num_starts: 10,
-            num_civs: 10,
-            random_point_algorithm: Default::default(),
-            random_civ_algorithm: Default::default(),
-            start_points: vec![],
-            start_civs: vec![],
-        }
-    }
-}
-
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
 pub struct StartingPoint {
     #[name("Locked Position")]
     #[control(SidebarCheckbox)]
@@ -141,7 +106,6 @@ pub struct StartingPoint {
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(crate = "atlas_lib::serde")]
 #[serde(rename_all = "lowercase")]
 pub enum StartPointAlgorithm {
     Uniform,
@@ -153,7 +117,6 @@ pub enum StartPointAlgorithm {
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(crate = "atlas_lib::serde")]
 #[serde(rename_all = "lowercase")]
 pub enum StartCivAlgorithm {
     Repeated,
@@ -162,69 +125,74 @@ pub enum StartCivAlgorithm {
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
 pub struct CivConfig {}
 
-#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct PolityConfig {
     #[name("Color")]
     #[control(SidebarColor)]
     pub color: [u8; 3],
-}
-
-/// Config for the climate rules.
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
-pub struct ClimateConfig {
-    #[serde(skip)]
-    #[name("Preview Mode")]
-    #[control(SidebarEnumDropdown)]
-    pub preview_mode: ClimatePreviewMode,
-    #[name("")]
-    #[control(SidebarStructList)]
-    pub biomes: Vec<BiomeConfig>,
-    #[serde(skip)]
-    pub default_biome: BiomeConfig,
-}
-
-impl Default for ClimateConfig {
-    fn default() -> Self {
-        Self {
-            preview_mode: ClimatePreviewMode::DetailedColor,
-            default_biome: BiomeConfig {
-                name: "Default Biome".to_string(),
-                color: [255, 0, 255],
-                simple_color: [255, 0, 255],
-                habitability: 1.0,
-            },
-            biomes: make_default_biomes(),
-        }
-    }
-}
-
-/// Config for the resource generation.
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-#[serde(crate = "atlas_lib::serde")]
-pub struct ResourcesConfig {
-    #[name("Chunk Size")]
+    #[name("Population")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(1..=255))]
-    pub chunk_size: u8,
-    #[name("Resource Types")]
-    #[control(SidebarStructList)]
-    pub types: Vec<ResourceType>,
-    #[name("Resource Chunks")]
-    #[control(SidebarStructList)]
-    pub chunks: Vec<ResourceChunk>,
+    #[add(clamp_range(0.0..=1000000.0))]
+    pub population: f32,
 }
 
-impl Default for ResourcesConfig {
+/// Config for general world settings and preview.
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct RulesConfig {
+    #[name("Tile Resolution [km]")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(1.0..=100.0))]
+    pub tile_resolution: f32,
+    #[name("Starting Land Claim Points")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10000.0))]
+    pub starting_land_claim_points: f32,
+    #[name("Land Claim Cost Per Tile")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10000.0))]
+    pub land_claim_cost: f32,
+    #[name("Supply Consumption per Pop")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10000.0))]
+    pub supply_per_pop: f32,
+    #[name("Monthly Base Pop Growth")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub pop_growth: f32,
+}
+
+/// Config for population jobs and production.
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct JobsConfig {
+    #[name("Job Types")]
+    #[control(SidebarStructList)]
+    pub types: [JobType; 3],
+    #[serde(skip)]
+    pub default_job: JobType,
+}
+
+impl Default for JobsConfig {
     fn default() -> Self {
         Self {
-            chunk_size: 36,
-            chunks: Default::default(),
-            types: make_default_resources(),
+            types: make_default_jobs(),
+            default_job: JobType {
+                name: "Unemployed".to_string(),
+                efficiency: 0.0,
+            },
         }
     }
+}
+
+/// A resource type.
+#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
+pub struct JobType {
+    #[name("Name")]
+    #[control(SidebarTextbox)]
+    pub name: String,
+    #[name("Efficiency")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub efficiency: f32,
 }

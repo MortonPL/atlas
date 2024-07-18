@@ -1,12 +1,15 @@
 //#![windows_subsystem = "windows"] // DEBUG
 
-mod config;
 mod map;
 mod sim;
 mod ui;
 
 use atlas_lib::{
-    base::events::EventPlugin, bevy::prelude::*, bevy_prng::WyRand, bevy_rand::prelude::EntropyPlugin,
+    base::events::EventPlugin,
+    bevy::prelude::*,
+    bevy_prng::WyRand,
+    bevy_rand::prelude::EntropyPlugin,
+    config::{sim::AtlasSimConfig, ConfigPlugin},
 };
 use bevy_mod_picking::{highlight::DefaultHighlightingPlugin, DefaultPickingPlugins};
 
@@ -31,7 +34,7 @@ fn main() {
         )
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(EntropyPlugin::<WyRand>::default())
-        .add_plugins(config::ConfigPlugin)
+        .add_plugins(ConfigPlugin::<AtlasSimConfig>::default())
         .add_plugins(EventPlugin)
         .add_plugins(ui::UiPlugin)
         .add_plugins(map::MapPlugin)

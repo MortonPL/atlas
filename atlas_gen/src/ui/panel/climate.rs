@@ -1,14 +1,12 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::{Grid, Ui},
+    config::gen::AtlasGenConfig,
     domain::map::MapDataLayer,
     ui::sidebar::{MakeUi, SidebarPanel},
 };
 
-use crate::{
-    config::AtlasGenConfig,
-    ui::{panel::SidebarPanelGen, AtlasGenUi},
-};
+use crate::ui::{panel::SidebarPanelGen, AtlasGenUi};
 
 /// Panel with climate generation settings.
 #[derive(Default, Clone, Copy)]

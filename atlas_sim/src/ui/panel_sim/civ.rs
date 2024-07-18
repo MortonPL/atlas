@@ -1,11 +1,12 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::{Grid, Ui},
+    config::sim::AtlasSimConfig,
     domain::map::{MapDataLayer, MapDataOverlay},
     ui::sidebar::{MakeUi, SidebarPanel},
 };
 
-use crate::{config::AtlasSimConfig, ui::AtlasSimUi};
+use crate::ui::AtlasSimUi;
 
 /// Panel with polity summary.
 #[derive(Default, Clone, Copy)]

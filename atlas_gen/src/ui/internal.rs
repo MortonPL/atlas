@@ -6,14 +6,11 @@ use atlas_lib::{
         ui::{HandleFileDialog, UiStateBase},
     },
     bevy::prelude::*,
-    config::{load_config, load_image, load_image_grey, save_config},
+    config::{gen::AtlasGenConfig, load_config, load_image, load_image_grey, save_config},
     domain::map::MapDataLayer,
 };
 
-use crate::{
-    config::AtlasGenConfig,
-    ui::{panel::MainPanelGeneral, AtlasGenUi},
-};
+use crate::ui::{panel::MainPanelGeneral, AtlasGenUi};
 
 /// Reset generator config to defaults.
 pub fn reset_config_clicked(
@@ -59,7 +56,7 @@ pub fn reset_panel_clicked(config: &mut AtlasGenConfig, ui_state: &mut AtlasGenU
             events.generate_request = Some((MapDataLayer::Climate, false));
         }
         MapDataLayer::Resources => {
-            config.resources = default();
+            config.deposits = default();
             events.generate_request = Some((MapDataLayer::Resources, false));
         }
         _ => unreachable!(),

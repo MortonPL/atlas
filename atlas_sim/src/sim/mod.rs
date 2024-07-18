@@ -89,3 +89,10 @@ fn tick(mut sim: ResMut<SimControl>, time: Res<Time<Fixed>>) {
 pub fn check_tick(sim: Res<SimControl>) -> bool {
     sim.tick
 }
+
+/// Run condition
+///
+/// Only run simulation on active ticks, once per year.
+pub fn check_tick_annual(sim: Res<SimControl>) -> bool {
+    sim.tick && (sim.time % 12 == 0)
+}
