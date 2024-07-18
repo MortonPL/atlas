@@ -1,7 +1,5 @@
 mod defaults;
 
-use defaults::make_default_jobs;
-
 use crate::{
     bevy::prelude::*,
     bevy_egui,
@@ -23,7 +21,6 @@ pub struct AtlasSimConfig {
     pub general: GeneralConfig,
     pub scenario: ScenarioConfig,
     pub rules: RulesConfig,
-    pub jobs: JobsConfig,
     pub deposits: DepositsConfig,
     pub climate: ClimateConfig,
 }
@@ -161,38 +158,46 @@ pub struct RulesConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub pop_growth: f32,
+    pub resource: ResourceConfig,
 }
 
 /// Config for population jobs and production.
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct JobsConfig {
-    #[name("Job Types")]
-    #[control(SidebarStructList)]
-    pub types: [JobType; 3],
-    #[serde(skip)]
-    pub default_job: JobType,
+#[derive(Debug, Deserialize, Resource, Serialize)]
+pub struct ResourceConfig {
+    pub efficiency: [f32; 9],
 }
 
-impl Default for JobsConfig {
-    fn default() -> Self {
-        Self {
-            types: make_default_jobs(),
-            default_job: JobType {
-                name: "Unemployed".to_string(),
-                efficiency: 0.0,
-            },
-        }
+impl MakeUi for ResourceConfig {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        ui.heading("Resource Efficiency");
+        ui.end_row();
+        SidebarSlider::new(ui, "Supply", &mut self.efficiency[0])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Construction", &mut self.efficiency[1])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Maintenance", &mut self.efficiency[2])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Civilian Goods", &mut self.efficiency[3])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Military Equipment", &mut self.efficiency[4])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Research", &mut self.efficiency[5])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Culture", &mut self.efficiency[6])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Services", &mut self.efficiency[7])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Treasure", &mut self.efficiency[8])
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        ui.end_row();
     }
-}
-
-/// A resource type.
-#[derive(Debug, Default, Deserialize, Resource, Serialize, MakeUi)]
-pub struct JobType {
-    #[name("Name")]
-    #[control(SidebarTextbox)]
-    pub name: String,
-    #[name("Efficiency")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000.0))]
-    pub efficiency: f32,
 }

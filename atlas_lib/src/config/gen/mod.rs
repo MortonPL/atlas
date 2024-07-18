@@ -66,7 +66,6 @@ impl AtlasGenConfig {
             climate: self.climate.into_sim_config(),
             rules: Default::default(),
             deposits: self.deposits.clone(),
-            jobs: Default::default(),
         }
     }
 }

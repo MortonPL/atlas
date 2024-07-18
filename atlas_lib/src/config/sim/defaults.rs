@@ -38,27 +38,25 @@ impl Default for RulesConfig {
             land_claim_cost: 100.0,
             supply_per_pop: 1.0,
             pop_growth: 0.001,
+            resource: Default::default(),
         }
     }
 }
 
-/// Create a list of default job types for general use.
-pub fn make_default_jobs() -> [JobType; 3] {
-    [
-        // 0
-        JobType {
-            name: "Agriculture Worker".to_string(),
-            efficiency: 1.1,
-        },
-        // 1
-        JobType {
-            name: "Industry Worker".to_string(),
-            efficiency: 1.0,
-        },
-        // 2
-        JobType {
-            name: "Craftsman".to_string(),
-            efficiency: 1.0,
-        },
-    ]
+impl Default for ResourceConfig {
+    fn default() -> Self {
+        Self {
+            efficiency: [
+                1.1, // 0 Supply
+                1.0, // 1 Construction
+                1.0, // 2 Maintenance
+                1.0, // 3 Civilian Goods
+                1.0, // 4 Military Equipment
+                1.0, // 5 Research
+                1.0, // 6 Culture
+                1.0, // 7 Treasure
+                1.0, // 8 Services
+            ],
+        }
+    }
 }

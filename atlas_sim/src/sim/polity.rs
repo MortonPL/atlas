@@ -18,16 +18,12 @@ use atlas_lib::{
         graphics::{color_to_u8, MapLogicData},
         map::{is_sea, MapDataLayer},
     },
-    ui::{
-        sidebar::{MakeUi, SidebarColor, SidebarControl, SidebarEnumDropdown, SidebarSlider},
-        UiEditableEnum,
-    },
+    ui::{sidebar::*, UiEditableEnum},
+    MakeUi,
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::sim::{check_tick, SimMapData};
-
-use super::check_tick_annual;
+use crate::sim::{check_tick, check_tick_annual, SimMapData};
 
 /// Polity simulation.
 pub struct PolityPlugin;
@@ -107,16 +103,12 @@ pub struct Polity {
     pub resource_chunks: HashMap<u32, u16>,
     /// Map of available deposits.
     pub deposits: HashMap<u32, f32>,
-    /// Amount of supply points produced.
-    pub supply: f32,
-    /// Amount of industry points produced.
-    pub industry: f32,
-    /// Amount of wealth points produced.
-    pub wealth: f32,
+    /// Produced resources.
+    pub resources: ResourceStruct,
     /// Total polity population.
     pub population: f32,
-    /// Job pop group.
-    pub jobs: HashMap<u32, f32>,
+    /// Population jobs.
+    pub jobs: JobStruct,
 }
 
 impl Polity {
@@ -130,17 +122,58 @@ impl Polity {
                 .iter()
                 .map(|(k, v)| (config.deposits.types[*k as usize].name.clone(), *v))
                 .collect(),
-            supply: self.supply,
-            industry: self.industry,
-            wealth: self.wealth,
+            resources: self.resources.clone(),
             population: self.population,
-            jobs: self
-                .jobs
-                .iter()
-                .map(|(k, v)| (config.jobs.types[*k as usize].name.clone(), *v))
-                .collect(),
+            jobs: self.jobs.clone(),
         }
     }
+}
+
+#[derive(Clone, Default, MakeUi)]
+pub struct ResourceStruct {
+    #[name("Supply")]
+    #[control(SidebarSlider)]
+    pub supply: f32,
+    #[name("Construction")]
+    #[control(SidebarSlider)]
+    pub construction: f32,
+    #[name("Maintenance")]
+    #[control(SidebarSlider)]
+    pub maintenance: f32,
+    #[name("Civilian Goods")]
+    #[control(SidebarSlider)]
+    pub civ_goods: f32,
+    #[name("Military Equipment")]
+    #[control(SidebarSlider)]
+    pub mil_equipment: f32,
+    #[name("Research")]
+    #[control(SidebarSlider)]
+    pub research: f32,
+    #[name("Culture")]
+    #[control(SidebarSlider)]
+    pub culture: f32,
+    #[name("Services")]
+    #[control(SidebarSlider)]
+    pub service: f32,
+    #[name("Tresure")]
+    #[control(SidebarSlider)]
+    pub treasure: f32,
+}
+
+#[derive(Clone, Default, MakeUi)]
+pub struct JobStruct {
+    #[name("Non-Working")]
+    #[control(SidebarSlider)]
+    pub non_working: f32,
+    #[name("Agriculture Workerks")]
+    #[control(SidebarSlider)]
+    pub supply: f32,
+    #[name("Industry Workers")]
+    #[control(SidebarSlider)]
+    pub industry: f32,
+    #[name("Artisans & Services")]
+    #[control(SidebarSlider)]
+    pub wealth: f32,
 }
 
 #[derive(Component)]
@@ -153,16 +186,12 @@ pub struct PolityUi {
     pub land_claim_points: f32,
     /// Map of available deposits.
     pub deposits: Vec<(String, f32)>,
-    /// Amount of supply points produced.
-    pub supply: f32,
-    /// Amount of industry points produced.
-    pub industry: f32,
-    /// Amount of wealth points produced.
-    pub wealth: f32,
+    /// Total produced resources.
+    pub resources: ResourceStruct,
     /// Total polity population.
     pub population: f32,
     /// List of pop job groups.
-    pub jobs: Vec<(String, f32)>,
+    pub jobs: JobStruct,
 }
 
 impl MakeUi for PolityUi {
@@ -170,17 +199,11 @@ impl MakeUi for PolityUi {
         SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
         SidebarColor::new(ui, "Color", &mut self.color).show(None);
         SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
-        ui.heading("Resources");
-        ui.end_row();
-        SidebarSlider::new(ui, "Supply", &mut self.supply).show(None);
-        SidebarSlider::new(ui, "Industry", &mut self.industry).show(None);
-        SidebarSlider::new(ui, "Wealth", &mut self.wealth).show(None);
+        SidebarStructSection::new(ui, "Economy", &mut self.resources).show(None);
         ui.heading("Population & Jobs");
         ui.end_row();
         SidebarSlider::new(ui, "Population", &mut self.population).show(None);
-        for (k, v) in &mut self.jobs {
-            SidebarSlider::new(ui, k.clone(), v).show(None);
-        }
+        SidebarStructSubsection::new(ui, "Sector Employment", &mut self.jobs).show(None);
         ui.heading("Deposits");
         ui.end_row();
         for (k, v) in &mut self.deposits {
@@ -202,11 +225,9 @@ impl Default for Polity {
             land_claim_points: 0.0,
             resource_chunks: Default::default(),
             deposits: Default::default(),
+            resources: Default::default(),
             population: 0.0,
             jobs: Default::default(),
-            supply: 0.0,
-            industry: 0.0,
-            wealth: 0.0,
         }
     }
 }
@@ -270,7 +291,7 @@ fn update_pops(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
         let coverage = if consumption.is_zero() {
             1.0
         } else {
-            (polity.supply / consumption).min(2.0)
+            (polity.resources.supply / consumption).min(2.0)
         };
         let base_coverage = coverage.min(1.0);
         // Grow the population.
@@ -447,20 +468,50 @@ impl Polity {
         } else {
             wealth_max / wealth_amount
         };
-        // Calculate work output.
-        self.supply = (*self.jobs.get(&0).unwrap_or(&0.0) * config.jobs.types[0].efficiency * supply_bonus)
-            .min(supply_max); // * TODO get_supply_modifier()
-        self.industry =
-            (*self.jobs.get(&1).unwrap_or(&0.0) * config.jobs.types[1].efficiency * industry_bonus)
+        // * TODO get_supply_modifier()
+        let supply = (self.jobs.supply * config.rules.resource.efficiency[0] * supply_bonus).min(supply_max);
+        // Split primary resources into secondary resources (industry).
+        let industry_split = [0.4, 0.3, 0.3]; // TODO: Should be decided by govt / culture.
+        let maintenance = 0.0; // TODO should be calculated.
+        let construction =
+            (self.jobs.industry * industry_split[0] * config.rules.resource.efficiency[1] * industry_bonus)
+                .min(industry_max)
+                - maintenance / config.rules.resource.efficiency[2];
+        let civ_goods =
+            (self.jobs.industry * industry_split[1] * config.rules.resource.efficiency[3] * industry_bonus)
                 .min(industry_max);
-        self.wealth = (*self.jobs.get(&2).unwrap_or(&0.0) * config.jobs.types[2].efficiency * wealth_bonus)
-            .min(wealth_max);
-        // TODO Advanced jobs
+        let mil_equipment =
+            (self.jobs.industry * industry_split[2] * config.rules.resource.efficiency[4] * industry_bonus)
+                .min(industry_max);
+        // Split primary resources into secondary resources (wealth).
+        let wealth_split = [0.3, 0.3, 0.3, 0.1]; // TODO: Should be decided by govt / culture.
+        let research =
+            (self.jobs.wealth * wealth_split[0] * config.rules.resource.efficiency[5] * wealth_bonus)
+                .min(wealth_max);
+        let culture =
+            (self.jobs.wealth * wealth_split[1] * config.rules.resource.efficiency[6] * wealth_bonus)
+                .min(wealth_max);
+        let service =
+            (self.jobs.wealth * wealth_split[2] * config.rules.resource.efficiency[7] * wealth_bonus)
+                .min(wealth_max);
+        let treasure =
+            (self.jobs.wealth * wealth_split[3] * config.rules.resource.efficiency[8] * wealth_bonus)
+                .min(wealth_max);
+        // Set new resources.
+        self.resources = ResourceStruct {
+            supply,
+            construction,
+            maintenance,
+            mil_equipment,
+            civ_goods,
+            research,
+            culture,
+            service,
+            treasure,
+        };
     }
 
     pub fn update_jobs(&mut self, config: &AtlasSimConfig) {
-        // Reset jobs.
-        self.jobs.clear();
         let manpower = self.population; // TODO get_population_manpower_ratio()
                                         // Calculate potential supply.
         let mut supply_max = 0.0;
@@ -472,29 +523,36 @@ impl Polity {
         }
         // Early exit if no supplies to be made.
         if supply_max.is_zero() {
-            self.jobs.insert(0, manpower);
+            self.jobs = JobStruct {
+                non_working: self.population - manpower,
+                supply: manpower,
+                ..Default::default()
+            };
             return;
         }
         let supply_bonus = supply_max / supply_amount;
         // Consumption target should always be met.
         let consumption = self.get_supply_consumption(&config);
-        let minimum_supply_manpower = consumption / config.jobs.types[0].efficiency / supply_bonus; // TODO / get_supply_modifier()
+        let minimum_supply_manpower = consumption / config.rules.resource.efficiency[0] / supply_bonus; // TODO / get_supply_modifier()
         let minimum_supply_manpower = minimum_supply_manpower.min(manpower);
         let spare_manpower = manpower - minimum_supply_manpower;
         // Early exit if we used up all manpower.
         if spare_manpower <= 0.0 {
-            self.jobs.insert(0, minimum_supply_manpower);
+            self.jobs = JobStruct {
+                non_working: self.population - manpower,
+                supply: minimum_supply_manpower,
+                ..Default::default()
+            };
             return;
         }
         // Assign spare manpower to other sectors.
         let manpower_split = [0.1, 0.45, 0.45]; // TODO: Should be decided by govt / culture.
-        let supply_manpower = minimum_supply_manpower + spare_manpower * manpower_split[0];
-        let industry_manpower = spare_manpower * manpower_split[1];
-        let wealth_manpower = spare_manpower * manpower_split[2];
-        self.jobs.insert(0, supply_manpower);
-        self.jobs.insert(1, industry_manpower);
-        self.jobs.insert(2, wealth_manpower);
-        // TODO Assign manpower to secondary sectors.
+        self.jobs = JobStruct {
+            non_working: self.population - manpower,
+            supply: minimum_supply_manpower + spare_manpower * manpower_split[0],
+            industry: spare_manpower * manpower_split[1],
+            wealth: spare_manpower * manpower_split[2],
+        };
     }
 
     fn get_supply_consumption(&self, config: &AtlasSimConfig) -> f32 {

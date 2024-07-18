@@ -563,11 +563,3 @@ impl<T> AsSlice for std::vec::Vec<T> {
         self
     }
 }
-
-impl<T> AsSlice for [T; 3] {
-    type Item = T;
-
-    fn as_slice(&mut self) -> &mut [Self::Item] {
-        self
-    }
-}
