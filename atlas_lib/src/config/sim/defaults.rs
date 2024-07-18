@@ -39,6 +39,7 @@ impl Default for RulesConfig {
             supply_per_pop: 1.0,
             pop_growth: 0.001,
             resource: Default::default(),
+            tech: Default::default(),
         }
     }
 }
@@ -56,6 +57,30 @@ impl Default for ResourceConfig {
                 1.0, // 6 Culture
                 1.0, // 7 Treasure
                 1.0, // 8 Services
+            ],
+        }
+    }
+}
+
+impl Default for TechnologiesConfig {
+    fn default() -> Self {
+        Self {
+            base_speed: 0.001,
+            max_level: 100.0,
+            techs: [
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
+                TechConfig { strength: 1.0, cost: 1.0 },
             ],
         }
     }

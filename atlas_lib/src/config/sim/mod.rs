@@ -158,10 +158,14 @@ pub struct RulesConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub pop_growth: f32,
+    #[name("Resource Efficiency")]
+    #[control(SidebarStructSection)]
     pub resource: ResourceConfig,
+    #[name("Technology")]
+    #[control(SidebarStructSection)]
+    pub tech: TechnologiesConfig,
 }
 
-/// Config for population jobs and production.
 #[derive(Debug, Deserialize, Resource, Serialize)]
 pub struct ResourceConfig {
     pub efficiency: [f32; 9],
@@ -169,8 +173,6 @@ pub struct ResourceConfig {
 
 impl MakeUi for ResourceConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        ui.heading("Resource Efficiency");
-        ui.end_row();
         SidebarSlider::new(ui, "Supply", &mut self.efficiency[0])
             .clamp_range(0.0..=1000.0)
             .show(None);
@@ -199,5 +201,76 @@ impl MakeUi for ResourceConfig {
             .clamp_range(0.0..=1000.0)
             .show(None);
         ui.end_row();
+    }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize)]
+pub struct TechnologiesConfig {
+    pub base_speed: f32,
+    pub max_level: f32,
+    pub techs: [TechConfig; 13],
+}
+
+impl MakeUi for TechnologiesConfig {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarSlider::new(ui, "Base Speed", &mut self.base_speed);
+        SidebarSlider::new(ui, "Maximum Level", &mut self.max_level);
+        ui.label("Agriculture");
+        ui.end_row();
+        self.techs[0].make_ui(ui);
+        ui.label("Seamanship");
+        ui.end_row();
+        self.techs[1].make_ui(ui);
+        ui.label("Forestry");
+        ui.end_row();
+        self.techs[2].make_ui(ui);
+        ui.label("Geology");
+        ui.end_row();
+        self.techs[3].make_ui(ui);
+        ui.label("Medicine");
+        ui.end_row();
+        self.techs[4].make_ui(ui);
+        ui.label("Architecture");
+        ui.end_row();
+        self.techs[5].make_ui(ui);
+        ui.label("Engineering");
+        ui.end_row();
+        self.techs[6].make_ui(ui);
+        ui.label("Philosophy");
+        ui.end_row();
+        self.techs[7].make_ui(ui);
+        ui.label("Mathematics");
+        ui.end_row();
+        self.techs[8].make_ui(ui);
+        ui.label("Craftsmanship");
+        ui.end_row();
+        self.techs[9].make_ui(ui);
+        ui.label("Finances");
+        ui.end_row();
+        self.techs[10].make_ui(ui);
+        ui.label("Law");
+        ui.end_row();
+        self.techs[11].make_ui(ui);
+        ui.label("Metallurgy");
+        ui.end_row();
+        self.techs[12].make_ui(ui);
+    }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct TechConfig {
+    #[name("Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub strength: f32,
+    #[name("Cost")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub cost: f32,
+}
+
+impl Default for TechConfig {
+    fn default() -> Self {
+        Self { strength: 1.0, cost: 1.0 }
     }
 }
