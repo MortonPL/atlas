@@ -1,7 +1,6 @@
 use atlas_lib::bevy::{ecs as bevy_ecs, prelude::*};
 use polity::PolityPlugin;
 
-pub mod civ;
 pub mod polity;
 
 /// Plugin responsible for the actual simulation.
@@ -60,8 +59,13 @@ impl Default for SimControl {
 
 impl SimControl {
     /// Get the current simulation time as a "MM.YYYY" string.
-    pub fn time_to_string(&self) -> String {
-        format!("{:02}.{}", self.time % 12 + 1, self.time / 12 + 1)
+    pub fn current_time_to_string(&self) -> String {
+        time_to_string(self.time)
+    }
+
+    /// Check if this tick is a new year.
+    pub fn is_new_year(&self) -> bool {
+        self.time % 12 == 0
     }
 }
 
@@ -90,9 +94,6 @@ pub fn check_tick(sim: Res<SimControl>) -> bool {
     sim.tick
 }
 
-/// Run condition
-///
-/// Only run simulation on active ticks, once per year.
-pub fn check_tick_annual(sim: Res<SimControl>) -> bool {
-    sim.tick && (sim.time % 12 == 0)
+pub fn time_to_string(time: u32) -> String {
+    format!("{:02}.{}", time % 12 + 1, time / 12 + 1)
 }

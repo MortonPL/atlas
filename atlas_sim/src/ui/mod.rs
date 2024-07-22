@@ -29,10 +29,9 @@ use bevy_mod_picking::{
 };
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario};
-use panel_sim::{InfoPanelCiv, InfoPanelMisc, InfoPanelPolity};
+use panel_sim::{InfoPanelMisc, InfoPanelPolity};
 
 use crate::sim::{
-    civ::{Civ, CivUi},
     polity::{Polity, PolityUi},
     SimControl, SimMapData,
 };
@@ -88,7 +87,6 @@ fn update_ui(
 struct Selection {
     pub entity: Entity,
     pub polity: Option<PolityUi>,
-    pub civ: Option<CivUi>,
 }
 
 #[derive(Resource)]
@@ -196,7 +194,7 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                             .clamp_range(0.0..=60.0),
                     );
                     ui.label("Date:");
-                    ui.label(self.sim_control.time_to_string());
+                    ui.label(self.sim_control.current_time_to_string());
                 });
             });
             ui.separator();
@@ -254,10 +252,6 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     });
                     changed |= button_action(ui, "Polity", || {
                         self.current_panel = Box::<InfoPanelPolity>::default(); // TODO
-                        true
-                    });
-                    changed |= button_action(ui, "Civilization", || {
-                        self.current_panel = Box::<InfoPanelCiv>::default(); // TODO
                         true
                     });
                 });
@@ -396,11 +390,7 @@ fn update_click_location(
         if let Some(cursor) = ui_state.cursor {
             let i = config.map_to_index(cursor) as usize;
             if let Some(entity) = extras.tile_owner[i] {
-                ui_state.selection = Some(Selection {
-                    entity,
-                    polity: None,
-                    civ: None,
-                });
+                ui_state.selection = Some(Selection { entity, polity: None });
             }
         }
     }
@@ -418,7 +408,6 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
     ui_state.selection = Some(Selection {
         entity: event.0,
         polity: None,
-        civ: None,
     });
 }
 
@@ -428,7 +417,6 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
 fn update_selection_data(
     mut ui_state: ResMut<AtlasSimUi>,
     polities: Query<&Polity>,
-    civs: Query<&Civ>,
     config: Res<AtlasSimConfig>,
 ) {
     let selection = if let Some(selection) = &mut ui_state.selection {
@@ -438,9 +426,6 @@ fn update_selection_data(
     };
     if let Ok(polity) = polities.get(selection.entity) {
         selection.polity = Some(polity.into_ui(&config));
-    }
-    if let Ok(civ) = civs.get(selection.entity) {
-        selection.civ = Some(civ.into());
     }
 }
 

@@ -18,12 +18,15 @@ use atlas_lib::{
         graphics::{color_to_u8, MapLogicData},
         map::{is_sea, MapDataLayer},
     },
+    rand::Rng,
     ui::{sidebar::*, UiEditableEnum},
     MakeUi,
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::sim::{check_tick, check_tick_annual, SimMapData};
+use crate::sim::{check_tick, SimMapData};
+
+use super::{time_to_string, SimControl};
 
 /// Polity simulation.
 pub struct PolityPlugin;
@@ -37,7 +40,10 @@ impl Plugin for PolityPlugin {
                 update_pops,
                 update_jobs,
                 update_resources,
+                update_construction,
+                update_culture,
                 update_tech,
+                update_splits,
             )
                 .chain()
                 .run_if(check_tick),
@@ -113,10 +119,64 @@ pub struct Polity {
     pub resources: [f32; LEN_RES],
     /// Researched technology.
     pub tech: [f32; LEN_TECH],
+    /// Tech points accumulated this year.
+    pub tech_acc: f32,
+    /// Upkept traditions.
+    pub traditions: [f32; LEN_TRAD],
+    /// Tradition points accumulated this year.
+    pub tradition_acc: f32,
     /// Total polity population.
     pub population: f32,
     /// Population jobs.
     pub jobs: JobStruct,
+    /// Accumulated heritage.
+    pub heritage: [f32; LEN_TRAD],
+    /// Created great works.
+    pub great_works: Vec<GreatWork>,
+    /// Accumulated polity currency.
+    pub treasure_acc: f32,
+    /// Population split.
+    pub manpower_split: [f32; 3],
+    /// Production split.
+    pub indu_split: [f32; 3],
+    /// Wealth split.
+    pub wealth_split: [f32; 4],
+    /// Technology split.
+    pub tech_split: [f32; LEN_TECH],
+    /// Tradition split.
+    pub trad_split: [f32; LEN_TRAD],
+}
+
+impl Default for Polity {
+    fn default() -> Self {
+        Self {
+            tiles: vec![],
+            border_tiles: Default::default(),
+            centroid: Vec2::ZERO,
+            xywh: [0, 0, 1, 1],
+            ownership: Ownership::Independent,
+            color: Default::default(),
+            need_visual_update: true,
+            land_claim_points: 0.0,
+            resource_chunks: Default::default(),
+            deposits: Default::default(),
+            resources: Default::default(),
+            tech: Default::default(),
+            tech_acc: 0.0,
+            traditions: Default::default(),
+            tradition_acc: 0.0,
+            population: 0.0,
+            heritage: Default::default(),
+            great_works: Default::default(),
+            jobs: Default::default(),
+            treasure_acc: 0.0,
+            manpower_split: Default::default(),
+            indu_split: Default::default(),
+            wealth_split: Default::default(),
+            tech_split: Default::default(),
+            trad_split: Default::default(),
+        }
+    }
 }
 
 impl Polity {
@@ -132,10 +192,24 @@ impl Polity {
                 .collect(),
             resources: self.resources.clone(),
             tech: self.tech.clone(),
+            tech_acc: self.tech_acc,
+            traditions: self.traditions.clone(),
+            tradition_acc: self.tradition_acc,
             population: self.population,
+            heritage: self.heritage.clone(),
+            great_works: self.great_works.clone(),
             jobs: self.jobs.clone(),
+            treasure_acc: self.treasure_acc,
         }
     }
+}
+
+#[derive(Clone, Default)]
+pub struct GreatWork {
+    /// Tradition associated with this great work.
+    pub tradition: u8,
+    /// Time of creation.
+    pub time: u32,
 }
 
 #[derive(Clone, Default, MakeUi)]
@@ -168,87 +242,23 @@ pub struct PolityUi {
     pub resources: [f32; LEN_RES],
     /// Researched technology.
     pub tech: [f32; LEN_TECH],
+    /// Tech points accumulated this year.
+    pub tech_acc: f32,
+    /// Upkept traditions.
+    pub traditions: [f32; LEN_TRAD],
+    /// Tradition points accumulated this year.
+    pub tradition_acc: f32,
+    /// Accumulated heritage.
+    pub heritage: [f32; LEN_TRAD],
+    /// Created great works.
+    pub great_works: Vec<GreatWork>,
     /// Total polity population.
     pub population: f32,
     /// List of pop job groups.
     pub jobs: JobStruct,
+    /// Accumulated polity currency.
+    pub treasure_acc: f32,
 }
-
-pub const LEN_RES: usize = 9;
-/// Supply
-const RES_SUPPLY: usize = 0;
-/// Construction
-const RES_CONSTRUCTION: usize = 1;
-/// Maintenance
-const RES_MAINTENANCE: usize = 2;
-/// Civilian Goods
-const RES_GOODS: usize = 3;
-/// Military Equipment
-const RES_EQUIPMENT: usize = 4;
-/// Research
-const RES_RESEARCH: usize = 5;
-/// Culture
-const RES_CULTURE: usize = 6;
-/// Services
-const RES_SERVICES: usize = 7;
-/// Treasure
-const RES_TREASURE: usize = 8;
-
-const RES_LABELS: [&str; 9] = [
-    "Supply",
-    "Construction",
-    "Maintenance",
-    "Civilian Goods",
-    "Military Equipment",
-    "Research",
-    "Culture",
-    "Services",
-    "Treasure",
-];
-
-pub const LEN_TECH: usize = 13;
-/// Arable & grazing land bonus
-const TECH_AGRICULTURE: usize = 0;
-/// Fishing bonus, sea movement bonus
-const TECH_SEAMANSHIP: usize = 1;
-/// Forest & wild game bonus
-const TECH_FORESTRY: usize = 2;
-/// Rock and Ore deposits bonus
-const TECH_GEOLOGY: usize = 3;
-/// Pop growth bonus
-const TECH_MEDICINE: usize = 4;
-/// Construction & maintenance bonus
-const TECH_ARCHITECTURE: usize = 5;
-/// Goods & Weapons bonus
-const TECH_ENGINNERING: usize = 6;
-/// Culture bonus
-const TECH_PHILOSOPHY: usize = 7;
-/// Science bonus
-const TECH_MATHEMATICS: usize = 8;
-/// Service bonus
-const TECH_CRAFTSMANSHIP: usize = 9;
-/// Treasure bonus
-const TECH_FINANCES: usize = 10;
-/// Governance bonus
-const TECH_LAW: usize = 11;
-/// Military bonus
-const TECH_METALLURGY: usize = 12;
-
-const TECH_LABELS: [&str; 13] = [
-    "Agriculture",
-    "Seamanship",
-    "Forestry",
-    "Geology",
-    "Medicine",
-    "Architecture",
-    "Engineering",
-    "Philosophy",
-    "Mathematics",
-    "Craftsmanship",
-    "Finances",
-    "Law",
-    "Metallurgy",
-];
 
 impl MakeUi for PolityUi {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
@@ -257,6 +267,7 @@ impl MakeUi for PolityUi {
         SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
         ui.heading("Economy");
         ui.end_row();
+        SidebarSlider::new(ui, "Accumulated Treasure", &mut self.treasure_acc).show(None);
         for (x, label) in self.resources.iter_mut().zip(RES_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
@@ -264,10 +275,29 @@ impl MakeUi for PolityUi {
         ui.end_row();
         SidebarSlider::new(ui, "Population", &mut self.population).show(None);
         SidebarStructSubsection::new(ui, "Sector Employment", &mut self.jobs).show(None);
-        ui.heading("Technology");
+        ui.heading("Research");
         ui.end_row();
+        SidebarSlider::new(ui, "Accumulated Points", &mut self.tech_acc).show(None);
         for (x, label) in self.tech.iter_mut().zip(TECH_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
+        }
+        ui.heading("Culture - Tradition");
+        ui.end_row();
+        SidebarSlider::new(ui, "Accumulated Points", &mut self.tradition_acc).show(None);
+        for (x, label) in self.traditions.iter_mut().zip(TRAD_LABELS) {
+            SidebarSlider::new(ui, label, x).show(None);
+        }
+        ui.heading("Culture - Heritage");
+        ui.end_row();
+        for (x, label) in self.heritage.iter_mut().zip(TRAD_LABELS) {
+            SidebarSlider::new(ui, label, x).show(None);
+        }
+        ui.heading("Culture - Great Works");
+        ui.end_row();
+        for x in self.great_works.iter() {
+            ui.label(TRAD_LABELS[x.tradition as usize]);
+            ui.label(time_to_string(x.time));
+            ui.end_row();
         }
         ui.heading("Deposits");
         ui.end_row();
@@ -277,26 +307,120 @@ impl MakeUi for PolityUi {
     }
 }
 
-impl Default for Polity {
-    fn default() -> Self {
-        Self {
-            tiles: vec![],
-            border_tiles: Default::default(),
-            centroid: Vec2::ZERO,
-            xywh: [0, 0, 1, 1],
-            ownership: Ownership::Independent,
-            color: Default::default(),
-            need_visual_update: true,
-            land_claim_points: 0.0,
-            resource_chunks: Default::default(),
-            deposits: Default::default(),
-            resources: Default::default(),
-            tech: Default::default(),
-            population: 0.0,
-            jobs: Default::default(),
-        }
-    }
-}
+pub const LEN_RES: usize = 11;
+/// Supply
+const RES_SUPPLY: usize = 0;
+/// Construction
+const RES_CONSTRUCTION: usize = 1;
+/// Maintenance
+const RES_MAINTENANCE: usize = 2;
+/// Trade Goods
+const RES_TRADE: usize = 3;
+/// Consumer Goods
+const RES_CONSUMPTION: usize = 4;
+/// Military Equipment
+const RES_EQUIPMENT: usize = 5;
+/// Research
+const RES_RESEARCH: usize = 6;
+/// Culture
+const RES_CULTURE: usize = 7;
+/// Services
+const RES_SERVICES: usize = 8;
+/// Treasure
+const RES_TREASURE: usize = 9;
+/// Administration
+const RES_ADMIN: usize = 10;
+
+const RES_LABELS: [&str; LEN_RES] = [
+    "Supply",
+    "Construction",
+    "Maintenance",
+    "Trade Goods",
+    "Consumer Goods",
+    "Military Equipment",
+    "Research",
+    "Culture",
+    "Services",
+    "Treasure",
+    "Administration",
+];
+
+pub const LEN_TECH: usize = 14;
+/// Arable & grazing land bonus
+const TECH_AGRICULTURE: usize = 0;
+/// Fishing bonus, sea movement bonus
+const TECH_ASTRONOMY: usize = 1;
+/// Forest & wild game bonus
+const TECH_FORESTRY: usize = 2;
+/// Rock and Ore deposits bonus
+const TECH_GEOLOGY: usize = 3;
+/// Pop growth bonus
+const TECH_MEDICINE: usize = 4;
+/// Construction & maintenance bonus
+const TECH_ARCHITECTURE: usize = 5;
+/// Trade & Consumer Goods bonus
+const TECH_ENGINEERING: usize = 6;
+/// Military Equipment bonus
+const TECH_METALLURGY: usize = 7;
+/// Culture bonus
+const TECH_PHILOSOPHY: usize = 8;
+/// Science bonus
+const TECH_MATHEMATICS: usize = 9;
+/// Service & treasure bonus
+const TECH_FINANCES: usize = 10;
+/// Governance bonus
+const TECH_LAW: usize = 11;
+/// Diplomacy bonus
+const TECH_LINGUISTICS: usize = 12;
+/// Military bonus
+const TECH_PHYSICS: usize = 13;
+
+const TECH_LABELS: [&str; LEN_TECH] = [
+    "Agriculture",
+    "Astronomy",
+    "Forestry",
+    "Geology",
+    "Medicine",
+    "Architecture",
+    "Engineering",
+    "Metallurgy",
+    "Philosophy",
+    "Mathematics",
+    "Finances",
+    "Law",
+    "Linguistics",
+    "Physics",
+];
+
+pub const LEN_TRAD: usize = 8;
+
+/// Supply bonus / Great Economist
+const TRAD_AGRARIAN: usize = 0;
+/// Production bonus / Great Economist
+const TRAD_INDUSTRIOUS: usize = 1;
+/// Wealth bonus / Great Economist
+const TRAD_MERCANTILE: usize = 2;
+/// Science bonus / Great Scientist
+const TRAD_PROGRESSIVE: usize = 3;
+/// Culture bonus / Great Artist
+const TRAD_TRADITIONAL: usize = 4;
+/// Governance bonus / Great Governor
+const TRAD_LEGALIST: usize = 5;
+/// Diplomacy bonus / Great Diplomat
+const TRAD_COOPERATIVE: usize = 6;
+/// Military bonus / Great General
+const TRAD_MILITANT: usize = 7;
+
+const TRAD_LABELS: [&str; LEN_TRAD] = [
+    "Agrarian",
+    "Industrious",
+    "Mercantile",
+    "Progressive",
+    "Traditional",
+    "Legalist",
+    "Cooperative",
+    "Militant",
+];
 
 /// Update system
 ///
@@ -369,9 +493,43 @@ fn update_resources(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) 
 
 /// Update system
 ///
+/// Update construction.
+fn update_construction(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
+    query.iter_mut().for_each(|mut x| x.update_construction(&config));
+}
+
+/// Update system
+///
+/// Update culture.
+fn update_culture(
+    config: Res<AtlasSimConfig>,
+    mut query: Query<&mut Polity>,
+    sim: Res<SimControl>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
+) {
+    if sim.is_new_year() {
+        query
+            .iter_mut()
+            .for_each(|mut x| x.update_culture(&config, &sim, &mut rng));
+    }
+}
+
+/// Update system
+///
 /// Update tech.
-fn update_tech(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
-    query.iter_mut().for_each(|mut x| x.update_tech(&config));
+fn update_tech(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim: Res<SimControl>) {
+    if sim.is_new_year() {
+        query.iter_mut().for_each(|mut x| x.update_tech(&config));
+    }
+}
+
+/// Update system
+///
+/// Update resource splits.
+fn update_splits(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim: Res<SimControl>) {
+    if sim.is_new_year() {
+        query.iter_mut().for_each(|mut x| x.update_splits(&config));
+    }
 }
 
 /// Update system
@@ -516,7 +674,14 @@ impl Polity {
         let mut supply_amount = 0.0;
         for (id, amount) in self.deposits.iter() {
             let deposit = &config.deposits.types[*id as usize];
-            supply_max += amount * deposit.supply; // TODO * get_supply_modifier_for_deposit()
+            let bonus = match *id {
+                0..=2 => self.get_tech_multiplier(config, TECH_AGRICULTURE),
+                3..=5 => self.get_tech_multiplier(config, TECH_FORESTRY),
+                6 => self.get_tech_multiplier(config, TECH_ASTRONOMY),
+                7..=10 => self.get_tech_multiplier(config, TECH_GEOLOGY),
+                _ => 1.0,
+            };
+            supply_max += amount * deposit.supply * bonus;
             supply_amount += amount * deposit.supply;
         }
         // Early exit if no supplies to be made.
@@ -531,7 +696,10 @@ impl Polity {
         let supply_bonus = supply_max / supply_amount;
         // Consumption target should always be met.
         let consumption = self.get_supply_consumption(&config);
-        let minimum_supply_manpower = consumption / config.rules.resource.efficiency[0] / supply_bonus; // TODO / get_supply_modifier()
+        let minimum_supply_manpower = consumption
+            / config.rules.resource.efficiency[RES_SUPPLY]
+            / supply_bonus
+            / self.get_tradition_multiplier(config, TRAD_AGRARIAN).max(1.0);
         let minimum_supply_manpower = minimum_supply_manpower.min(manpower);
         let spare_manpower = manpower - minimum_supply_manpower;
         // Early exit if we used up all manpower.
@@ -544,12 +712,11 @@ impl Polity {
             return;
         }
         // Assign spare manpower to other sectors.
-        let manpower_split = [0.1, 0.45, 0.45]; // TODO: Should be decided by govt / culture.
         self.jobs = JobStruct {
             non_working: self.population - manpower,
-            supply: minimum_supply_manpower + spare_manpower * manpower_split[0],
-            industry: spare_manpower * manpower_split[1],
-            wealth: spare_manpower * manpower_split[2],
+            supply: minimum_supply_manpower + spare_manpower * self.manpower_split[0],
+            industry: spare_manpower * self.manpower_split[1],
+            wealth: spare_manpower * self.manpower_split[2],
         };
     }
 
@@ -566,7 +733,7 @@ impl Polity {
             let bonus = match *id {
                 0..=2 => self.get_tech_multiplier(config, TECH_AGRICULTURE),
                 3..=5 => self.get_tech_multiplier(config, TECH_FORESTRY),
-                6 => self.get_tech_multiplier(config, TECH_SEAMANSHIP),
+                6 => self.get_tech_multiplier(config, TECH_ASTRONOMY),
                 7..=10 => self.get_tech_multiplier(config, TECH_GEOLOGY),
                 _ => 1.0,
             };
@@ -592,76 +759,174 @@ impl Polity {
         } else {
             wealth_max / wealth_amount
         };
-        let supply = (self.jobs.supply * config.rules.resource.efficiency[0] * supply_bonus).min(supply_max);
+        let supply = (self.jobs.supply
+            * config.rules.resource.efficiency[RES_SUPPLY]
+            * supply_bonus
+            * self.get_tradition_multiplier(config, TRAD_AGRARIAN))
+        .min(supply_max);
         // Split primary resources into secondary resources (industry).
-        let industry_split = [0.4, 0.3, 0.3]; // TODO: Should be decided by govt / culture.
+        let industry =
+            self.jobs.industry * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * industry_bonus;
         let maintenance = 0.0; // TODO should be calculated.
-        let construction = (self.jobs.industry
-            * industry_split[0]
-            * config.rules.resource.efficiency[RES_CONSTRUCTION]
-            * industry_bonus)
+        let construction =
+            (industry * self.indu_split[0] * config.rules.resource.efficiency[RES_CONSTRUCTION])
+                .min(industry_max)
+                * self.get_tech_multiplier(config, TECH_ARCHITECTURE)
+                - maintenance / config.rules.resource.efficiency[RES_MAINTENANCE];
+        let civ_goods = 0.0; // TODO should be calculated.
+        let trade_goods = (industry * self.indu_split[1] * config.rules.resource.efficiency[RES_TRADE])
             .min(industry_max)
-            * self.get_tech_multiplier(config, TECH_ARCHITECTURE)
-            - maintenance / config.rules.resource.efficiency[RES_MAINTENANCE];
-        let civ_goods = (self.jobs.industry
-            * industry_split[1]
-            * config.rules.resource.efficiency[RES_GOODS]
-            * industry_bonus)
+            * self.get_tech_multiplier(config, TECH_ENGINEERING)
+            - civ_goods / config.rules.resource.efficiency[RES_CONSUMPTION];
+        let mil_equipment = (industry * self.indu_split[2] * config.rules.resource.efficiency[RES_EQUIPMENT])
             .min(industry_max)
-            * self.get_tech_multiplier(config, TECH_ENGINNERING);
-        let mil_equipment = (self.jobs.industry
-            * industry_split[2]
-            * config.rules.resource.efficiency[RES_EQUIPMENT]
-            * industry_bonus)
-            .min(industry_max)
-            * self.get_tech_multiplier(config, TECH_ENGINNERING);
+            * self.get_tech_multiplier(config, TECH_METALLURGY);
         // Split primary resources into secondary resources (wealth).
-        let wealth_split = [0.3, 0.3, 0.3, 0.1]; // TODO: Should be decided by govt / culture.
-        let research = (self.jobs.wealth
-            * wealth_split[0]
-            * config.rules.resource.efficiency[RES_RESEARCH]
-            * wealth_bonus)
+        let wealth = self.jobs.wealth * self.get_tradition_multiplier(config, TRAD_MERCANTILE) * wealth_bonus;
+        let research = (wealth * self.wealth_split[0] * config.rules.resource.efficiency[RES_RESEARCH])
             .min(wealth_max)
-            * self.get_tech_multiplier(config, TECH_MATHEMATICS);
-        let culture = (self.jobs.wealth
-            * wealth_split[1]
-            * config.rules.resource.efficiency[RES_CULTURE]
-            * wealth_bonus)
+            * self.get_tech_multiplier(config, TECH_MATHEMATICS)
+            * self.get_tradition_multiplier(config, TRAD_PROGRESSIVE);
+        let culture = (wealth * self.wealth_split[1] * config.rules.resource.efficiency[RES_CULTURE])
             .min(wealth_max)
-            * self.get_tech_multiplier(config, TECH_PHILOSOPHY);
-        let service = (self.jobs.wealth
-            * wealth_split[2]
-            * config.rules.resource.efficiency[RES_SERVICES]
-            * wealth_bonus)
+            * self.get_tech_multiplier(config, TECH_PHILOSOPHY)
+            * self.get_tradition_multiplier(config, TRAD_TRADITIONAL);
+        let service = 0.0; // TODO should be calculated.
+        let treasure = (wealth * self.wealth_split[2] * config.rules.resource.efficiency[RES_TREASURE])
             .min(wealth_max)
-            * self.get_tech_multiplier(config, TECH_CRAFTSMANSHIP);
-        let treasure = (self.jobs.wealth
-            * wealth_split[3]
-            * config.rules.resource.efficiency[RES_TREASURE]
-            * wealth_bonus)
+            * self.get_tech_multiplier(config, TECH_FINANCES)
+            - service / config.rules.resource.efficiency[RES_SERVICES];
+        let administration = (wealth * self.wealth_split[3] * config.rules.resource.efficiency[RES_ADMIN])
             .min(wealth_max)
-            * self.get_tech_multiplier(config, TECH_FINANCES);
+            * self.get_tech_multiplier(config, TECH_LAW)
+            * self.get_tradition_multiplier(config, TRAD_LEGALIST);
         // Set new resources.
         self.resources = [
             supply,
             construction,
             maintenance,
-            mil_equipment,
+            trade_goods,
             civ_goods,
+            mil_equipment,
             research,
             culture,
             service,
             treasure,
+            administration,
         ];
+        self.tech_acc += research;
+        self.tradition_acc += culture;
+        self.treasure_acc += treasure;
+    }
+
+    pub fn update_construction(&mut self, config: &AtlasSimConfig) {}
+
+    pub fn update_culture(
+        &mut self,
+        config: &AtlasSimConfig,
+        sim: &SimControl,
+        rng: &mut GlobalEntropy<WyRand>,
+    ) {
+        let culture = self.tradition_acc * config.rules.culture.base_speed;
+        for (i, val) in self.traditions.iter_mut().enumerate() {
+            let increment = self.trad_split[i] * culture - Self::get_tradition_decay(config, *val);
+            let overflow = *val + increment - config.rules.culture.max_level;
+            if overflow > 0.0 {
+                *val = config.rules.culture.max_level;
+                self.heritage[i] += overflow * config.rules.culture.heritage_ratio;
+            } else {
+                *val = (*val + increment).max(0.0);
+            }
+        }
+        self.tradition_acc = 0.0;
+        if config.rules.culture.great_event_heritage <= 0.0 {
+            return;
+        }
+        for (i, val) in self.heritage.iter_mut().enumerate() {
+            let chance = (*val / config.rules.culture.great_event_heritage)
+                .min(config.rules.culture.great_event_chance_max);
+            let great_event = rng.gen_bool(chance as f64);
+            if !great_event {
+                continue;
+            }
+            let great_person = rng.gen_bool(config.rules.culture.great_person_chance as f64);
+            if great_person {
+                // TODO add great person
+            } else {
+                // add great work
+                self.great_works.push(GreatWork {
+                    tradition: i as u8,
+                    time: sim.time,
+                })
+            }
+            *val = 0.0;
+        }
     }
 
     pub fn update_tech(&mut self, config: &AtlasSimConfig) {
-        let tech = self.resources[RES_RESEARCH] * config.rules.tech.base_speed;
-        let eq = 1.0 / 13.0;
-        let tech_split = [eq, eq, eq, eq, eq, eq, eq, eq, eq, eq, eq, eq, eq]; // TODO Should be decided by govt / culture / other modifiers
+        let tech = self.tech_acc * config.rules.tech.base_speed;
         for (i, val) in self.tech.iter_mut().enumerate() {
-            *val = (*val + tech * tech_split[i]).min(config.rules.tech.max_level);
+            let increment = self.tech_split[i] * tech - Self::get_tech_decay(config, *val);
+            *val = (*val + increment).clamp(0.0, config.rules.tech.max_level);
         }
+        self.tech_acc = 0.0;
+    }
+
+    pub fn update_splits(&mut self, config: &AtlasSimConfig) {
+        // Update manpower split.
+        self.manpower_split = [
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_manpower_split[0],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_manpower_split[1],
+            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.default_manpower_split[2],
+        ];
+        let sum: f32 = self.manpower_split.iter().sum();
+        self.manpower_split = self.manpower_split.map(|x| x / sum);
+        // Update industry split.
+        self.indu_split = [
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_industry_split[0],
+            (1.0 + self.traditions[TRAD_COOPERATIVE]) * config.rules.default_industry_split[1],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_industry_split[2],
+        ];
+        let sum: f32 = self.indu_split.iter().sum();
+        self.indu_split = self.indu_split.map(|x| x / sum);
+        // Update wealth split.
+        self.wealth_split = [
+            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_wealth_split[0],
+            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.default_wealth_split[1],
+            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.default_wealth_split[2],
+            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.default_wealth_split[3],
+        ];
+        let sum: f32 = self.wealth_split.iter().sum();
+        self.wealth_split = self.wealth_split.map(|x| x / sum);
+        // Update technology split.
+        self.tech_split = [
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_tech_split[TECH_AGRICULTURE],
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_tech_split[TECH_ASTRONOMY],
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_tech_split[TECH_FORESTRY],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_tech_split[TECH_GEOLOGY],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_tech_split[TECH_MEDICINE],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_tech_split[TECH_ARCHITECTURE],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_tech_split[TECH_ENGINEERING],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_tech_split[TECH_METALLURGY],
+            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.default_tech_split[TECH_PHILOSOPHY],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_tech_split[TECH_MATHEMATICS],
+            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.default_tech_split[TECH_FINANCES],
+            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.default_tech_split[TECH_LAW],
+            (1.0 + self.traditions[TRAD_COOPERATIVE]) * config.rules.default_tech_split[TECH_LINGUISTICS],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_tech_split[TECH_PHYSICS],
+        ];
+        let sum: f32 = self.tech_split.iter().sum();
+        self.tech_split = self.tech_split.map(|x| x / sum);
+        // Update tradition split.
+        for (x, (tradition, split)) in self
+            .trad_split
+            .iter_mut()
+            .zip(self.traditions.iter().zip(config.rules.default_tradition_split))
+        {
+            *x = (1.0 + tradition) * split;
+        }
+        let sum: f32 = self.trad_split.iter().sum();
+        self.trad_split = self.trad_split.map(|x| x / sum);
     }
 
     fn get_supply_consumption(&self, config: &AtlasSimConfig) -> f32 {
@@ -674,6 +939,19 @@ impl Polity {
 
     fn get_tech_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
         let strength = config.rules.tech.techs[i].strength * self.tech[i].floor();
-        1.0 + 0.05 * strength
+        1.0 + config.rules.tech.level_bonus * strength
+    }
+
+    fn get_tradition_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
+        let strength = config.rules.culture.traditions[i].strength * self.traditions[i].floor();
+        1.0 + config.rules.culture.level_bonus * strength
+    }
+
+    fn get_tech_decay(config: &AtlasSimConfig, value: f32) -> f32 {
+        config.rules.tech.base_decay * (1.0 + config.rules.tech.level_decay * value.floor())
+    }
+
+    fn get_tradition_decay(config: &AtlasSimConfig, value: f32) -> f32 {
+        config.rules.culture.base_decay * (1.0 + config.rules.culture.level_decay * value.floor())
     }
 }

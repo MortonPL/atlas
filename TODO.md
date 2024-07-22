@@ -9,11 +9,12 @@
     - Naming
   - Colony convoy system
   - Polity breakup system
-  - Wealth-based economy (research, culture, luxury)
-  - Industry-based economy (construction, goods, military)
-  - Research system
-  - Culture system
+  - Building construction
   - Polity government and leaders
+  - Great people (wip)
+  - Natural disasters
+  - Military and combat
+  - Diplomacy and deals
 
 ## GEN
 
