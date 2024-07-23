@@ -1,7 +1,7 @@
-use std::{cmp::min, f32::consts::FRAC_PI_2};
+use std::f32::consts::FRAC_PI_2;
 
 use atlas_lib::{
-    base::{events::EventStruct, map::resize_helper},
+    base::{events::EventStruct, map::resize_helper, ui::UiStateBase},
     bevy::{prelude::*, render::mesh::PlaneMeshBuilder},
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
@@ -15,6 +15,7 @@ use atlas_lib::{
         map::{MapDataLayer, MapDataOverlay, EXPORT_DATA_LAYERS},
     },
 };
+use bevy_mod_picking::{prelude::*, PickableBundle};
 
 use crate::{
     map::internal::{
@@ -22,10 +23,10 @@ use crate::{
         randomize_start_points,
     },
     sim::{
-        polity::{Ownership, Polity},
+        polity::{City, Ownership, Polity},
         SimControl, SimMapData,
     },
-    ui::{MapOverlay, MapOverlayPolity, MapOverlayStart},
+    ui::{MapOverlay, UpdateSelectionEvent},
 };
 
 /// Run condition
@@ -119,9 +120,10 @@ pub fn update_event_random_start(
     mut config: ResMut<AtlasSimConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<Entity, With<MapOverlayStart>>,
+    query: Query<(Entity, &MapOverlay), With<MapOverlay>>,
     commands: Commands,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
+    mut ui_base: ResMut<UiStateBase>,
 ) {
     events.randomize_starts_request.take().expect("Always Some");
     let (width, height) = config.get_world_size();
@@ -137,8 +139,9 @@ pub fn update_event_random_start(
     randomize_point_color(&mut config, rng.as_mut());
     // Recreate overlay markers.
     create_overlays(&config, commands, &mut meshes, &mut materials, query);
-    // Switch / refresh overlay.
-    events.viewed_overlay_changed = Some(MapDataOverlay::StartPoints);
+    // Force show start point overlay.
+    ui_base.overlays[0] = true;
+    events.viewed_overlay_changed = Some((ui_base.overlays.clone(), false));
 }
 
 /// Update system
@@ -146,31 +149,28 @@ pub fn update_event_random_start(
 /// Switch the currently visible overlay.
 pub fn update_event_overlay_changed(
     mut events: ResMut<EventStruct>,
-    mut q_starts: Query<&mut Visibility, (With<MapOverlayStart>, Without<MapOverlayPolity>)>,
-    mut q_polities: Query<&mut Visibility, (With<MapOverlayPolity>, Without<MapOverlayStart>)>,
+    mut query: Query<(&mut Visibility, &MapOverlay), With<MapOverlay>>,
 ) {
-    let overlay = events.viewed_overlay_changed.take().expect("Always Some");
-    // Hide all overlays.
-    for mut vis in q_starts.iter_mut() {
-        *vis = Visibility::Hidden;
+    let (mask, deferred) = events.viewed_overlay_changed.take().expect("Always Some");
+    if deferred {
+        events.viewed_overlay_changed = Some((mask, false));
+        return;
     }
-    for mut vis in q_polities.iter_mut() {
-        *vis = Visibility::Hidden;
-    }
+    let mask = mask.map(|x| {
+        if x {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        }
+    });
     // Show some overlays.
-    match overlay {
-        MapDataOverlay::None => { /* do nothing */ }
-        MapDataOverlay::StartPoints => {
-            for mut vis in q_starts.iter_mut() {
-                *vis = Visibility::Visible;
-            }
-        }
-        MapDataOverlay::Polities => {
-            for mut vis in q_polities.iter_mut() {
-                *vis = Visibility::Visible;
-            }
-        }
-        MapDataOverlay::Civilizations => { /* TODO */ }
+    for (mut vis, overlay) in query.iter_mut() {
+        *vis = match overlay.overlay {
+            MapDataOverlay::None => Visibility::Visible,
+            MapDataOverlay::StartPoints => mask[0],
+            MapDataOverlay::Polities => mask[1],
+            MapDataOverlay::Cities => mask[2],
+        };
     }
 }
 
@@ -185,14 +185,13 @@ pub fn update_event_start_simulation(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
+    mut ui_base: ResMut<UiStateBase>,
 ) {
     events.simulation_start_request.take();
     sim.paused = false;
     // Spawn polities.
     for start in &config.scenario.start_points {
         // Get all coords.
-        let i = min(start.civ as usize, config.scenario.start_civs.len() - 1);
-        let owner = &config.scenario.start_civs[i];
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);
         let pw = config.map_to_world_centered(p);
@@ -215,22 +214,47 @@ pub fn update_event_start_simulation(
         polity.update_resources(&config);
         // Spawn.
         let ec = commands.spawn((
-            polity.clone(),
+            polity,
             PbrBundle {
                 mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE).build()),
                 material: materials.add(StandardMaterial::default()),
-                transform: Transform::from_xyz(pw.0, pw.1, 0.0)
+                transform: Transform::from_xyz(pw.0, pw.1, 0.01)
                     .with_rotation(Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0))
                     .with_scale(Vec3::new(0.01, 0.01, 0.01)),
                 visibility: Visibility::Hidden,
                 ..Default::default()
             },
-            //PickableBundle::default(),
-            //On::<Pointer<Down>>::send_event::<UpdateSelectionEvent>(),
-            MapOverlay,
-            MapOverlayPolity,
+            MapOverlay::new(MapDataOverlay::Polities),
         ));
         // Post spawn actions.
-        extras.tile_owner[i as usize] = Some(ec.id());
+        let polity_entity = ec.id();
+        extras.tile_owner[i as usize] = Some(polity_entity.clone());
+        // Create initial city.
+        let city = City {
+            owner: polity_entity,
+            level: 1.0,
+            need_visual_update: true,
+        };
+        commands.spawn((
+            city,
+            PbrBundle {
+                mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE / 50.0)),
+                material: materials.add(StandardMaterial::default()),
+                transform: Transform::from_xyz(pw.0, pw.1, 0.02).with_rotation(Quat::from_euler(
+                    EulerRot::XYZ,
+                    FRAC_PI_2,
+                    0.0,
+                    0.0,
+                )),
+                visibility: Visibility::Hidden,
+                ..Default::default()
+            },
+            PickableBundle::default(),
+            On::<Pointer<Click>>::send_event::<UpdateSelectionEvent>(),
+            MapOverlay::new(MapDataOverlay::Cities),
+        ));
     }
+    // Force hide start point overlay.
+    ui_base.overlays[0] = false;
+    events.viewed_overlay_changed = Some((ui_base.overlays.clone(), true));
 }

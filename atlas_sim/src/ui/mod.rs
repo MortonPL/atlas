@@ -16,23 +16,20 @@ use atlas_lib::{
         EguiContexts,
     },
     config::{sim::AtlasSimConfig, AtlasConfig},
-    domain::graphics::CurrentWorldModel,
+    domain::{graphics::CurrentWorldModel, map::MapDataOverlay},
     ui::{
-        button_action, button_action_enabled,
+        button, button_action, button_action_enabled,
         sidebar::{SidebarControl, SidebarEnumDropdown, SidebarPanel},
         window,
     },
 };
-use bevy_mod_picking::{
-    events::{Down, Pointer},
-    prelude::*,
-};
+use bevy_mod_picking::{events::Pointer, prelude::*};
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario};
-use panel_sim::{InfoPanelMisc, InfoPanelPolity};
+use panel_sim::{InfoPanelCity, InfoPanelMisc, InfoPanelPolity};
 
 use crate::sim::{
-    polity::{Polity, PolityUi},
+    polity::{City, CityUi, Polity, PolityUi},
     SimControl, SimMapData,
 };
 
@@ -43,15 +40,18 @@ impl Plugin for UiPlugin {
         app.add_plugins(UiPluginBase)
             .init_resource::<AtlasSimUi>()
             .add_systems(Startup, startup_location)
-            .add_systems(UiUpdate, update_ui)
-            .add_systems(UiUpdate, update_viewport.after(update_ui))
-            .add_systems(UiUpdate, update_location.after(update_viewport))
-            .add_systems(UiUpdate, update_click_location)
-            .add_event::<UpdateSelectionEvent>()
             .add_systems(
                 UiUpdate,
-                update_selection.run_if(on_event::<UpdateSelectionEvent>()),
+                (
+                    update_ui,
+                    update_viewport,
+                    update_location,
+                    update_click_location,
+                    update_selection.run_if(on_event::<UpdateSelectionEvent>()),
+                )
+                    .chain(),
             )
+            .add_event::<UpdateSelectionEvent>()
             .add_systems(UiUpdate, update_selection_data);
     }
 }
@@ -87,6 +87,7 @@ fn update_ui(
 struct Selection {
     pub entity: Entity,
     pub polity: Option<PolityUi>,
+    pub city: Option<CityUi>,
 }
 
 #[derive(Resource)]
@@ -206,14 +207,7 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                 if old != ui_base.current_layer {
                     events.viewed_layer_changed = Some(ui_base.current_layer);
                 }
-                let old = ui_base.current_overlay;
-                let selection =
-                    SidebarEnumDropdown::new(ui, "Overlay", &mut ui_base.current_overlay).show(None);
-                SidebarEnumDropdown::post_show(selection, &mut ui_base.current_overlay);
-                // Trigger overlay change event as needed.
-                if old != ui_base.current_overlay {
-                    events.viewed_overlay_changed = Some(ui_base.current_overlay);
-                }
+                ui_base.overlay_window_open |= button(ui, "Overlays");
             });
         });
     }
@@ -251,7 +245,11 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                         true
                     });
                     changed |= button_action(ui, "Polity", || {
-                        self.current_panel = Box::<InfoPanelPolity>::default(); // TODO
+                        self.current_panel = Box::<InfoPanelPolity>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "City", || {
+                        self.current_panel = Box::<InfoPanelCity>::default();
                         true
                     });
                 });
@@ -259,11 +257,8 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
             if changed || self.force_changed {
                 self.force_changed = false;
                 let layer = self.current_panel.get_layer();
-                let overlay = self.current_panel.get_overlay();
                 events.viewed_layer_changed = Some(layer);
-                events.viewed_overlay_changed = Some(overlay);
                 ui_base.current_layer = layer;
-                ui_base.current_overlay = overlay;
             }
         });
     }
@@ -374,8 +369,8 @@ fn update_location(
 #[derive(Event)]
 pub struct UpdateSelectionEvent(Entity);
 
-impl From<ListenerInput<Pointer<Down>>> for UpdateSelectionEvent {
-    fn from(event: ListenerInput<Pointer<Down>>) -> Self {
+impl From<ListenerInput<Pointer<Click>>> for UpdateSelectionEvent {
+    fn from(event: ListenerInput<Pointer<Click>>) -> Self {
         UpdateSelectionEvent(event.target)
     }
 }
@@ -390,7 +385,11 @@ fn update_click_location(
         if let Some(cursor) = ui_state.cursor {
             let i = config.map_to_index(cursor) as usize;
             if let Some(entity) = extras.tile_owner[i] {
-                ui_state.selection = Some(Selection { entity, polity: None });
+                ui_state.selection = Some(Selection {
+                    entity,
+                    polity: None,
+                    city: None,
+                });
             }
         }
     }
@@ -408,6 +407,7 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
     ui_state.selection = Some(Selection {
         entity: event.0,
         polity: None,
+        city: None,
     });
 }
 
@@ -417,6 +417,7 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
 fn update_selection_data(
     mut ui_state: ResMut<AtlasSimUi>,
     polities: Query<&Polity>,
+    cities: Query<&City>,
     config: Res<AtlasSimConfig>,
 ) {
     let selection = if let Some(selection) = &mut ui_state.selection {
@@ -424,17 +425,25 @@ fn update_selection_data(
     } else {
         return;
     };
-    if let Ok(polity) = polities.get(selection.entity) {
+    let polity = if let Ok(city) = cities.get(selection.entity) {
+        selection.city = Some(city.into_ui(&config));
+        Some(city.owner)
+    } else {
+        None
+    };
+    if let Ok(polity) = polities.get(polity.unwrap_or(selection.entity)) {
         selection.polity = Some(polity.into_ui(&config));
     }
 }
 
 /// A visible map overlay.
 #[derive(Component)]
-pub struct MapOverlay;
+pub struct MapOverlay {
+    pub overlay: MapDataOverlay,
+}
 
-#[derive(Component)]
-pub struct MapOverlayStart;
-
-#[derive(Component)]
-pub struct MapOverlayPolity;
+impl MapOverlay {
+    pub fn new(overlay: MapDataOverlay) -> Self {
+        Self { overlay }
+    }
+}

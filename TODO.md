@@ -9,7 +9,7 @@
     - Naming
   - Colony convoy system
   - Polity breakup system
-  - Building construction
+  - Building construction (wip)
   - Polity government and leaders
   - Great people (wip)
   - Natural disasters

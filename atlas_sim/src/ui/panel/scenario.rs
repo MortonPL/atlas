@@ -2,7 +2,7 @@ use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
     config::sim::{AtlasSimConfig, CivConfig, StartingPoint},
-    domain::map::{MapDataLayer, MapDataOverlay},
+    domain::map::MapDataLayer,
     ui::{
         button,
         sidebar::{MakeUi, SidebarPanel},
@@ -40,10 +40,6 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelScenario {
 
     fn get_layer(&self) -> MapDataLayer {
         MapDataLayer::Preview
-    }
-
-    fn get_overlay(&self) -> MapDataOverlay {
-        MapDataOverlay::StartPoints
     }
 }
 

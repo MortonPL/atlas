@@ -1,7 +1,4 @@
-use crate::{
-    bevy::prelude::*,
-    domain::map::{MapDataLayer, MapDataOverlay},
-};
+use crate::{bevy::prelude::*, domain::map::MapDataLayer};
 use std::path::Path;
 
 /// Plugin responsible for holding event requests and their data.
@@ -25,8 +22,8 @@ pub struct EventStruct {
     pub world_model_changed: Option<()>,
     /// The currently viewed map layer has been changed.
     pub viewed_layer_changed: Option<MapDataLayer>,
-    /// The currently viewed map overlay has been changed.
-    pub viewed_overlay_changed: Option<MapDataOverlay>,
+    /// The currently viewed map overlays have been changed.
+    pub viewed_overlay_changed: Option<([bool; 3], bool)>,
     /// A map layer should be loaded from data.
     pub load_layer_request: Option<(MapDataLayer, Vec<u8>)>,
     /// A map layer should be saved to file.

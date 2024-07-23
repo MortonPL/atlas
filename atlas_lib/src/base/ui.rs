@@ -14,7 +14,7 @@ use std::path::Path;
 
 use crate::{
     base::events::EventStruct,
-    domain::map::{MapDataLayer, MapDataOverlay},
+    domain::map::MapDataLayer,
     ui::{
         sidebar::{SidebarControl, SidebarEnumDropdown},
         window,
@@ -60,7 +60,7 @@ pub enum FileDialogMode {
 }
 
 /// Struct that contains only the UI-related state (no logic).
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct UiStateBase {
     /// Size (in pixels) of the viewport, AKA window size - sidebar size (if applicable).
     pub viewport_size: bevy::prelude::Vec2,
@@ -70,6 +70,8 @@ pub struct UiStateBase {
     pub file_dialog_mode: FileDialogMode,
     /// Is the error popup window open?
     pub error_window_open: bool,
+    /// Is the overlay selection window open?
+    pub overlay_window_open: bool,
     /// Current error message.
     pub error_message: String,
     /// Camera movement data.
@@ -78,8 +80,25 @@ pub struct UiStateBase {
     pub about_open: bool,
     /// Currently viewed map layer.
     pub current_layer: MapDataLayer,
-    /// Currently viewed map overlay.
-    pub current_overlay: MapDataOverlay,
+    /// Currently visible map overlays.
+    pub overlays: [bool; 3],
+}
+
+impl Default for UiStateBase {
+    fn default() -> Self {
+        Self {
+            viewport_size: Default::default(),
+            file_dialog: Default::default(),
+            file_dialog_mode: Default::default(),
+            error_window_open: Default::default(),
+            overlay_window_open: Default::default(),
+            error_message: Default::default(),
+            camera: Default::default(),
+            about_open: Default::default(),
+            current_layer: Default::default(),
+            overlays: [true, true, true],
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -232,6 +251,8 @@ pub trait UiCreator<C> {
         ErrorWindowHandler.handle(ctx, ui_base);
         // Handle about window.
         Self::handle_about(ctx, "Atlas History Simulator", &mut ui_base.about_open);
+        // Handle overlay window.
+        Self::handle_overlay(ctx, events, ui_base);
     }
 
     /// Create the top part of the sidebar with configuration S/L.
@@ -275,6 +296,19 @@ pub trait UiCreator<C> {
 
     /// Get a hadler for file dialog input.
     fn handle_file_dialog(config: &mut C, events: &mut EventStruct, ctx: &Context, ui_base: &mut UiStateBase);
+
+    /// Handle displaying the overlay selection window.
+    fn handle_overlay(ctx: &Context, events: &mut EventStruct, ui_state: &mut UiStateBase) {
+        window(ctx, "Overlays", &mut ui_state.overlay_window_open, |ui| {
+            let old = ui_state.overlays.clone();
+            ui.checkbox(&mut ui_state.overlays[0], "Start Points");
+            ui.checkbox(&mut ui_state.overlays[1], "Polities");
+            ui.checkbox(&mut ui_state.overlays[2], "Cities");
+            if old != ui_state.overlays {
+                events.viewed_overlay_changed = Some((ui_state.overlays.clone(), false));
+            }
+        });
+    }
 }
 
 /// Startup system

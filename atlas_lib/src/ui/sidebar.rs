@@ -1,11 +1,7 @@
 use bevy_egui::egui::{self, Grid, Ui, WidgetText};
 use std::{marker::PhantomData, ops::RangeInclusive};
 
-use crate::{
-    base::events::EventStruct,
-    domain::map::{MapDataLayer, MapDataOverlay},
-    ui::UiEditableEnum,
-};
+use crate::{base::events::EventStruct, domain::map::MapDataLayer, ui::UiEditableEnum};
 
 const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
 
@@ -17,11 +13,6 @@ pub trait SidebarPanel<C, U>: SidebarPanelCloneHax<C, U> {
 
     /// Get layer that should be displayed with this panel.
     fn get_layer(&self) -> MapDataLayer;
-
-    /// Get overlay that should be displayed with this panel.
-    fn get_overlay(&self) -> MapDataOverlay {
-        MapDataOverlay::None
-    }
 
     /// Create a config UI for this panel. Nothing shown by default.
     fn make_ui(&mut self, _ui: &mut Ui, _config: &mut C) {}

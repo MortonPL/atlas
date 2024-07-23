@@ -7,7 +7,10 @@ use atlas_lib::{
         sim::{AtlasSimConfig, StartCivAlgorithm, StartPointAlgorithm},
         AtlasConfig,
     },
-    domain::{graphics::MapLogicData, map::MapDataLayer},
+    domain::{
+        graphics::MapLogicData,
+        map::{MapDataLayer, MapDataOverlay},
+    },
     rand::{distributions::Uniform, Rng},
 };
 use weighted_rand::{
@@ -15,7 +18,7 @@ use weighted_rand::{
     table::WalkerTable,
 };
 
-use crate::ui::{MapOverlay, MapOverlayStart};
+use crate::ui::MapOverlay;
 
 /// Calculate weights for random choice of starting points. Returns all weights and weight strips (horizontal).
 pub fn calc_start_point_weights(
@@ -173,11 +176,14 @@ pub fn create_overlays(
     mut commands: Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    mut query: Query<Entity, With<MapOverlayStart>>,
+    mut query: Query<(Entity, &MapOverlay), With<MapOverlay>>,
 ) {
     // Despawn old markers.
-    for entity in query.iter_mut() {
-        commands.entity(entity).despawn();
+    for (entity, overlay) in query.iter_mut() {
+        match overlay.overlay {
+            MapDataOverlay::StartPoints => commands.entity(entity).despawn(),
+            _ => {}
+        }
     }
     // Create new meshes and materials.
     let mesh = meshes.add(Cuboid::from_size(Vec3::ONE / 50.0).mesh());
@@ -199,8 +205,7 @@ pub fn create_overlays(
                 transform: Transform::from_xyz(coords.0, coords.1, 0.0),
                 ..default()
             },
-            MapOverlay,
-            MapOverlayStart,
+            MapOverlay::new(MapDataOverlay::StartPoints),
         ));
     }
 }

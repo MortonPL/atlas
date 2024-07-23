@@ -307,6 +307,35 @@ impl MakeUi for PolityUi {
     }
 }
 
+/// A city belonging to a polity.
+#[derive(Component, Clone)]
+pub struct City {
+    /// Visuals need to be updated due to color or shape changes.
+    pub need_visual_update: bool,
+    /// Owner polity.
+    pub owner: Entity,
+    /// Urbanization level.
+    pub level: f32,
+}
+
+impl City {
+    pub fn into_ui(&self, _config: &AtlasSimConfig) -> CityUi {
+        CityUi { level: self.level }
+    }
+}
+
+#[derive(Component)]
+pub struct CityUi {
+    /// Urbanization level.
+    pub level: f32,
+}
+
+impl MakeUi for CityUi {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarSlider::new(ui, "City Level", &mut self.level).show(None);
+    }
+}
+
 pub const LEN_RES: usize = 11;
 /// Supply
 const RES_SUPPLY: usize = 0;
@@ -534,14 +563,16 @@ fn update_splits(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim
 
 /// Update system
 ///
-/// Update polity visuals.
+/// Update polity & city visuals.
 fn update_visuals(
     config: Res<AtlasSimConfig>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut query: Query<(&mut Polity, &mut Transform, &mut Handle<StandardMaterial>), With<Polity>>,
+    mut query_p: Query<(&mut Polity, &mut Transform, &mut Handle<StandardMaterial>), With<Polity>>,
+    mut query_c: Query<(&mut City, &mut Handle<StandardMaterial>), (With<City>, Without<Polity>)>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (mut polity, mut tran, mut mat) in query.iter_mut() {
+    for (mut polity, mut tran, mut mat) in query_p.iter_mut() {
         // Don't update if not needed.
         if !polity.need_visual_update {
             continue;
@@ -584,6 +615,21 @@ fn update_visuals(
         });
 
         polity.need_visual_update = false;
+    }
+    for (mut city, mut mat) in query_c.iter_mut() {
+        // Don't update if not needed.
+        if !city.need_visual_update {
+            continue;
+        }
+        let (polity, _, _) = query_p.get(city.owner).unwrap();
+        *mat = materials.add(StandardMaterial {
+            base_color: polity.color,
+            base_color_texture: Some(asset_server.load("city.png")),
+            unlit: true,
+            alpha_mode: AlphaMode::Blend,
+            ..Default::default()
+        });
+        city.need_visual_update = false;
     }
 }
 
