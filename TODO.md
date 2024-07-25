@@ -5,16 +5,17 @@
 - High Priority
   - Improve map claiming system
     - Expansion desire formula (stability + overcrowding + tradition)
-  - Improve polity system
-    - Naming
+  - Polity & City naming
   - Colony convoy system
   - Polity breakup system
-  - Building construction (wip)
+  - Founding new citites
+  - Culture rework to be more fluid ?
   - Polity government and leaders
   - Great people (wip)
   - Natural disasters
   - Military and combat
   - Diplomacy and deals
+  - History log
 
 ## GEN
 

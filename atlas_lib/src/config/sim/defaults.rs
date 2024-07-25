@@ -32,6 +32,7 @@ impl Default for PolityConfig {
 
 const TECH_SPLIT: f32 = 1.0 / 14.0;
 const TRAD_SPLIT: f32 = 1.0 / 8.0;
+const STR_SPLIT: f32 = 1.0 / 7.0;
 
 impl Default for RulesConfig {
     fn default() -> Self {
@@ -39,35 +40,56 @@ impl Default for RulesConfig {
             tile_resolution: 10.0,
             starting_land_claim_points: 1000.0,
             land_claim_cost: 100.0,
-            supply_per_pop: 1.0,
+            base_supply_need: 1.0,
+            base_industry_need: 0.1,
+            base_wealth_need: 0.1,
             pop_growth: 0.001,
             resource: Default::default(),
             tech: Default::default(),
             culture: Default::default(),
+            city: Default::default(),
             default_manpower_split: [0.1, 0.45, 0.45],
             default_industry_split: [0.5, 0.4, 0.1],
-            default_wealth_split: [0.1, 0.1, 0.6, 0.2],
+            default_wealth_split: [0.1, 0.1, 0.2, 0.6],
             default_tech_split: [TECH_SPLIT; 14],
             default_tradition_split: [TRAD_SPLIT; 8],
+            default_structure_split: [STR_SPLIT; 7],
         }
     }
 }
 
-impl Default for ResourceConfig {
+impl Default for ResourcesConfig {
     fn default() -> Self {
         Self {
-            efficiency: [
-                1.1, // 0 Supply
-                1.0, // 1 Construction
-                1.0, // 2 Maintenance
-                1.0, // 3 Trade Goods
-                1.0, // 4 Consumer Goods
-                1.0, // 5 Military Equipment
-                1.0, // 6 Research
-                1.0, // 7 Culture
-                1.0, // 8 Treasure
-                1.0, // 9 Services
-                1.0, // 10 Administration
+            resources: [
+                ResConfig {
+                    efficiency: 1.1,
+                    over_cap_efficiency: 1.0,
+                },
+                ResConfig::default(),
+                ResConfig::default(),
+                ResConfig {
+                    efficiency: 1.0,
+                    over_cap_efficiency: 0.1,
+                },
+                ResConfig {
+                    efficiency: 1.0,
+                    over_cap_efficiency: 0.1,
+                },
+                ResConfig::default(),
+                ResConfig {
+                    efficiency: 1.0,
+                    over_cap_efficiency: 0.1,
+                },
+                ResConfig {
+                    efficiency: 1.0,
+                    over_cap_efficiency: 0.1,
+                },
+                ResConfig {
+                    efficiency: 1.0,
+                    over_cap_efficiency: 0.1,
+                },
+                ResConfig::default(),
             ],
         }
     }
@@ -122,6 +144,27 @@ impl Default for CulturesConfig {
                 TraditionConfig::default(),
                 TraditionConfig::default(),
                 TraditionConfig::default(),
+            ],
+        }
+    }
+}
+
+impl Default for CitiesConfig {
+    fn default() -> Self {
+        Self {
+            base_speed: 0.01,
+            upgrade_speed: 0.3,
+            max_level: 10.0,
+            level_cost: 0.5,
+            base_capacity: 1.0,
+            structures: [
+                StructureConfig::default(),
+                StructureConfig::default(),
+                StructureConfig::default(),
+                StructureConfig::default(),
+                StructureConfig::default(),
+                StructureConfig::default(),
+                StructureConfig::default(),
             ],
         }
     }

@@ -150,23 +150,34 @@ pub struct RulesConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10000.0))]
     pub land_claim_cost: f32,
-    #[name("Supply Consumption per Pop")]
+    #[name("Supply Need per Pop")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10000.0))]
-    pub supply_per_pop: f32,
+    pub base_supply_need: f32,
+    #[name("Production Need per Pop")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10000.0))]
+    pub base_industry_need: f32,
+    #[name("Wealth Need per Pop")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=10000.0))]
+    pub base_wealth_need: f32,
     #[name("Monthly Base Pop Growth")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub pop_growth: f32,
     #[name("Resource Efficiency")]
     #[control(SidebarStructSection)]
-    pub resource: ResourceConfig,
+    pub resource: ResourcesConfig,
     #[name("Technology")]
     #[control(SidebarStructSection)]
     pub tech: TechnologiesConfig,
     #[name("Culture")]
     #[control(SidebarStructSection)]
     pub culture: CulturesConfig,
+    #[name("City")]
+    #[control(SidebarStructSection)]
+    pub city: CitiesConfig,
     #[name("Default Manpower Split")]
     #[control(SidebarSliderN)]
     pub default_manpower_split: [f32; 3],
@@ -182,49 +193,69 @@ pub struct RulesConfig {
     #[name("Default Tradition Split")]
     #[control(SidebarSliderN)]
     pub default_tradition_split: [f32; 8],
+    #[name("Default Structures Split")]
+    #[control(SidebarSliderN)]
+    pub default_structure_split: [f32; 7],
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize)]
-pub struct ResourceConfig {
-    pub efficiency: [f32; 11],
+pub struct ResourcesConfig {
+    pub resources: [ResConfig; 10],
 }
 
-impl MakeUi for ResourceConfig {
+impl MakeUi for ResourcesConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarSlider::new(ui, "Supply", &mut self.efficiency[0])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Construction", &mut self.efficiency[1])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Maintenance", &mut self.efficiency[2])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Trade Goods", &mut self.efficiency[3])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Consumer Goods", &mut self.efficiency[4])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Military Equipment", &mut self.efficiency[5])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Research", &mut self.efficiency[6])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Culture", &mut self.efficiency[7])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Services", &mut self.efficiency[8])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Treasure", &mut self.efficiency[9])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Administration", &mut self.efficiency[10])
-            .clamp_range(0.0..=1000.0)
-            .show(None);
+        ui.label("Supply");
         ui.end_row();
+        self.resources[0].make_ui(ui);
+        ui.label("Industry Consumption");
+        ui.end_row();
+        self.resources[1].make_ui(ui);
+        ui.label("Construction");
+        ui.end_row();
+        self.resources[2].make_ui(ui);
+        ui.label("Trade Goods");
+        ui.end_row();
+        self.resources[3].make_ui(ui);
+        ui.label("Military Equipment");
+        ui.end_row();
+        self.resources[4].make_ui(ui);
+        ui.label("Wealth Consumption");
+        ui.end_row();
+        self.resources[5].make_ui(ui);
+        ui.label("Research");
+        ui.end_row();
+        self.resources[6].make_ui(ui);
+        ui.label("Culture");
+        ui.end_row();
+        self.resources[7].make_ui(ui);
+        ui.label("Administration");
+        ui.end_row();
+        self.resources[8].make_ui(ui);
+        ui.label("Treasure");
+        ui.end_row();
+        self.resources[9].make_ui(ui);
+    }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct ResConfig {
+    #[name("Efficiency")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub efficiency: f32,
+    #[name("Efficiency Over Capacity")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub over_cap_efficiency: f32,
+}
+
+impl Default for ResConfig {
+    fn default() -> Self {
+        Self {
+            efficiency: 1.0,
+            over_cap_efficiency: 1.0,
+        }
     }
 }
 
@@ -404,6 +435,78 @@ pub struct TraditionConfig {
 }
 
 impl Default for TraditionConfig {
+    fn default() -> Self {
+        Self {
+            strength: 1.0,
+            cost: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize)]
+pub struct CitiesConfig {
+    pub base_speed: f32,
+    pub upgrade_speed: f32,
+    pub max_level: f32,
+    pub level_cost: f32,
+    pub base_capacity: f32,
+    pub structures: [StructureConfig; 7],
+}
+
+impl MakeUi for CitiesConfig {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarSlider::new(ui, "Base Speed", &mut self.base_speed)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Level Upgrade Speed", &mut self.upgrade_speed)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Level Cost", &mut self.level_cost)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Maximum Level", &mut self.max_level)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Base Capacity", &mut self.base_capacity)
+            .clamp_range(0.0..=1000000.0)
+            .show(None);
+        ui.label("Hospital");
+        ui.end_row();
+        self.structures[0].make_ui(ui);
+        ui.label("Manufacture");
+        ui.end_row();
+        self.structures[1].make_ui(ui);
+        ui.label("Forge");
+        ui.end_row();
+        self.structures[2].make_ui(ui);
+        ui.label("University");
+        ui.end_row();
+        self.structures[3].make_ui(ui);
+        ui.label("Amphitheater");
+        ui.end_row();
+        self.structures[4].make_ui(ui);
+        ui.label("Courhouse");
+        ui.end_row();
+        self.structures[5].make_ui(ui);
+        ui.label("Fortress");
+        ui.end_row();
+        self.structures[6].make_ui(ui);
+    }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct StructureConfig {
+    #[name("Strength")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub strength: f32,
+    #[name("Cost")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub cost: f32,
+}
+
+impl Default for StructureConfig {
     fn default() -> Self {
         Self {
             strength: 1.0,
