@@ -187,14 +187,14 @@ fn climate_to_view<C: AtlasConfig>(data: &[u8], config: &C) -> Vec<u8> {
     match config.get_climate_preview() {
         ClimatePreviewMode::SimplifiedColor => {
             let fun = |x: &u8| {
-                let color = &config.get_biome(*x).color;
+                let color = &config.get_biome(*x).simple_color;
                 [color[0], color[1], color[2], 255]
             };
             data.iter().flat_map(fun).collect()
         }
         ClimatePreviewMode::DetailedColor => {
             let fun = |x: &u8| {
-                let color = &config.get_biome(*x).simple_color;
+                let color = &config.get_biome(*x).color;
                 [color[0], color[1], color[2], 255]
             };
             data.iter().flat_map(fun).collect()

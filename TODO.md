@@ -8,8 +8,7 @@
   - Polity & City naming
   - Colony convoy system
   - Polity breakup system
-  - Founding new citites
-  - Culture rework to be more fluid ?
+  - Culture rework
   - Polity government and leaders
   - Great people (wip)
   - Natural disasters

@@ -21,7 +21,6 @@ use atlas_lib::{
         map::{MapDataLayer, MapDataOverlay, EXPORT_DATA_LAYERS},
     },
 };
-use bevy_mod_picking::{prelude::*, PickableBundle};
 
 use crate::{
     map::internal::{
@@ -29,10 +28,10 @@ use crate::{
         randomize_start_points,
     },
     sim::{
-        polity::{City, Ownership, Polity},
+        polity::{init_city, City, Ownership, Polity},
         SimControl, SimMapData,
     },
-    ui::{MapOverlay, UpdateSelectionEvent},
+    ui::MapOverlay,
 };
 
 /// Plugin responsible for the world graphics and generation.
@@ -118,7 +117,6 @@ pub fn update_event_import_start(
         let path = base_path.join(name);
         let result = match layer {
             MapDataLayer::Preview => load_image(path, width, height),
-            MapDataLayer::Resources => load_image(path, width, height),
             _ => load_image_grey(path, width, height),
         };
         match result {
@@ -275,32 +273,4 @@ pub fn update_event_start_simulation(
     // Force hide start point overlay.
     ui_base.overlays[0] = false;
     events.viewed_overlay_changed = Some((ui_base.overlays.clone(), true));
-}
-
-fn init_city(
-    city: City,
-    entity: Entity,
-    position: (f32, f32),
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
-) {
-    commands.get_entity(entity).unwrap().insert((
-        city,
-        PbrBundle {
-            mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE / 50.0)),
-            material: materials.add(StandardMaterial::default()),
-            transform: Transform::from_xyz(position.0, position.1, 0.02).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                FRAC_PI_2,
-                0.0,
-                0.0,
-            )),
-            visibility: Visibility::Hidden,
-            ..Default::default()
-        },
-        PickableBundle::default(),
-        On::<Pointer<Click>>::send_event::<UpdateSelectionEvent>(),
-        MapOverlay::new(MapDataOverlay::Cities),
-    ));
 }

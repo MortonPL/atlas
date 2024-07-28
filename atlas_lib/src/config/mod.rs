@@ -84,6 +84,16 @@ pub trait AtlasConfig: Resource + Default {
         (index % width, index / width)
     }
 
+    /// Convert a point from linear tile index to Bevy world space.
+    fn index_to_world(&self, index: u32) -> (f32, f32) {
+        let (width, height) = self.get_world_size();
+        let (x, y) = (index % width, index / width);
+        (
+            (x as f32 - width as f32 / 2.0) / 100.0,
+            (height as f32 / 2.0 - (y as f32)) / 100.0,
+        )
+    }
+
     /// Find the chunk that contains this map point.
     fn index_to_chunk(&self, index: u32, chunk_size: u32) -> u32 {
         let (width, _) = self.get_world_size();
@@ -93,7 +103,7 @@ pub trait AtlasConfig: Resource + Default {
     }
 
     /// Get 4 border tiles for the specified tile index.
-    fn get_border_tiles(&self, index: u32) -> BTreeSet<u32> {
+    fn get_border_tiles_4(&self, index: u32) -> BTreeSet<u32> {
         let (width, height) = self.get_world_size();
         let mut result = BTreeSet::default();
         let modi = index % width;
@@ -111,6 +121,47 @@ pub trait AtlasConfig: Resource + Default {
             result.insert(index + width);
         }
         result
+    }
+
+    /// Get 8 border tiles for the specified tile index.
+    fn get_border_tiles_8(&self, index: u32) -> BTreeSet<u32> {
+        let (width, height) = self.get_world_size();
+        let mut result = BTreeSet::default();
+        let modi = index % width;
+        let divi = index / width;
+        let (left, right, top, bottom) = (modi != 0, modi != width - 1, divi != 0, divi != height - 1);
+        if left {
+            result.insert(index - 1);
+            if top {
+                result.insert(index - width - 1);
+            }
+            if bottom {
+                result.insert(index + width - 1);
+            }
+        };
+        if right {
+            result.insert(index + 1);
+            if top {
+                result.insert(index - width + 1);
+            }
+            if bottom {
+                result.insert(index + width + 1);
+            }
+        }
+        if top {
+            result.insert(index - width);
+        }
+        if bottom {
+            result.insert(index + width);
+        }
+        result
+    }
+
+    /// Get 8 border tiles for the specified tile index and that tile too.
+    fn get_border_tiles_9(&self, index: u32) -> BTreeSet<u32> {
+        let mut res = self.get_border_tiles_8(index);
+        res.insert(index);
+        res
     }
 }
 

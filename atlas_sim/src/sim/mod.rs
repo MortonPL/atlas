@@ -30,7 +30,7 @@ impl Default for SimMapData {
     }
 }
 
-/// Data for controlling the simulation flow.
+/// Data for controlling the simulation flow (and extras).
 #[derive(Resource, Clone, PartialEq)]
 pub struct SimControl {
     /// Is the current tick the active tick (should other systems run?).
@@ -42,7 +42,7 @@ pub struct SimControl {
     /// Current simulation time, measured in simulated months.
     pub time: u32,
     /// Elapsed time at the moment of the last active tick.
-    pub last_tick_time: f32,
+    last_tick_time: f32,
 }
 
 impl Default for SimControl {

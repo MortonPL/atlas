@@ -1,30 +1,38 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, f32::consts::FRAC_PI_2};
 
 use atlas_lib::{
     bevy::{
         ecs as bevy_ecs,
         prelude::*,
         render::{
+            mesh::PlaneMeshBuilder,
             render_asset::RenderAssetUsages,
             render_resource::{Extent3d, TextureDimension, TextureFormat},
         },
-        utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
+        utils::{
+            hashbrown::{HashMap, HashSet},
+            petgraph::matrix_graph::Zero,
+        },
     },
-    bevy_egui,
+    bevy_egui::{self, egui::Ui},
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
     config::{sim::AtlasSimConfig, AtlasConfig},
     domain::{
         graphics::{color_to_u8, MapLogicData},
-        map::{is_sea, MapDataLayer},
+        map::{is_sea, MapDataLayer, MapDataOverlay},
     },
     rand::Rng,
     ui::{sidebar::*, UiEditableEnum},
     MakeUi,
 };
+use bevy_mod_picking::{prelude::*, PickableBundle};
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::sim::{check_tick, SimMapData};
+use crate::{
+    sim::{check_tick, SimMapData},
+    ui::{MapOverlay, UpdateSelectionEvent},
+};
 
 use super::{time_to_string, SimControl};
 
@@ -140,7 +148,7 @@ pub struct Polity {
     /// Construction points accumulated this year.
     pub const_acc: f32,
     /// Advanced resource capacities.
-    pub capacities: [f32; 5],
+    pub capacities: [f32; 6],
     /// Population split.
     pub manpower_split: [f32; 3],
     /// Production split.
@@ -197,6 +205,7 @@ impl Polity {
             ownership: self.ownership,
             color: color_to_u8(&self.color),
             land_claim_points: self.land_claim_points,
+            cities: self.cities.len() as u32,
             deposits: self
                 .deposits
                 .iter()
@@ -225,6 +234,8 @@ pub struct PolityUi {
     pub color: [u8; 3],
     /// The desire to claim border tiles.
     pub land_claim_points: f32,
+    /// Number of cities.
+    pub cities: u32,
     /// Map of available deposits.
     pub deposits: Vec<(String, f32)>,
     /// Total produced resources.
@@ -251,11 +262,8 @@ pub struct PolityUi {
     pub const_acc: f32,
 }
 
-impl MakeUi for PolityUi {
-    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
-        SidebarColor::new(ui, "Color", &mut self.color).show(None);
-        SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
+impl PolityUi {
+    pub fn make_ui_economy(&mut self, ui: &mut Ui) {
         ui.heading("Economy");
         ui.end_row();
         SidebarSlider::new(ui, "Accumulated Treasure", &mut self.treasure_acc).show(None);
@@ -267,35 +275,48 @@ impl MakeUi for PolityUi {
         ui.end_row();
         SidebarSlider::new(ui, "Population", &mut self.population).show(None);
         SidebarStructSubsection::new(ui, "Sector Employment", &mut self.jobs).show(None);
-        ui.heading("Research");
+        ui.heading("Deposits");
         ui.end_row();
+        for (k, v) in &mut self.deposits {
+            SidebarSlider::new(ui, k.clone(), v).show(None);
+        }
+    }
+
+    pub fn make_ui_science(&mut self, ui: &mut Ui) {
         SidebarSlider::new(ui, "Accumulated Points", &mut self.tech_acc).show(None);
         for (x, label) in self.tech.iter_mut().zip(TECH_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
-        ui.heading("Culture - Tradition");
+    }
+
+    pub fn make_ui_culture(&mut self, ui: &mut Ui) {
+        ui.heading("Tradition");
         ui.end_row();
         SidebarSlider::new(ui, "Accumulated Points", &mut self.tradition_acc).show(None);
         for (x, label) in self.traditions.iter_mut().zip(TRAD_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
-        ui.heading("Culture - Heritage");
+        ui.heading("Heritage");
         ui.end_row();
         for (x, label) in self.heritage.iter_mut().zip(TRAD_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
-        ui.heading("Culture - Great Works");
+        ui.heading("Great Works");
         ui.end_row();
         for x in self.great_works.iter() {
             ui.label(TRAD_LABELS[x.tradition as usize]);
             ui.label(time_to_string(x.time));
             ui.end_row();
         }
-        ui.heading("Deposits");
-        ui.end_row();
-        for (k, v) in &mut self.deposits {
-            SidebarSlider::new(ui, k.clone(), v).show(None);
-        }
+    }
+}
+
+impl MakeUi for PolityUi {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
+        SidebarColor::new(ui, "Color", &mut self.color).show(None);
+        SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
+        SidebarSlider::new(ui, "# of Cities", &mut self.cities).show(None);
     }
 }
 
@@ -578,14 +599,33 @@ fn update_resources(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) 
 /// Update construction.
 fn update_construction(
     config: Res<AtlasSimConfig>,
-    mut query_p: Query<&mut Polity>,
+    mut query_p: Query<(Entity, &mut Polity)>,
     mut query_c: Query<&mut City>,
     sim: Res<SimControl>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     if sim.is_new_year() {
-        query_p
-            .iter_mut()
-            .for_each(|mut x| x.update_construction(&config, &mut query_c));
+        for (owner, mut polity) in query_p.iter_mut() {
+            // Update construction.
+            let city_request = polity.update_construction(&config, &mut query_c, &mut rng);
+            // Spawn new cities.
+            if let Some(position) = city_request {
+                let entity = commands.spawn_empty().id();
+                let city = City {
+                    need_visual_update: true,
+                    position,
+                    owner,
+                    level: 1.0,
+                    structures: Default::default(),
+                };
+                let position = config.index_to_world(position);
+                init_city(city, entity, position, &mut meshes, &mut materials, &mut commands);
+                polity.cities.push(entity);
+            }
+        }
     }
 }
 
@@ -726,13 +766,13 @@ impl Polity {
         if let Some(entity) = entity {
             self.border_tiles.extend(
                 &mut config
-                    .get_border_tiles(tile)
+                    .get_border_tiles_4(tile)
                     .iter()
                     .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&entity))),
             );
         } else {
             self.border_tiles
-                .extend(&mut config.get_border_tiles(tile).iter());
+                .extend(&mut config.get_border_tiles_4(tile).iter());
         };
         // Update resource chunk coverage.
         let j = config.index_to_chunk(tile, config.deposits.chunk_size as u32);
@@ -946,16 +986,23 @@ impl Polity {
         self.treasure_acc += treasure;
     }
 
-    pub fn update_construction(&mut self, config: &AtlasSimConfig, query: &mut Query<&mut City>) {
+    pub fn update_construction(
+        &mut self,
+        config: &AtlasSimConfig,
+        query: &mut Query<&mut City>,
+        rng: &mut GlobalEntropy<WyRand>,
+    ) -> Option<u32> {
         let mut city_count = 0.0;
         // Clear resource capacities.
         self.capacities = Default::default();
+        let mut occupied_tiles = HashSet::<u32>::default();
         // Find cities that aren't maxxed out.
         for city in self.cities.iter() {
             let city = query.get(*city).unwrap();
             if city.level < config.rules.city.max_level {
                 city_count += 1.0;
             }
+            occupied_tiles.extend(config.get_border_tiles_9(city.position));
         }
         let value = (self.const_acc / city_count) * config.rules.city.base_speed;
         // Expand city.
@@ -1027,6 +1074,30 @@ impl Polity {
         }
         // Clear accumulated construction.
         self.const_acc = 0.0;
+        // Request building new cities.
+        // TODO
+        if true {
+            // Choose position
+            let good_tiles: Vec<u32> = self
+                .tiles
+                .iter()
+                .filter_map(|i| {
+                    if occupied_tiles.contains(i) {
+                        None
+                    } else {
+                        Some(*i)
+                    }
+                })
+                .collect();
+            if good_tiles.is_empty() {
+                None
+            } else {
+                let i = rng.gen_range(0..good_tiles.len());
+                Some(good_tiles[i])
+            }
+        } else {
+            None
+        }
     }
 
     pub fn update_culture(
@@ -1221,4 +1292,32 @@ impl Polity {
     fn get_tradition_decay(config: &AtlasSimConfig, value: f32) -> f32 {
         config.rules.culture.base_decay * (1.0 + config.rules.culture.level_decay * value.floor())
     }
+}
+
+pub fn init_city(
+    city: City,
+    entity: Entity,
+    position: (f32, f32),
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+) {
+    commands.get_entity(entity).unwrap().insert((
+        city,
+        PbrBundle {
+            mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE / 50.0)),
+            material: materials.add(StandardMaterial::default()),
+            transform: Transform::from_xyz(position.0, position.1, 0.02).with_rotation(Quat::from_euler(
+                EulerRot::XYZ,
+                FRAC_PI_2,
+                0.0,
+                0.0,
+            )),
+            visibility: Visibility::Visible,
+            ..Default::default()
+        },
+        PickableBundle::default(),
+        On::<Pointer<Click>>::send_event::<UpdateSelectionEvent>(),
+        MapOverlay::new(MapDataOverlay::Cities),
+    ));
 }

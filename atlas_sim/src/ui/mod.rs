@@ -25,8 +25,8 @@ use atlas_lib::{
 };
 use bevy_mod_picking::{events::Pointer, prelude::*};
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::{MainPanelCiv, MainPanelClimate, MainPanelGeneral, MainPanelRules, MainPanelScenario};
-use panel_sim::{InfoPanelCity, InfoPanelMisc, InfoPanelPolity};
+use panel::*;
+use panel_sim::*;
 
 use crate::sim::{
     polity::{City, CityUi, Polity, PolityUi},
@@ -233,10 +233,6 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                         self.current_panel = Box::<MainPanelClimate>::default();
                         true
                     });
-                    changed |= button_action(ui, "Civilizations", || {
-                        self.current_panel = Box::<MainPanelCiv>::default();
-                        true
-                    });
                 });
             } else {
                 egui::menu::bar(ui, |ui| {
@@ -248,8 +244,16 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                         self.current_panel = Box::<InfoPanelPolity>::default();
                         true
                     });
-                    changed |= button_action(ui, "City", || {
-                        self.current_panel = Box::<InfoPanelCity>::default();
+                    changed |= button_action(ui, "Economy", || {
+                        self.current_panel = Box::<InfoPanelEconomy>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "Science", || {
+                        self.current_panel = Box::<InfoPanelScience>::default();
+                        true
+                    });
+                    changed |= button_action(ui, "Culture", || {
+                        self.current_panel = Box::<InfoPanelCulture>::default();
                         true
                     });
                 });
