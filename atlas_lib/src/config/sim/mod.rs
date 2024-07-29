@@ -62,22 +62,12 @@ pub struct ScenarioConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=255))]
     pub num_starts: u8,
-    #[name("Number of Starting Civilizations")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1..=255))]
-    pub num_civs: u8,
     #[name("Random Start Point Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub random_point_algorithm: StartPointAlgorithm,
-    #[name("Random Start Civilization Algorithm")]
-    #[control(SidebarEnumDropdown)]
-    pub random_civ_algorithm: StartCivAlgorithm,
     #[name("Starting Points")]
     #[control(SidebarStructList)]
     pub start_points: Vec<StartingPoint>,
-    #[name("Starting Civilizations")]
-    #[control(SidebarStructList)]
-    pub start_civs: Vec<CivConfig>,
 }
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
@@ -88,12 +78,6 @@ pub struct StartingPoint {
     #[name("Position")]
     #[control(SidebarSliderN)]
     pub position: [u32; 2],
-    #[name("Locked Cilization")]
-    #[control(SidebarCheckbox)]
-    pub civ_locked: bool,
-    #[name("Civilization Index")]
-    #[control(SidebarSlider)]
-    pub civ: u8,
     #[name("Locked Polity Color")]
     #[control(SidebarCheckbox)]
     pub color_locked: bool,
@@ -113,26 +97,27 @@ pub enum StartPointAlgorithm {
     WeightedSquaredArea,
 }
 
-#[derive(Default, Debug, Deserialize, Resource, Serialize, UiEditableEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum StartCivAlgorithm {
-    Repeated,
-    #[default]
-    Choice,
+#[derive(Debug, Deserialize, Resource, Serialize)]
+pub struct PolityConfig {
+    pub color: [u8; 3],
+    pub population: f32,
+    pub policies: [f32; 7],
 }
 
-#[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct CivConfig {}
-
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct PolityConfig {
-    #[name("Color")]
-    #[control(SidebarColor)]
-    pub color: [u8; 3],
-    #[name("Population")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000000.0))]
-    pub population: f32,
+impl MakeUi for PolityConfig {
+    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarColor::new(ui, "Color", &mut self.color).show(None);
+        SidebarSlider::new(ui, "Population", &mut self.population).clamp_range(0.0..=1000000.0).show(None);
+        ui.heading("Policies");
+        ui.end_row();
+        SidebarSlider::new(ui, "Expansionist", &mut self.policies[0]).show(None);
+        SidebarSlider::new(ui, "Competitive", &mut self.policies[1]).show(None);
+        SidebarSlider::new(ui, "Liberal", &mut self.policies[2]).show(None);
+        SidebarSlider::new(ui, "Mercantile", &mut self.policies[3]).show(None);
+        SidebarSlider::new(ui, "Militarist", &mut self.policies[4]).show(None);
+        SidebarSlider::new(ui, "Progressive", &mut self.policies[5]).show(None);
+        SidebarSlider::new(ui, "Spending", &mut self.policies[6]).show(None);
+    }
 }
 
 /// Config for general world settings and preview.
@@ -169,38 +154,37 @@ pub struct MiscConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10000.0))]
     pub land_claim_cost: f32,
-    #[name("Default Manpower Split")]
-    #[control(SidebarSliderN)]
-    pub default_manpower_split: [f32; 3],
-    #[name("Default Industry Split")]
-    #[control(SidebarSliderN)]
-    pub default_industry_split: [f32; 3],
     #[name("Default Wealth Split")]
     #[control(SidebarSliderN)]
-    pub default_wealth_split: [f32; 4],
+    pub default_wealth_split: [f32; 3],
     #[name("Default Technology Split")]
     #[control(SidebarSliderN)]
-    pub default_tech_split: [f32; 14],
+    pub default_tech_split: [f32; 13],
     #[name("Default Tradition Split")]
     #[control(SidebarSliderN)]
     pub default_tradition_split: [f32; 8],
-    #[name("Default Structures Split")]
-    #[control(SidebarSliderN)]
-    pub default_structure_split: [f32; 7],
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize)]
 pub struct EconomyConfig {
     pub pop_growth: f32,
+    pub pop_hospital_penalty: f32,
+    pub pop_hospital_factor: f32,
     pub base_supply_need: f32,
     pub base_industry_need: f32,
     pub base_wealth_need: f32,
-    pub resources: [ResConfig; 10],
+    pub resources: [ResConfig; 8],
 }
 
 impl MakeUi for EconomyConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
         SidebarSlider::new(ui, "Monthly Base Pop Growth", &mut self.pop_growth)
+            .clamp_range(0.0..=1.0)
+            .show(None);
+        SidebarSlider::new(ui, "Pop Growth Hospital Penalty", &mut self.pop_hospital_penalty)
+            .clamp_range(0.0..=1.0)
+            .show(None);
+        SidebarSlider::new(ui, "Hospital Coverage Factor", &mut self.pop_hospital_factor)
             .clamp_range(0.0..=1.0)
             .show(None);
         SidebarSlider::new(ui, "Supply Need per Pop", &mut self.base_supply_need)
@@ -220,30 +204,24 @@ impl MakeUi for EconomyConfig {
         ui.label("Industry Consumption");
         ui.end_row();
         self.resources[1].make_ui(ui);
-        ui.label("Construction");
+        ui.label("Civilian Industry");
         ui.end_row();
         self.resources[2].make_ui(ui);
-        ui.label("Trade Goods");
+        ui.label("Military Industry");
         ui.end_row();
         self.resources[3].make_ui(ui);
-        ui.label("Military Equipment");
-        ui.end_row();
-        self.resources[4].make_ui(ui);
         ui.label("Wealth Consumption");
         ui.end_row();
-        self.resources[5].make_ui(ui);
+        self.resources[4].make_ui(ui);
         ui.label("Research");
         ui.end_row();
-        self.resources[6].make_ui(ui);
+        self.resources[5].make_ui(ui);
         ui.label("Culture");
         ui.end_row();
-        self.resources[7].make_ui(ui);
-        ui.label("Administration");
-        ui.end_row();
-        self.resources[8].make_ui(ui);
+        self.resources[6].make_ui(ui);
         ui.label("Treasure");
         ui.end_row();
-        self.resources[9].make_ui(ui);
+        self.resources[7].make_ui(ui);
     }
 }
 
@@ -275,7 +253,7 @@ pub struct TechnologiesConfig {
     pub max_level: f32,
     pub level_bonus: f32,
     pub level_decay: f32,
-    pub techs: [TechConfig; 14],
+    pub techs: [TechConfig; 13],
 }
 
 impl MakeUi for TechnologiesConfig {
@@ -307,36 +285,33 @@ impl MakeUi for TechnologiesConfig {
         ui.label("Geology");
         ui.end_row();
         self.techs[3].make_ui(ui);
-        ui.label("Medicine");
-        ui.end_row();
-        self.techs[4].make_ui(ui);
-        ui.label("Architecture");
-        ui.end_row();
-        self.techs[5].make_ui(ui);
         ui.label("Engineering");
         ui.end_row();
-        self.techs[6].make_ui(ui);
+        self.techs[4].make_ui(ui);
         ui.label("Metallurgy");
         ui.end_row();
-        self.techs[7].make_ui(ui);
+        self.techs[5].make_ui(ui);
         ui.label("Philosophy");
         ui.end_row();
-        self.techs[8].make_ui(ui);
+        self.techs[6].make_ui(ui);
         ui.label("Mathematics");
         ui.end_row();
-        self.techs[9].make_ui(ui);
+        self.techs[7].make_ui(ui);
+        ui.label("Medicine");
+        ui.end_row();
+        self.techs[8].make_ui(ui);
         ui.label("Finances");
         ui.end_row();
-        self.techs[10].make_ui(ui);
+        self.techs[9].make_ui(ui);
         ui.label("Law");
         ui.end_row();
-        self.techs[11].make_ui(ui);
+        self.techs[10].make_ui(ui);
         ui.label("Linguistics");
         ui.end_row();
-        self.techs[12].make_ui(ui);
+        self.techs[11].make_ui(ui);
         ui.label("Physics");
         ui.end_row();
-        self.techs[13].make_ui(ui);
+        self.techs[12].make_ui(ui);
     }
 }
 

@@ -14,7 +14,7 @@ use atlas_lib::{
             petgraph::matrix_graph::Zero,
         },
     },
-    bevy_egui::{self, egui::Ui},
+    bevy_egui::{self},
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
     config::{sim::AtlasSimConfig, AtlasConfig},
@@ -30,11 +30,11 @@ use bevy_mod_picking::{prelude::*, PickableBundle};
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
 use crate::{
-    sim::{check_tick, SimMapData},
+    sim::{check_tick, SimControl, SimMapData},
     ui::{MapOverlay, UpdateSelectionEvent},
 };
 
-use super::{time_to_string, SimControl};
+use super::ui::{CityUi, PolityUi};
 
 /// Polity simulation.
 pub struct PolityPlugin;
@@ -133,6 +133,8 @@ pub struct Polity {
     pub traditions: [f32; LEN_TRAD],
     /// Tradition points accumulated this year.
     pub tradition_acc: f32,
+    /// Govt policies.
+    pub policies: [f32; LEN_POL],
     /// Total polity population.
     pub population: f32,
     /// Population jobs.
@@ -152,9 +154,9 @@ pub struct Polity {
     /// Population split.
     pub manpower_split: [f32; 3],
     /// Production split.
-    pub indu_split: [f32; 3],
+    pub indu_split: [f32; 2],
     /// Wealth split.
-    pub wealth_split: [f32; 4],
+    pub wealth_split: [f32; 3],
     /// Technology split.
     pub tech_split: [f32; LEN_TECH],
     /// Tradition split.
@@ -181,6 +183,7 @@ impl Default for Polity {
             tech_acc: 0.0,
             traditions: Default::default(),
             tradition_acc: 0.0,
+            policies: Default::default(),
             population: 0.0,
             heritage: Default::default(),
             great_works: Default::default(),
@@ -216,6 +219,7 @@ impl Polity {
             tech_acc: self.tech_acc,
             traditions: self.traditions.clone(),
             tradition_acc: self.tradition_acc,
+            policies: self.policies.clone(),
             population: self.population,
             heritage: self.heritage.clone(),
             great_works: self.great_works.clone(),
@@ -223,100 +227,6 @@ impl Polity {
             treasure_acc: self.treasure_acc,
             const_acc: self.const_acc,
         }
-    }
-}
-
-#[derive(Component)]
-pub struct PolityUi {
-    /// Ownership status.
-    pub ownership: Ownership,
-    /// Polity map color.
-    pub color: [u8; 3],
-    /// The desire to claim border tiles.
-    pub land_claim_points: f32,
-    /// Number of cities.
-    pub cities: u32,
-    /// Map of available deposits.
-    pub deposits: Vec<(String, f32)>,
-    /// Total produced resources.
-    pub resources: [f32; LEN_RES],
-    /// Researched technology.
-    pub tech: [f32; LEN_TECH],
-    /// Tech points accumulated this year.
-    pub tech_acc: f32,
-    /// Upkept traditions.
-    pub traditions: [f32; LEN_TRAD],
-    /// Tradition points accumulated this year.
-    pub tradition_acc: f32,
-    /// Accumulated heritage.
-    pub heritage: [f32; LEN_TRAD],
-    /// Created great works.
-    pub great_works: Vec<GreatWork>,
-    /// Total polity population.
-    pub population: f32,
-    /// List of pop job groups.
-    pub jobs: JobStruct,
-    /// Accumulated polity currency.
-    pub treasure_acc: f32,
-    /// Construction points accumulated this year.
-    pub const_acc: f32,
-}
-
-impl PolityUi {
-    pub fn make_ui_economy(&mut self, ui: &mut Ui) {
-        ui.heading("Economy");
-        ui.end_row();
-        SidebarSlider::new(ui, "Accumulated Treasure", &mut self.treasure_acc).show(None);
-        SidebarSlider::new(ui, "Accumulated Construction", &mut self.const_acc).show(None);
-        for (x, label) in self.resources.iter_mut().zip(RES_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
-        }
-        ui.heading("Population & Jobs");
-        ui.end_row();
-        SidebarSlider::new(ui, "Population", &mut self.population).show(None);
-        SidebarStructSubsection::new(ui, "Sector Employment", &mut self.jobs).show(None);
-        ui.heading("Deposits");
-        ui.end_row();
-        for (k, v) in &mut self.deposits {
-            SidebarSlider::new(ui, k.clone(), v).show(None);
-        }
-    }
-
-    pub fn make_ui_science(&mut self, ui: &mut Ui) {
-        SidebarSlider::new(ui, "Accumulated Points", &mut self.tech_acc).show(None);
-        for (x, label) in self.tech.iter_mut().zip(TECH_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
-        }
-    }
-
-    pub fn make_ui_culture(&mut self, ui: &mut Ui) {
-        ui.heading("Tradition");
-        ui.end_row();
-        SidebarSlider::new(ui, "Accumulated Points", &mut self.tradition_acc).show(None);
-        for (x, label) in self.traditions.iter_mut().zip(TRAD_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
-        }
-        ui.heading("Heritage");
-        ui.end_row();
-        for (x, label) in self.heritage.iter_mut().zip(TRAD_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
-        }
-        ui.heading("Great Works");
-        ui.end_row();
-        for x in self.great_works.iter() {
-            ui.label(TRAD_LABELS[x.tradition as usize]);
-            ui.label(time_to_string(x.time));
-            ui.end_row();
-        }
-    }
-}
-
-impl MakeUi for PolityUi {
-    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
-        SidebarColor::new(ui, "Color", &mut self.color).show(None);
-        SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim_points).show(None);
-        SidebarSlider::new(ui, "# of Cities", &mut self.cities).show(None);
     }
 }
 
@@ -368,61 +278,36 @@ impl City {
     }
 }
 
-#[derive(Component)]
-pub struct CityUi {
-    /// Urbanization level.
-    pub level: f32,
-    /// Level of special structures.
-    pub structures: [f32; LEN_STR],
-}
-
-impl MakeUi for CityUi {
-    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarSlider::new(ui, "City Level", &mut self.level).show(None);
-        ui.heading("Structures");
-        ui.end_row();
-        for (x, label) in self.structures.iter_mut().zip(STR_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
-        }
-    }
-}
-
-pub const LEN_RES: usize = 10;
+pub const LEN_RES: usize = 8;
 /// Supply
 const RES_SUPPLY: usize = 0;
 /// Industry Consumption
 const RES_INDU_POPS: usize = 1;
-/// Construction
-const RES_CONSTRUCTION: usize = 2;
-/// Trade Goods
-const RES_TRADE: usize = 3;
-/// Military Equipment
-const RES_EQUIPMENT: usize = 4;
+/// Civilian Industry
+const RES_CIVILIAN: usize = 2;
+/// Military Industry
+const RES_MILITARY: usize = 3;
 /// Wealth Consumption
-const RES_WEALTH_POPS: usize = 5;
+const RES_WEALTH_POPS: usize = 4;
 /// Research
-const RES_RESEARCH: usize = 6;
+const RES_RESEARCH: usize = 5;
 /// Culture
-const RES_CULTURE: usize = 7;
-/// Administration
-const RES_ADMIN: usize = 8;
+const RES_CULTURE: usize = 6;
 /// Treasure
-const RES_TREASURE: usize = 9;
+const RES_TREASURE: usize = 7;
 
-const RES_LABELS: [&str; LEN_RES] = [
+pub const RES_LABELS: [&str; LEN_RES] = [
     "Supply",
     "Industry Consumption",
-    "Construction",
-    "Trade Goods",
-    "Military Equipment",
+    "Civilian Industry",
+    "Military Industry",
     "Wealth Consumption",
     "Research",
     "Culture",
-    "Administration",
     "Treasure",
 ];
 
-pub const LEN_TECH: usize = 14;
+pub const LEN_TECH: usize = 13;
 /// Arable & grazing land bonus
 const TECH_AGRICULTURE: usize = 0;
 /// Fishing bonus, sea movement bonus
@@ -431,46 +316,68 @@ const TECH_ASTRONOMY: usize = 1;
 const TECH_FORESTRY: usize = 2;
 /// Rock and Ore deposits bonus
 const TECH_GEOLOGY: usize = 3;
-/// Pop growth bonus
-const TECH_MEDICINE: usize = 4;
-/// Construction & maintenance bonus
-const TECH_ARCHITECTURE: usize = 5;
-/// Trade & Consumer Goods bonus
-const TECH_ENGINEERING: usize = 6;
-/// Military Equipment bonus
-const TECH_METALLURGY: usize = 7;
+/// Civil engineering bonus
+const TECH_ENGINEERING: usize = 4;
+/// Military engineering bonus
+const TECH_METALLURGY: usize = 5;
 /// Culture bonus
-const TECH_PHILOSOPHY: usize = 8;
+const TECH_PHILOSOPHY: usize = 6;
 /// Science bonus
-const TECH_MATHEMATICS: usize = 9;
-/// Service & treasure bonus
-const TECH_FINANCES: usize = 10;
+const TECH_MATHEMATICS: usize = 7;
+/// Pop growth bonus
+const TECH_MEDICINE: usize = 8;
+/// Treasure bonus
+const TECH_FINANCES: usize = 9;
 /// Governance bonus
-const TECH_LAW: usize = 11;
+const TECH_LAW: usize = 10;
 /// Diplomacy bonus
-const TECH_LINGUISTICS: usize = 12;
+const TECH_LINGUISTICS: usize = 11;
 /// Military bonus
-const TECH_PHYSICS: usize = 13;
+const TECH_PHYSICS: usize = 12;
 
-const TECH_LABELS: [&str; LEN_TECH] = [
+pub const TECH_LABELS: [&str; LEN_TECH] = [
     "Agriculture",
     "Astronomy",
     "Forestry",
     "Geology",
-    "Medicine",
-    "Architecture",
     "Engineering",
     "Metallurgy",
     "Philosophy",
     "Mathematics",
+    "Medicine",
     "Finances",
     "Law",
     "Linguistics",
     "Physics",
 ];
 
-pub const LEN_TRAD: usize = 8;
+pub const LEN_POL: usize = 7;
+/// Growth policy: Isolationist (improve land) vs Expansionist (claim land)
+const POL_EXPANSIONIST: usize = 0;
+/// Diplomacy policy: Cooperative (deals) vs Competitive (threats)
+const POL_COMPETITIVE: usize = 1;
+/// Consumption policy: Strict (low consumption) vs Liberal (high consumption)
+const POL_LIBERAL: usize = 2;
+/// Work Split policy: Industrial (industry) vs Mercantile (wealth)
+const POL_MERCANTILE: usize = 3;
+/// Industry policy: Pacifist (civilian ind) vs Militarist (military ind)
+const POL_MILITARIST: usize = 4;
+/// Wealth policy: Traditional (culture) vs Progressive (science)
+const POL_PROGRESSIVE: usize = 5;
+/// Treasure policy: Spending (low treasure) vs Greedy (high treasure)
+const POL_GREEDY: usize = 6;
 
+pub const POL_LABELS: [&str; LEN_POL] = [
+    "Expansionist",
+    "Competitive",
+    "Liberal",
+    "Mercantile",
+    "Militarist",
+    "Progressive",
+    "Spending",
+];
+
+pub const LEN_TRAD: usize = 8;
 /// Supply bonus / Great Economist
 const TRAD_AGRARIAN: usize = 0;
 /// Production bonus / Great Economist
@@ -488,7 +395,7 @@ const TRAD_COOPERATIVE: usize = 6;
 /// Military bonus / Great General
 const TRAD_MILITANT: usize = 7;
 
-const TRAD_LABELS: [&str; LEN_TRAD] = [
+pub const TRAD_LABELS: [&str; LEN_TRAD] = [
     "Agrarian",
     "Industrious",
     "Mercantile",
@@ -499,7 +406,7 @@ const TRAD_LABELS: [&str; LEN_TRAD] = [
     "Militant",
 ];
 
-const LEN_STR: usize = 7;
+pub const LEN_STR: usize = 7;
 /// Hospital / Pop growth bonus?
 const STR_HOSPITAL: usize = 0;
 /// Manufacture / Trade Goods cap
@@ -515,7 +422,7 @@ const STR_COURTHOUSE: usize = 5;
 /// Fortress / Military cap
 const STR_FORTRESS: usize = 6;
 
-const STR_LABELS: [&str; LEN_STR] = [
+pub const STR_LABELS: [&str; LEN_STR] = [
     "Hospital",
     "Manufacture",
     "Forge",
@@ -542,6 +449,7 @@ fn update_mapgrab(
         if polity.land_claim_points <= config.rules.misc.land_claim_cost {
             continue;
         }
+        polity.land_claim_points -= config.rules.misc.land_claim_cost;
         // Check border tiles for free land.
         let weights: Vec<f32> = polity
             .border_tiles
@@ -799,8 +707,7 @@ impl Polity {
     }
 
     pub fn update_pops(&mut self, config: &AtlasSimConfig) {
-        // How much % of the population is supplied and can survive.
-        // Any surplus should boost growth beyond the base rate.
+        // Calculate supply consumption and growth bonus.
         let consumption = self.get_supply_consumption(&config);
         let coverage = if consumption.is_zero() {
             1.0
@@ -808,13 +715,20 @@ impl Polity {
             (self.resources[RES_SUPPLY] / consumption).min(2.0)
         };
         let base_coverage = coverage.min(1.0);
+        let hospital_coverage = if self.capacities[STR_HOSPITAL].is_zero() {
+            0.0
+        } else {
+            (self.capacities[STR_HOSPITAL] * config.rules.economy.pop_hospital_factor) / self.population
+        };
+        let hospital_coverage = 1.0 - (1.0 - hospital_coverage) * config.rules.economy.pop_hospital_penalty;
         // Grow the population.
         self.population = (self.population
             * (1.0 * base_coverage
                 + config.rules.economy.pop_growth
                     * coverage
-                    * self.get_tech_multiplier(config, TECH_MEDICINE)))
-        .max(1.0);
+                    * self.get_tech_multiplier(config, TECH_MEDICINE))
+            * hospital_coverage)
+            .max(1.0);
     }
 
     pub fn update_jobs(&mut self, config: &AtlasSimConfig) {
@@ -822,6 +736,10 @@ impl Polity {
                                         // Calculate potential supply.
         let mut supply_max = 0.0;
         let mut supply_amount = 0.0;
+        let mut indu_max = 0.0;
+        let mut indu_amount = 0.0;
+        let mut wealth_max = 0.0;
+        let mut wealth_amount = 0.0;
         for (id, amount) in self.deposits.iter() {
             let deposit = &config.deposits.types[*id as usize];
             let bonus = match *id {
@@ -833,6 +751,10 @@ impl Polity {
             };
             supply_max += amount * deposit.supply * bonus;
             supply_amount += amount * deposit.supply;
+            indu_max += amount * deposit.industry * bonus;
+            indu_amount += amount * deposit.industry;
+            wealth_max += amount * deposit.wealth * bonus;
+            wealth_amount += amount * deposit.wealth;
         }
         // Early exit if no supplies to be made.
         if supply_max.is_zero() {
@@ -861,12 +783,50 @@ impl Polity {
             };
             return;
         }
-        // Assign spare manpower to other sectors.
+        let indu_bonus = indu_max / indu_amount;
+        // Consumption target should always be met.
+        let consumption = self.get_industry_consumption(&config);
+        let minimum_indu_manpower = consumption
+            / config.rules.economy.resources[RES_INDU_POPS].efficiency
+            / indu_bonus
+            / self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS).max(1.0);
+        let minimum_indu_manpower = minimum_indu_manpower.min(spare_manpower);
+        let spare_manpower = spare_manpower - minimum_indu_manpower;
+        // Early exit if we used up all manpower.
+        if spare_manpower <= 0.0 {
+            self.jobs = JobStruct {
+                non_working: self.population - manpower,
+                supply: minimum_supply_manpower,
+                industry: minimum_indu_manpower,
+                ..Default::default()
+            };
+            return;
+        }
+        let wealth_bonus = wealth_max / wealth_amount;
+        // Consumption target should always be met.
+        let consumption = self.get_wealth_consumption(&config);
+        let minimum_wealth_manpower = consumption
+            / config.rules.economy.resources[RES_WEALTH_POPS].efficiency
+            / wealth_bonus
+            / self.get_tradition_multiplier(config, TRAD_MERCANTILE).max(1.0);
+        let minimum_wealth_manpower = minimum_wealth_manpower.min(spare_manpower);
+        let spare_manpower = spare_manpower - minimum_wealth_manpower;
+        // Early exit if we used up all manpower.
+        if spare_manpower <= 0.0 {
+            self.jobs = JobStruct {
+                non_working: self.population - manpower,
+                supply: minimum_supply_manpower,
+                industry: minimum_indu_manpower,
+                wealth: minimum_wealth_manpower,
+            };
+            return;
+        }
+        // Assign spare manpower.
         self.jobs = JobStruct {
             non_working: self.population - manpower,
-            supply: minimum_supply_manpower + spare_manpower * self.manpower_split[0],
-            industry: spare_manpower * self.manpower_split[1],
-            wealth: spare_manpower * self.manpower_split[2],
+            supply: minimum_supply_manpower * self.manpower_split[0],
+            industry: minimum_indu_manpower + spare_manpower * self.manpower_split[1],
+            wealth: minimum_wealth_manpower + spare_manpower * self.manpower_split[2],
         };
     }
 
@@ -919,23 +879,17 @@ impl Polity {
         let industry =
             self.jobs.industry * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * industry_bonus;
         let industry = (industry - indu_pop).max(0.0);
-        let mut construction = 0.0;
-        let mut trade_goods = 0.0;
-        let mut mil_equipment = 0.0;
+        let mut civ_indu = 0.0;
+        let mut mil_indu = 0.0;
         if industry > 0.0 {
-            construction = self.get_resource_yield(
-                (industry * self.indu_split[0], industry_max, -1.0),
-                (RES_CONSTRUCTION, TECH_ARCHITECTURE, 1001),
+            civ_indu = self.get_resource_yield(
+                (industry * self.indu_split[0], industry_max, self.capacities[1]),
+                (RES_CIVILIAN, TECH_ENGINEERING, 1001),
                 config,
             );
-            trade_goods = self.get_resource_yield(
-                (industry * self.indu_split[1], industry_max, self.capacities[0]),
-                (RES_TRADE, TECH_ENGINEERING, 1001),
-                config,
-            );
-            mil_equipment = self.get_resource_yield(
-                (industry * self.indu_split[2], industry_max, self.capacities[1]),
-                (RES_EQUIPMENT, TECH_METALLURGY, 1001),
+            mil_indu = self.get_resource_yield(
+                (industry * self.indu_split[1], industry_max, self.capacities[2]),
+                (RES_MILITARY, TECH_METALLURGY, 1001),
                 config,
             );
         };
@@ -945,44 +899,29 @@ impl Polity {
         let wealth = (wealth - wealth_pop).max(0.0);
         let mut research = 0.0;
         let mut culture = 0.0;
-        let mut administration = 0.0;
         let mut treasure = 0.0;
         if wealth > 0.0 {
             research = self.get_resource_yield(
-                (wealth * self.wealth_split[0], wealth_max, self.capacities[2]),
+                (wealth * self.wealth_split[0], wealth_max, self.capacities[3]),
                 (RES_RESEARCH, TECH_MATHEMATICS, TRAD_PROGRESSIVE),
                 config,
             );
             culture = self.get_resource_yield(
-                (wealth * self.wealth_split[1], wealth_max, self.capacities[3]),
+                (wealth * self.wealth_split[1], wealth_max, self.capacities[4]),
                 (RES_CULTURE, TECH_PHILOSOPHY, TRAD_TRADITIONAL),
                 config,
             );
-            administration = self.get_resource_yield(
-                (wealth * self.wealth_split[2], wealth_max, self.capacities[4]),
-                (RES_ADMIN, TECH_LAW, TRAD_LEGALIST),
-                config,
-            );
             treasure = self.get_resource_yield(
-                (wealth * self.wealth_split[3], wealth_max, -1.0),
+                (wealth * self.wealth_split[2], wealth_max, self.capacities[5]),
                 (RES_TREASURE, TECH_FINANCES, 10001),
                 config,
             );
         }
         // Set new resources.
         self.resources = [
-            supply,
-            indu_pop,
-            construction,
-            trade_goods,
-            mil_equipment,
-            wealth_pop,
-            research,
-            culture,
-            administration,
-            treasure,
+            supply, indu_pop, civ_indu, mil_indu, wealth_pop, research, culture, treasure,
         ];
-        self.const_acc += construction;
+        self.const_acc += civ_indu;
         self.tech_acc += research;
         self.tradition_acc += culture;
         self.treasure_acc += treasure;
@@ -1017,36 +956,16 @@ impl Polity {
             if diff >= 0.0 {
                 let increment = value_str / multiplier;
                 // Build special structures.
-                city.structures[STR_HOSPITAL] += increment
-                    * self.struct_split[STR_HOSPITAL]
-                    * config.rules.city.structures[STR_HOSPITAL].cost;
-                city.structures[STR_MANUFACTURE] += increment
-                    * self.struct_split[STR_MANUFACTURE]
-                    * config.rules.city.structures[STR_MANUFACTURE].cost;
-                city.structures[STR_FORGE] +=
-                    increment * self.struct_split[STR_FORGE] * config.rules.city.structures[STR_FORGE].cost;
-                city.structures[STR_UNIVERSITY] += increment
-                    * self.struct_split[STR_UNIVERSITY]
-                    * config.rules.city.structures[STR_UNIVERSITY].cost;
-                city.structures[STR_AMPHITHEATER] += increment
-                    * self.struct_split[STR_AMPHITHEATER]
-                    * config.rules.city.structures[STR_AMPHITHEATER].cost;
-                city.structures[STR_COURTHOUSE] += increment
-                    * self.struct_split[STR_COURTHOUSE]
-                    * config.rules.city.structures[STR_COURTHOUSE].cost;
-                city.structures[STR_FORTRESS] += increment
-                    * self.struct_split[STR_FORTRESS]
-                    * config.rules.city.structures[STR_FORTRESS].cost;
+                for i in 0..city.structures.len() {
+                    city.structures[i] +=
+                        increment * self.struct_split[i] * config.rules.city.structures[i].cost;
+                }
             } else {
                 // City level dropped: deal structural damage.
                 value_str = value;
-                city.structures[STR_HOSPITAL] = city.level * self.struct_split[STR_HOSPITAL];
-                city.structures[STR_MANUFACTURE] = city.level * self.struct_split[STR_MANUFACTURE];
-                city.structures[STR_FORGE] = city.level * self.struct_split[STR_FORGE];
-                city.structures[STR_UNIVERSITY] = city.level * self.struct_split[STR_UNIVERSITY];
-                city.structures[STR_AMPHITHEATER] = city.level * self.struct_split[STR_AMPHITHEATER];
-                city.structures[STR_COURTHOUSE] = city.level * self.struct_split[STR_COURTHOUSE];
-                city.structures[STR_FORTRESS] = city.level * self.struct_split[STR_FORTRESS];
+                for i in 0..city.structures.len() {
+                    city.structures[i] = city.level * self.struct_split[i];
+                }
             }
             // Increase city level.
             if city.level < config.rules.city.max_level {
@@ -1055,24 +974,11 @@ impl Polity {
                     (city.level + value * config.rules.city.upgrade_speed).min(config.rules.city.max_level);
             }
             // Recalculate resource capacities.
-            self.capacities[0] += city.structures[STR_HOSPITAL]
-                * config.rules.city.structures[0].strength
-                * config.rules.city.base_capacity;
-            self.capacities[1] += city.structures[STR_MANUFACTURE]
-                * config.rules.city.structures[1].strength
-                * config.rules.city.base_capacity;
-            self.capacities[2] += city.structures[STR_FORGE]
-                * config.rules.city.structures[2].strength
-                * config.rules.city.base_capacity;
-            self.capacities[3] += city.structures[STR_UNIVERSITY]
-                * config.rules.city.structures[3].strength
-                * config.rules.city.base_capacity;
-            self.capacities[4] += city.structures[STR_AMPHITHEATER]
-                * config.rules.city.structures[4].strength
-                * config.rules.city.base_capacity;
-            self.capacities[5] += city.structures[STR_COURTHOUSE]
-                * config.rules.city.structures[5].strength
-                * config.rules.city.base_capacity;
+            for i in 0..self.capacities.len() {
+                self.capacities[i] += city.structures[i]
+                    * config.rules.city.structures[i].strength
+                    * config.rules.city.base_capacity;
+            }
         }
         // Clear accumulated construction.
         self.const_acc = 0.0;
@@ -1158,49 +1064,39 @@ impl Polity {
     pub fn update_splits(&mut self, config: &AtlasSimConfig) {
         // Update manpower split.
         self.manpower_split = [
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_manpower_split[0],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.misc.default_manpower_split[1],
-            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.misc.default_manpower_split[2],
+            0.0,
+            1.0 - self.policies[POL_MERCANTILE],
+            self.policies[POL_MERCANTILE],
         ];
         let sum: f32 = self.manpower_split.iter().sum();
         self.manpower_split = self.manpower_split.map(|x| x / sum);
         // Update industry split.
-        self.indu_split = [
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.misc.default_industry_split[0],
-            (1.0 + self.traditions[TRAD_COOPERATIVE]) * config.rules.misc.default_industry_split[1],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_industry_split[2],
-        ];
+        self.indu_split = [1.0 - self.policies[POL_MILITARIST], self.policies[POL_MILITARIST]];
         let sum: f32 = self.indu_split.iter().sum();
         self.indu_split = self.indu_split.map(|x| x / sum);
         // Update wealth split.
         self.wealth_split = [
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.misc.default_wealth_split[0],
-            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.misc.default_wealth_split[1],
-            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.misc.default_wealth_split[2],
-            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.misc.default_wealth_split[3],
+            self.policies[POL_PROGRESSIVE],
+            1.0 - self.policies[POL_PROGRESSIVE],
+            self.policies[POL_GREEDY],
         ];
         let sum: f32 = self.wealth_split.iter().sum();
         self.wealth_split = self.wealth_split.map(|x| x / sum);
         // Update technology split.
         self.tech_split = [
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_tech_split[TECH_AGRICULTURE],
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_tech_split[TECH_ASTRONOMY],
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_tech_split[TECH_FORESTRY],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.misc.default_tech_split[TECH_GEOLOGY],
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.misc.default_tech_split[TECH_MEDICINE],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS])
-                * config.rules.misc.default_tech_split[TECH_ARCHITECTURE],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS])
-                * config.rules.misc.default_tech_split[TECH_ENGINEERING],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_tech_split[TECH_METALLURGY],
-            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.misc.default_tech_split[TECH_PHILOSOPHY],
-            (1.0 + self.traditions[TRAD_PROGRESSIVE])
-                * config.rules.misc.default_tech_split[TECH_MATHEMATICS],
-            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.misc.default_tech_split[TECH_FINANCES],
-            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.misc.default_tech_split[TECH_LAW],
-            (1.0 + self.traditions[TRAD_COOPERATIVE])
-                * config.rules.misc.default_tech_split[TECH_LINGUISTICS],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_tech_split[TECH_PHYSICS],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            0.5, // TODO
+            1.0 - self.policies[POL_MILITARIST],
+            self.policies[POL_MILITARIST],
+            1.0 - self.policies[POL_PROGRESSIVE],
+            self.policies[POL_PROGRESSIVE],
+            self.policies[POL_GREEDY],
+            1.0 - self.policies[POL_GREEDY],
+            1.0 - self.policies[POL_COMPETITIVE],
+            self.policies[POL_COMPETITIVE],
         ];
         let sum: f32 = self.tech_split.iter().sum();
         self.tech_split = self.tech_split.map(|x| x / sum);
@@ -1216,18 +1112,13 @@ impl Polity {
         self.trad_split = self.trad_split.map(|x| x / sum);
         // Update structue split.
         self.struct_split = [
-            (1.0 + self.traditions[TRAD_PROGRESSIVE])
-                * config.rules.misc.default_structure_split[STR_HOSPITAL],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS])
-                * config.rules.misc.default_structure_split[STR_MANUFACTURE],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_structure_split[STR_FORGE],
-            (1.0 + self.traditions[TRAD_PROGRESSIVE])
-                * config.rules.misc.default_structure_split[STR_UNIVERSITY],
-            (1.0 + self.traditions[TRAD_TRADITIONAL])
-                * config.rules.misc.default_structure_split[STR_AMPHITHEATER],
-            (1.0 + self.traditions[TRAD_LEGALIST])
-                * config.rules.misc.default_structure_split[STR_COURTHOUSE],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_structure_split[STR_FORTRESS],
+            self.policies[POL_PROGRESSIVE],
+            (1.0 - self.policies[POL_MILITARIST]),
+            self.policies[POL_MILITARIST],
+            self.policies[POL_PROGRESSIVE],
+            (1.0 - self.policies[POL_PROGRESSIVE]),
+            (1.0 - self.policies[POL_PROGRESSIVE]),
+            self.policies[POL_COMPETITIVE],
         ];
         let sum: f32 = self.struct_split.iter().sum();
         self.struct_split = self.struct_split.map(|x| x / sum);

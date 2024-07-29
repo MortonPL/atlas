@@ -4,7 +4,7 @@ use atlas_lib::{
         utils::{hashbrown::HashSet, HashMap},
     },
     config::{
-        sim::{AtlasSimConfig, StartCivAlgorithm, StartPointAlgorithm},
+        sim::{AtlasSimConfig, StartPointAlgorithm},
         AtlasConfig,
     },
     domain::{
@@ -115,42 +115,6 @@ pub fn randomize_start_points(
         }
     }
     success
-}
-
-pub fn randomize_point_civ(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
-    match config.scenario.random_civ_algorithm {
-        StartCivAlgorithm::Repeated => {
-            for point in &mut config.scenario.start_points {
-                if point.civ_locked {
-                    continue;
-                }
-                point.civ = rng.gen_range(0..config.scenario.num_civs);
-            }
-        }
-        StartCivAlgorithm::Choice => {
-            let mut num = config.scenario.num_civs;
-            let mut civs: HashSet<u8> = (0..config.scenario.num_civs).collect();
-            for point in &mut config.scenario.start_points {
-                if point.civ_locked {
-                    civs.remove(&point.civ);
-                    num -= 1;
-                }
-            }
-            let mut civs: Vec<u8> = civs.into_iter().collect();
-            for point in &mut config.scenario.start_points {
-                if point.civ_locked {
-                    continue;
-                }
-                if num > 0 {
-                    let i = rng.gen_range(0..num) as usize;
-                    point.civ = civs.remove(i as usize);
-                    num -= 1;
-                } else {
-                    point.civ = 0;
-                }
-            }
-        }
-    }
 }
 
 pub fn randomize_point_color(config: &mut AtlasSimConfig, rng: &mut impl Rng) {

@@ -29,7 +29,8 @@ use panel_init::*;
 use panel_sim::*;
 
 use crate::sim::{
-    polity::{City, CityUi, Polity, PolityUi},
+    polity::{City, Polity},
+    ui::{CityUi, PolityUi},
     SimControl, SimMapData,
 };
 

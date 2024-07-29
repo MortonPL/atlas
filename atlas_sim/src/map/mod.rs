@@ -24,7 +24,7 @@ use atlas_lib::{
 
 use crate::{
     map::internal::{
-        calc_start_point_weights, create_overlays, randomize_point_civ, randomize_point_color,
+        calc_start_point_weights, create_overlays, randomize_point_color,
         randomize_start_points,
     },
     sim::{
@@ -162,7 +162,6 @@ pub fn update_event_random_start(
         events.error_window =
             Some("Failed to choose unique random locations for all points. Try again.".to_string());
     }
-    randomize_point_civ(&mut config, rng.as_mut());
     randomize_point_color(&mut config, rng.as_mut());
     // Recreate overlay markers.
     create_overlays(&config, commands, &mut meshes, &mut materials, query);

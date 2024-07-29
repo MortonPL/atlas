@@ -2,6 +2,7 @@ use atlas_lib::bevy::{ecs as bevy_ecs, prelude::*};
 use polity::PolityPlugin;
 
 pub mod polity;
+pub mod ui;
 
 /// Plugin responsible for the actual simulation.
 pub struct SimPlugin;

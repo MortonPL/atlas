@@ -12,11 +12,8 @@ impl Default for ScenarioConfig {
     fn default() -> Self {
         Self {
             num_starts: 10,
-            num_civs: 10,
             random_point_algorithm: Default::default(),
-            random_civ_algorithm: Default::default(),
             start_points: vec![],
-            start_civs: vec![],
         }
     }
 }
@@ -26,13 +23,13 @@ impl Default for PolityConfig {
         Self {
             color: Default::default(),
             population: 10.0,
+            policies: [0.5; 7],
         }
     }
 }
 
-const TECH_SPLIT: f32 = 1.0 / 14.0;
+const TECH_SPLIT: f32 = 1.0 / 13.0;
 const TRAD_SPLIT: f32 = 1.0 / 8.0;
-const STR_SPLIT: f32 = 1.0 / 7.0;
 
 impl Default for RulesConfig {
     fn default() -> Self {
@@ -52,12 +49,9 @@ impl Default for MiscConfig {
             tile_resolution: 10.0,
             starting_land_claim_points: 1000.0,
             land_claim_cost: 100.0,
-            default_manpower_split: [0.1, 0.45, 0.45],
-            default_industry_split: [0.5, 0.4, 0.1],
-            default_wealth_split: [0.1, 0.1, 0.2, 0.6],
-            default_tech_split: [TECH_SPLIT; 14],
+            default_wealth_split: [0.1, 0.1, 0.8],
+            default_tech_split: [TECH_SPLIT; 13],
             default_tradition_split: [TRAD_SPLIT; 8],
-            default_structure_split: [STR_SPLIT; 7],
         }
     }
 }
@@ -69,13 +63,14 @@ impl Default for EconomyConfig {
             base_industry_need: 0.1,
             base_wealth_need: 0.1,
             pop_growth: 0.001,
+            pop_hospital_penalty: 0.5,
+            pop_hospital_factor: 10.0,
             resources: [
                 ResConfig {
                     efficiency: 1.1,
                     over_cap_efficiency: 1.0,
                 },
                 ResConfig::default(),
-                ResConfig::default(),
                 ResConfig {
                     efficiency: 1.0,
                     over_cap_efficiency: 0.1,
@@ -85,10 +80,6 @@ impl Default for EconomyConfig {
                     over_cap_efficiency: 0.1,
                 },
                 ResConfig::default(),
-                ResConfig {
-                    efficiency: 1.0,
-                    over_cap_efficiency: 0.1,
-                },
                 ResConfig {
                     efficiency: 1.0,
                     over_cap_efficiency: 0.1,
@@ -112,7 +103,6 @@ impl Default for TechnologiesConfig {
             level_bonus: 0.05,
             level_decay: 0.05,
             techs: [
-                TechConfig::default(),
                 TechConfig::default(),
                 TechConfig::default(),
                 TechConfig::default(),
