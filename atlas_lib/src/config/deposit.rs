@@ -153,7 +153,7 @@ pub fn make_default_deposits() -> Vec<DepositType> {
         DepositType {
             name: "Fishing Water".into(),
             gen_chance: 0.0,
-            gen_average: 1.0,
+            gen_average: 0.5,
             gen_deviation: 1.0,
             supply: 0.7,
             industry: 0.1,

@@ -30,11 +30,11 @@ macro_rules! make_panel {
                 }
                 ui.label("No object selected.");
             }
-        
+
             fn get_heading(&self) -> &'static str {
                 $name
             }
-        
+
             fn get_layer(&self) -> MapDataLayer {
                 MapDataLayer::Preview
             }

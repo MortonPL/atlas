@@ -138,6 +138,25 @@ pub struct PolityConfig {
 /// Config for general world settings and preview.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct RulesConfig {
+    #[name("Misc")]
+    #[control(SidebarStructSection)]
+    pub misc: MiscConfig,
+    #[name("Economy")]
+    #[control(SidebarStructSection)]
+    pub economy: EconomyConfig,
+    #[name("Technology")]
+    #[control(SidebarStructSection)]
+    pub tech: TechnologiesConfig,
+    #[name("Culture")]
+    #[control(SidebarStructSection)]
+    pub culture: CulturesConfig,
+    #[name("City")]
+    #[control(SidebarStructSection)]
+    pub city: CitiesConfig,
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct MiscConfig {
     #[name("Tile Resolution [km]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1.0..=100.0))]
@@ -150,34 +169,6 @@ pub struct RulesConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=10000.0))]
     pub land_claim_cost: f32,
-    #[name("Supply Need per Pop")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=10000.0))]
-    pub base_supply_need: f32,
-    #[name("Production Need per Pop")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=10000.0))]
-    pub base_industry_need: f32,
-    #[name("Wealth Need per Pop")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=10000.0))]
-    pub base_wealth_need: f32,
-    #[name("Monthly Base Pop Growth")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    pub pop_growth: f32,
-    #[name("Resource Efficiency")]
-    #[control(SidebarStructSection)]
-    pub resource: ResourcesConfig,
-    #[name("Technology")]
-    #[control(SidebarStructSection)]
-    pub tech: TechnologiesConfig,
-    #[name("Culture")]
-    #[control(SidebarStructSection)]
-    pub culture: CulturesConfig,
-    #[name("City")]
-    #[control(SidebarStructSection)]
-    pub city: CitiesConfig,
     #[name("Default Manpower Split")]
     #[control(SidebarSliderN)]
     pub default_manpower_split: [f32; 3],
@@ -199,12 +190,30 @@ pub struct RulesConfig {
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize)]
-pub struct ResourcesConfig {
+pub struct EconomyConfig {
+    pub pop_growth: f32,
+    pub base_supply_need: f32,
+    pub base_industry_need: f32,
+    pub base_wealth_need: f32,
     pub resources: [ResConfig; 10],
 }
 
-impl MakeUi for ResourcesConfig {
+impl MakeUi for EconomyConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
+        SidebarSlider::new(ui, "Monthly Base Pop Growth", &mut self.pop_growth)
+            .clamp_range(0.0..=1.0)
+            .show(None);
+        SidebarSlider::new(ui, "Supply Need per Pop", &mut self.base_supply_need)
+            .clamp_range(0.0..=10000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Industry Need per Pop", &mut self.base_industry_need)
+            .clamp_range(0.0..=10000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Wealth Need per Pop", &mut self.base_wealth_need)
+            .clamp_range(0.0..=10000.0)
+            .show(None);
+        ui.heading("Resources");
+        ui.end_row();
         ui.label("Supply");
         ui.end_row();
         self.resources[0].make_ui(ui);

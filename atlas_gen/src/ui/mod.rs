@@ -1,5 +1,5 @@
 mod internal;
-mod panel;
+mod panels;
 
 use atlas_lib::{
     base::{
@@ -18,10 +18,7 @@ use atlas_lib::{
     ui::{button_action, sidebar::SidebarPanel, window},
 };
 use internal::{clear_layer_clicked, reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::{
-    MainPanelClimate, MainPanelContinents, MainPanelGeneral, MainPanelPrecipitation, MainPanelResources,
-    MainPanelTemperature, MainPanelTopography,
-};
+use panels::*;
 
 /// Plugin responsible for the entire GUI and viewport rectangle.
 pub struct UiPlugin;
@@ -30,8 +27,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiPluginBase)
             .init_resource::<AtlasGenUi>()
-            .add_systems(UiUpdate, update_ui)
-            .add_systems(UiUpdate, update_viewport.after(update_ui));
+            .add_systems(UiUpdate, (update_ui, update_viewport).chain());
     }
 }
 
@@ -134,37 +130,25 @@ impl UiCreator<AtlasGenConfig> for AtlasGenUi {
     fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
         ui.vertical(|ui| {
             let mut changed = false;
+            // Tab shorthand macro.
+            macro_rules! tab {
+                ($text:literal, $class:ty, $ui:expr) => {
+                    changed |= button_action($ui, $text, || {
+                        self.current_panel = Box::<$class>::default();
+                        true
+                    });
+                };
+            }
             egui::menu::bar(ui, |ui| {
-                changed |= button_action(ui, "General", || {
-                    self.current_panel = Box::<MainPanelGeneral>::default();
-                    true
-                });
-                changed |= button_action(ui, "Continents", || {
-                    self.current_panel = Box::<MainPanelContinents>::default();
-                    true
-                });
-                changed |= button_action(ui, "Topography", || {
-                    self.current_panel = Box::<MainPanelTopography>::default();
-                    true
-                });
-                changed |= button_action(ui, "Temperature", || {
-                    self.current_panel = Box::<MainPanelTemperature>::default();
-                    true
-                });
+                tab!("General", MainPanelGeneral, ui);
+                tab!("Continents", MainPanelContinents, ui);
+                tab!("Topography", MainPanelTopography, ui);
+                tab!("Temperature", MainPanelTemperature, ui);
             });
             egui::menu::bar(ui, |ui| {
-                changed |= button_action(ui, "Precipitation", || {
-                    self.current_panel = Box::<MainPanelPrecipitation>::default();
-                    true
-                });
-                changed |= button_action(ui, "Climate", || {
-                    self.current_panel = Box::<MainPanelClimate>::default();
-                    true
-                });
-                changed |= button_action(ui, "Resources", || {
-                    self.current_panel = Box::<MainPanelResources>::default();
-                    true
-                });
+                tab!("Precipitation", MainPanelPrecipitation, ui);
+                tab!("Climate", MainPanelClimate, ui);
+                tab!("Deposits", MainPanelDeposits, ui);
             });
             if changed {
                 let layer = self.current_panel.get_layer();

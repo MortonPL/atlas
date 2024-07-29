@@ -55,23 +55,22 @@ pub struct EventStruct {
 impl Default for EventStruct {
     fn default() -> Self {
         Self {
-            world_model_changed: Default::default(),
-            viewed_layer_changed: Default::default(),
-            viewed_overlay_changed: Default::default(),
-            load_layer_request: Default::default(),
-            save_layer_request: Default::default(),
-            render_layer_request: Default::default(),
-            clear_layer_request: Default::default(),
-            regen_layer_request: Default::default(),
-            generate_request: Default::default(),
-            // Load climate map on start.
-            load_climatemap_request: Some(()),
-            import_start_request: Default::default(),
-            import_world_request: Default::default(),
-            export_world_request: Default::default(),
-            randomize_starts_request: Default::default(),
-            simulation_start_request: Default::default(),
-            error_window: Default::default(),
+            world_model_changed: None,
+            viewed_layer_changed: None,
+            viewed_overlay_changed: None,
+            load_layer_request: None,
+            save_layer_request: None,
+            render_layer_request: None,
+            clear_layer_request: None,
+            regen_layer_request: None,
+            generate_request: None,
+            load_climatemap_request: Some(()), // Load climate map on app start.
+            import_start_request: None,
+            import_world_request: None,
+            export_world_request: None,
+            randomize_starts_request: None,
+            simulation_start_request: None,
+            error_window: None,
         }
     }
 }

@@ -14,9 +14,9 @@ use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
 
 /// A Sampler allows to sample (obtain) a value in [0.0, 1.0] range in 2D space.
 trait Sampler {
-    fn offset_origin(self, offset: Vec2) -> Self;
-    fn set_scale(self, scale: f32) -> Self;
     fn sample(&self, p: Vec2) -> f32;
+    fn offset_origin(&mut self, _offset: Vec2) {}
+    fn set_scale(&mut self, _scale: f32) {}
 }
 
 /// Sample "closeness" (radius - distance) to the center of a circle.
@@ -47,13 +47,8 @@ impl Sampler for CircleSampler {
         self.midpoint.lerp(norm)
     }
 
-    fn offset_origin(mut self, offset: Vec2) -> Self {
+    fn offset_origin(&mut self, offset: Vec2) {
         self.offset += offset;
-        self
-    }
-
-    fn set_scale(self, _scale: f32) -> Self {
-        self
     }
 }
 
@@ -145,13 +140,8 @@ impl Sampler for StripSampler {
         self.midpoint.lerp(norm)
     }
 
-    fn offset_origin(mut self, offset: Vec2) -> Self {
+    fn offset_origin(&mut self, offset: Vec2) {
         self.offset += offset;
-        self
-    }
-
-    fn set_scale(self, _scale: f32) -> Self {
-        self
     }
 }
 
@@ -197,13 +187,8 @@ where
             .lerp(((sample as f32).clamp(0.0, 1.0) + self.bias).clamp(0.0, 1.0))
     }
 
-    fn offset_origin(self, _offset: Vec2) -> Self {
-        self
-    }
-
-    fn set_scale(mut self, scale: f32) -> Self {
+    fn set_scale(&mut self, scale: f32) {
         self.scale = scale;
-        self
     }
 }
 
@@ -222,49 +207,32 @@ struct LatitudinalSampler {
     pub non_linear_tropics: bool,
 }
 
-impl LatitudinalSampler {
-    pub fn new_temp(config: &LatitudinalTemperatureLerp, height: u32) -> Self {
-        Self {
-            south_value: celsius_to_fraction(config.south_pole_value),
-            south_arctic_value: celsius_to_fraction(config.south_arctic_value),
-            south_temperate_value: celsius_to_fraction(config.south_temperate_value),
-            south_tropic_value: celsius_to_fraction(config.south_tropic_value),
-            equator_value: celsius_to_fraction(config.equator_value),
-            north_tropic_value: celsius_to_fraction(config.north_tropic_value),
-            north_temperate_value: celsius_to_fraction(config.north_temperate_value),
-            north_arctic_value: celsius_to_fraction(config.north_arctic_value),
-            north_value: celsius_to_fraction(config.north_pole_value),
-            height: height as f32,
-            non_linear_tropics: config.non_linear_tropics,
+macro_rules! lat_sampler_new {
+    ($fun:ident, $cls:ty, $trans:ident) => {
+        pub fn $fun(config: &$cls, height: u32) -> Self {
+            Self {
+                south_value: $trans(config.south_pole_value),
+                south_arctic_value: $trans(config.south_arctic_value),
+                south_temperate_value: $trans(config.south_temperate_value),
+                south_tropic_value: $trans(config.south_tropic_value),
+                equator_value: $trans(config.equator_value),
+                north_tropic_value: $trans(config.north_tropic_value),
+                north_temperate_value: $trans(config.north_temperate_value),
+                north_arctic_value: $trans(config.north_arctic_value),
+                north_value: $trans(config.north_pole_value),
+                height: height as f32,
+                non_linear_tropics: config.non_linear_tropics,
+            }
         }
-    }
+    };
+}
 
-    pub fn new_precip(config: &LatitudinalPrecipitationLerp, height: u32) -> Self {
-        Self {
-            south_value: precip_to_fraction(config.south_pole_value),
-            south_arctic_value: precip_to_fraction(config.south_arctic_value),
-            south_temperate_value: precip_to_fraction(config.south_temperate_value),
-            south_tropic_value: precip_to_fraction(config.south_tropic_value),
-            equator_value: precip_to_fraction(config.equator_value),
-            north_tropic_value: precip_to_fraction(config.north_tropic_value),
-            north_temperate_value: precip_to_fraction(config.north_temperate_value),
-            north_arctic_value: precip_to_fraction(config.north_arctic_value),
-            north_value: precip_to_fraction(config.north_pole_value),
-            height: height as f32,
-            non_linear_tropics: config.non_linear_tropics,
-        }
-    }
+impl LatitudinalSampler {
+    lat_sampler_new!(new_temp, LatitudinalTemperatureLerp, celsius_to_fraction);
+    lat_sampler_new!(new_precip, LatitudinalPrecipitationLerp, precip_to_fraction);
 }
 
 impl Sampler for LatitudinalSampler {
-    fn offset_origin(self, _offset: Vec2) -> Self {
-        self
-    }
-
-    fn set_scale(self, _scale: f32) -> Self {
-        self
-    }
-
     fn sample(&self, p: Vec2) -> f32 {
         let y = p.y / self.height;
         if y < 0.117 {
@@ -488,7 +456,7 @@ pub fn apply_influence_from_src(
 
 fn sample_add(
     data: &mut [u8],
-    sampler: impl Sampler,
+    mut sampler: impl Sampler,
     model: WorldModel,
     world_size: [u32; 2],
     strength: f32,
@@ -501,7 +469,8 @@ fn sample_add(
             let origin = Vec2::new(width as f32 / 2.0, height as f32 / 2.0);
             // NOTE: Only respected by FbmSampler.
             let scale = f32::sqrt((width * height) as f32);
-            let sampler = sampler.offset_origin(origin).set_scale(scale);
+            sampler.offset_origin(origin);
+            sampler.set_scale(scale);
             for y in 0..height {
                 for x in 0..width {
                     let i = (y * width + x) as usize;
@@ -515,7 +484,7 @@ fn sample_add(
     }
 }
 
-fn sample_fill(data: &mut [u8], sampler: impl Sampler, model: WorldModel, world_size: [u32; 2]) {
+fn sample_fill(data: &mut [u8], mut sampler: impl Sampler, model: WorldModel, world_size: [u32; 2]) {
     match model {
         WorldModel::Flat => {
             let width = world_size[0] as i32;
@@ -524,7 +493,8 @@ fn sample_fill(data: &mut [u8], sampler: impl Sampler, model: WorldModel, world_
             let origin = Vec2::new(width as f32 / 2.0, height as f32 / 2.0);
             // NOTE: Only respected by FbmSampler.
             let scale = f32::sqrt((width * height) as f32);
-            let sampler = sampler.offset_origin(origin).set_scale(scale);
+            sampler.offset_origin(origin);
+            sampler.set_scale(scale);
             for y in 0..height {
                 for x in 0..width {
                     let i = (y * width + x) as usize;

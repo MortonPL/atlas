@@ -37,17 +37,21 @@ const STR_SPLIT: f32 = 1.0 / 7.0;
 impl Default for RulesConfig {
     fn default() -> Self {
         Self {
-            tile_resolution: 10.0,
-            starting_land_claim_points: 1000.0,
-            land_claim_cost: 100.0,
-            base_supply_need: 1.0,
-            base_industry_need: 0.1,
-            base_wealth_need: 0.1,
-            pop_growth: 0.001,
-            resource: Default::default(),
+            misc: Default::default(),
+            economy: Default::default(),
             tech: Default::default(),
             culture: Default::default(),
             city: Default::default(),
+        }
+    }
+}
+
+impl Default for MiscConfig {
+    fn default() -> Self {
+        Self {
+            tile_resolution: 10.0,
+            starting_land_claim_points: 1000.0,
+            land_claim_cost: 100.0,
             default_manpower_split: [0.1, 0.45, 0.45],
             default_industry_split: [0.5, 0.4, 0.1],
             default_wealth_split: [0.1, 0.1, 0.2, 0.6],
@@ -58,9 +62,13 @@ impl Default for RulesConfig {
     }
 }
 
-impl Default for ResourcesConfig {
+impl Default for EconomyConfig {
     fn default() -> Self {
         Self {
+            base_supply_need: 1.0,
+            base_industry_need: 0.1,
+            base_wealth_need: 0.1,
+            pop_growth: 0.001,
             resources: [
                 ResConfig {
                     efficiency: 1.1,

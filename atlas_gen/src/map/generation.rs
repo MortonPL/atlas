@@ -36,7 +36,7 @@ pub fn generate(
         MapDataLayer::Temperature => generate_temperature(logics, config, layer),
         MapDataLayer::Precipitation => generate_precipitation(logics, config, layer),
         MapDataLayer::Climate => generate_climate(logics, config, layer),
-        MapDataLayer::Resources => generate_resources(logics, config, layer, rng),
+        MapDataLayer::Deposits => generate_resources(logics, config, layer, rng),
         // Influence
         MapDataLayer::ContinentsInfluence => {
             generate_influence(logics, &config.continents, model, world_size, layer)
@@ -70,7 +70,7 @@ pub fn after_generate(
             generate_temperature(logics, config, MapDataLayer::Temperature);
             generate_precipitation(logics, config, MapDataLayer::Precipitation);
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            generate_resources(logics, config, MapDataLayer::Deposits, rng);
             vec![
                 MapDataLayer::TopographyFilter,
                 MapDataLayer::RealTopography,
@@ -85,7 +85,7 @@ pub fn after_generate(
             generate_temperature(logics, config, MapDataLayer::Temperature);
             generate_precipitation(logics, config, MapDataLayer::Precipitation);
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            generate_resources(logics, config, MapDataLayer::Deposits, rng);
             vec![
                 MapDataLayer::TopographyFilter,
                 MapDataLayer::RealTopography,
@@ -96,23 +96,26 @@ pub fn after_generate(
         }
         MapDataLayer::Temperature => {
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            generate_resources(logics, config, MapDataLayer::Deposits, rng);
             vec![MapDataLayer::Climate]
         }
         MapDataLayer::Precipitation => {
             generate_climate(logics, config, MapDataLayer::Climate);
-            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            generate_resources(logics, config, MapDataLayer::Deposits, rng);
             vec![MapDataLayer::Climate]
         }
         MapDataLayer::Climate => {
-            generate_resources(logics, config, MapDataLayer::Resources, rng);
+            generate_resources(logics, config, MapDataLayer::Deposits, rng);
             vec![]
         }
         _ => vec![],
     };
-    if !matches!(layer, MapDataLayer::Preview) {
-        generate_preview(logics, config);
-        regen_layers.push(MapDataLayer::Preview);
+    match layer {
+        MapDataLayer::Preview => { /* Do nothing */ }
+        _ => {
+            generate_preview(logics, config);
+            regen_layers.push(MapDataLayer::Preview);
+        }
     }
     regen_layers
 }

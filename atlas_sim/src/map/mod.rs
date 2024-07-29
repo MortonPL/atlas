@@ -233,7 +233,7 @@ pub fn update_event_start_simulation(
                 start.polity.color[2],
             ),
             need_visual_update: true,
-            land_claim_points: config.rules.starting_land_claim_points,
+            land_claim_points: config.rules.misc.starting_land_claim_points,
             population: start.polity.population,
             cities: vec![city_entity],
             ..Default::default()

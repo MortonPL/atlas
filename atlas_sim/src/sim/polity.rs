@@ -539,7 +539,7 @@ fn update_mapgrab(
     let conts = logics.get_layer(MapDataLayer::Continents);
     for (entity, mut polity) in query.iter_mut() {
         // Only claim land when in the mood.
-        if polity.land_claim_points <= config.rules.land_claim_cost {
+        if polity.land_claim_points <= config.rules.misc.land_claim_cost {
             continue;
         }
         // Check border tiles for free land.
@@ -811,7 +811,9 @@ impl Polity {
         // Grow the population.
         self.population = (self.population
             * (1.0 * base_coverage
-                + config.rules.pop_growth * coverage * self.get_tech_multiplier(config, TECH_MEDICINE)))
+                + config.rules.economy.pop_growth
+                    * coverage
+                    * self.get_tech_multiplier(config, TECH_MEDICINE)))
         .max(1.0);
     }
 
@@ -845,7 +847,7 @@ impl Polity {
         // Consumption target should always be met.
         let consumption = self.get_supply_consumption(&config);
         let minimum_supply_manpower = consumption
-            / config.rules.resource.resources[RES_SUPPLY].efficiency
+            / config.rules.economy.resources[RES_SUPPLY].efficiency
             / supply_bonus
             / self.get_tradition_multiplier(config, TRAD_AGRARIAN).max(1.0);
         let minimum_supply_manpower = minimum_supply_manpower.min(manpower);
@@ -1156,94 +1158,102 @@ impl Polity {
     pub fn update_splits(&mut self, config: &AtlasSimConfig) {
         // Update manpower split.
         self.manpower_split = [
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_manpower_split[0],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_manpower_split[1],
-            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.default_manpower_split[2],
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_manpower_split[0],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.misc.default_manpower_split[1],
+            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.misc.default_manpower_split[2],
         ];
         let sum: f32 = self.manpower_split.iter().sum();
         self.manpower_split = self.manpower_split.map(|x| x / sum);
         // Update industry split.
         self.indu_split = [
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_industry_split[0],
-            (1.0 + self.traditions[TRAD_COOPERATIVE]) * config.rules.default_industry_split[1],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_industry_split[2],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.misc.default_industry_split[0],
+            (1.0 + self.traditions[TRAD_COOPERATIVE]) * config.rules.misc.default_industry_split[1],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_industry_split[2],
         ];
         let sum: f32 = self.indu_split.iter().sum();
         self.indu_split = self.indu_split.map(|x| x / sum);
         // Update wealth split.
         self.wealth_split = [
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_wealth_split[0],
-            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.default_wealth_split[1],
-            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.default_wealth_split[2],
-            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.default_wealth_split[3],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.misc.default_wealth_split[0],
+            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.misc.default_wealth_split[1],
+            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.misc.default_wealth_split[2],
+            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.misc.default_wealth_split[3],
         ];
         let sum: f32 = self.wealth_split.iter().sum();
         self.wealth_split = self.wealth_split.map(|x| x / sum);
         // Update technology split.
         self.tech_split = [
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_tech_split[TECH_AGRICULTURE],
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_tech_split[TECH_ASTRONOMY],
-            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.default_tech_split[TECH_FORESTRY],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_tech_split[TECH_GEOLOGY],
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_tech_split[TECH_MEDICINE],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_tech_split[TECH_ARCHITECTURE],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_tech_split[TECH_ENGINEERING],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_tech_split[TECH_METALLURGY],
-            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.default_tech_split[TECH_PHILOSOPHY],
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_tech_split[TECH_MATHEMATICS],
-            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.default_tech_split[TECH_FINANCES],
-            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.default_tech_split[TECH_LAW],
-            (1.0 + self.traditions[TRAD_COOPERATIVE]) * config.rules.default_tech_split[TECH_LINGUISTICS],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_tech_split[TECH_PHYSICS],
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_tech_split[TECH_AGRICULTURE],
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_tech_split[TECH_ASTRONOMY],
+            (1.0 + self.traditions[TRAD_AGRARIAN]) * config.rules.misc.default_tech_split[TECH_FORESTRY],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.misc.default_tech_split[TECH_GEOLOGY],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.misc.default_tech_split[TECH_MEDICINE],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS])
+                * config.rules.misc.default_tech_split[TECH_ARCHITECTURE],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS])
+                * config.rules.misc.default_tech_split[TECH_ENGINEERING],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_tech_split[TECH_METALLURGY],
+            (1.0 + self.traditions[TRAD_TRADITIONAL]) * config.rules.misc.default_tech_split[TECH_PHILOSOPHY],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE])
+                * config.rules.misc.default_tech_split[TECH_MATHEMATICS],
+            (1.0 + self.traditions[TRAD_MERCANTILE]) * config.rules.misc.default_tech_split[TECH_FINANCES],
+            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.misc.default_tech_split[TECH_LAW],
+            (1.0 + self.traditions[TRAD_COOPERATIVE])
+                * config.rules.misc.default_tech_split[TECH_LINGUISTICS],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_tech_split[TECH_PHYSICS],
         ];
         let sum: f32 = self.tech_split.iter().sum();
         self.tech_split = self.tech_split.map(|x| x / sum);
         // Update tradition split.
-        for (x, (tradition, split)) in self
-            .trad_split
-            .iter_mut()
-            .zip(self.traditions.iter().zip(config.rules.default_tradition_split))
-        {
+        for (x, (tradition, split)) in self.trad_split.iter_mut().zip(
+            self.traditions
+                .iter()
+                .zip(config.rules.misc.default_tradition_split),
+        ) {
             *x = (1.0 + tradition) * split;
         }
         let sum: f32 = self.trad_split.iter().sum();
         self.trad_split = self.trad_split.map(|x| x / sum);
         // Update structue split.
         self.struct_split = [
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_structure_split[STR_HOSPITAL],
-            (1.0 + self.traditions[TRAD_INDUSTRIOUS]) * config.rules.default_structure_split[STR_MANUFACTURE],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_structure_split[STR_FORGE],
-            (1.0 + self.traditions[TRAD_PROGRESSIVE]) * config.rules.default_structure_split[STR_UNIVERSITY],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE])
+                * config.rules.misc.default_structure_split[STR_HOSPITAL],
+            (1.0 + self.traditions[TRAD_INDUSTRIOUS])
+                * config.rules.misc.default_structure_split[STR_MANUFACTURE],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_structure_split[STR_FORGE],
+            (1.0 + self.traditions[TRAD_PROGRESSIVE])
+                * config.rules.misc.default_structure_split[STR_UNIVERSITY],
             (1.0 + self.traditions[TRAD_TRADITIONAL])
-                * config.rules.default_structure_split[STR_AMPHITHEATER],
-            (1.0 + self.traditions[TRAD_LEGALIST]) * config.rules.default_structure_split[STR_COURTHOUSE],
-            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.default_structure_split[STR_FORTRESS],
+                * config.rules.misc.default_structure_split[STR_AMPHITHEATER],
+            (1.0 + self.traditions[TRAD_LEGALIST])
+                * config.rules.misc.default_structure_split[STR_COURTHOUSE],
+            (1.0 + self.traditions[TRAD_MILITANT]) * config.rules.misc.default_structure_split[STR_FORTRESS],
         ];
         let sum: f32 = self.struct_split.iter().sum();
         self.struct_split = self.struct_split.map(|x| x / sum);
     }
 
     fn get_supply_consumption(&self, config: &AtlasSimConfig) -> f32 {
-        if config.rules.base_supply_need.is_zero() {
+        if config.rules.economy.base_supply_need.is_zero() {
             0.0
         } else {
-            self.population * config.rules.base_supply_need
+            self.population * config.rules.economy.base_supply_need
         }
     }
 
     fn get_industry_consumption(&self, config: &AtlasSimConfig) -> f32 {
-        if config.rules.base_industry_need.is_zero() {
+        if config.rules.economy.base_industry_need.is_zero() {
             0.0
         } else {
-            self.population * config.rules.base_industry_need
+            self.population * config.rules.economy.base_industry_need
         }
     }
 
     fn get_wealth_consumption(&self, config: &AtlasSimConfig) -> f32 {
-        if config.rules.base_wealth_need.is_zero() {
+        if config.rules.economy.base_wealth_need.is_zero() {
             0.0
         } else {
-            self.population * config.rules.base_wealth_need
+            self.population * config.rules.economy.base_wealth_need
         }
     }
 
@@ -1254,8 +1264,7 @@ impl Polity {
         config: &AtlasSimConfig,
     ) -> f32 {
         let (res, tech, trad) = res_tech_trad;
-        let mut out =
-            (input_max_cap.0 * config.rules.resource.resources[res].efficiency).min(input_max_cap.1);
+        let mut out = (input_max_cap.0 * config.rules.economy.resources[res].efficiency).min(input_max_cap.1);
         if tech < 1000 {
             out *= self.get_tech_multiplier(config, tech);
         }
@@ -1265,7 +1274,7 @@ impl Polity {
         if input_max_cap.2 >= 0.0 {
             let diff = out - input_max_cap.2;
             if diff > 0.0 {
-                out = out + diff * config.rules.resource.resources[res].over_cap_efficiency;
+                out = out + diff * config.rules.economy.resources[res].over_cap_efficiency;
             }
         }
         out

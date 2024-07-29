@@ -1,5 +1,5 @@
 mod internal;
-mod panel;
+mod panel_init;
 mod panel_sim;
 
 use atlas_lib::{
@@ -25,7 +25,7 @@ use atlas_lib::{
 };
 use bevy_mod_picking::{events::Pointer, prelude::*};
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
-use panel::*;
+use panel_init::*;
 use panel_sim::*;
 
 use crate::sim::{
@@ -215,47 +215,35 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
     fn create_panel_tabs(&mut self, ui: &mut Ui, ui_base: &mut UiStateBase, events: &mut EventStruct) {
         ui.vertical(|ui| {
             let mut changed = false;
+            // Tab shorthand macro.
+            macro_rules! tab {
+                ($text:literal, $class:ty, $ui:expr) => {
+                    changed |= button_action($ui, $text, || {
+                        self.current_panel = Box::<$class>::default();
+                        true
+                    });
+                };
+            }
             if self.setup_mode {
                 egui::menu::bar(ui, |ui| {
-                    changed |= button_action(ui, "General", || {
-                        self.current_panel = Box::<MainPanelGeneral>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Scenario", || {
-                        self.current_panel = Box::<MainPanelScenario>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Rules", || {
-                        self.current_panel = Box::<MainPanelRules>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Climate", || {
-                        self.current_panel = Box::<MainPanelClimate>::default();
-                        true
-                    });
+                    tab!("General", MainPanelGeneral, ui);
+                    tab!("Scenario", MainPanelScenario, ui);
+                    tab!("Rules (Misc)", MainPanelRulesMisc, ui);
+                    tab!("Rules (Economy)", MainPanelRulesEco, ui);
+                });
+                egui::menu::bar(ui, |ui| {
+                    tab!("Rules (Tech)", MainPanelRulesTech, ui);
+                    tab!("Rules (Culture)", MainPanelRulesCult, ui);
+                    tab!("Rules (City)", MainPanelRulesCity, ui);
+                    tab!("Climate", MainPanelClimate, ui);
                 });
             } else {
                 egui::menu::bar(ui, |ui| {
-                    changed |= button_action(ui, "Selected", || {
-                        self.current_panel = Box::<InfoPanelMisc>::default(); // TODO
-                        true
-                    });
-                    changed |= button_action(ui, "Polity", || {
-                        self.current_panel = Box::<InfoPanelPolity>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Economy", || {
-                        self.current_panel = Box::<InfoPanelEconomy>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Science", || {
-                        self.current_panel = Box::<InfoPanelScience>::default();
-                        true
-                    });
-                    changed |= button_action(ui, "Culture", || {
-                        self.current_panel = Box::<InfoPanelCulture>::default();
-                        true
-                    });
+                    tab!("Selected", InfoPanelMisc, ui);
+                    tab!("Polity", InfoPanelPolity, ui);
+                    tab!("Economy", InfoPanelEconomy, ui);
+                    tab!("Science", InfoPanelScience, ui);
+                    tab!("Culture", InfoPanelCulture, ui);
                 });
             }
             if changed || self.force_changed {

@@ -120,7 +120,7 @@ pub fn make_default_biomes() -> Vec<BiomeConfig> {
             name: "Water".to_string(),
             color: [80, 200, 255],
             simple_color: [80, 200, 255],
-            deposits: vec![BiomeDeposit::new(6, 0.8)],
+            deposits: vec![BiomeDeposit::new(6, 0.6)],
             habitability: 1.0,
         },
         BiomeConfig {

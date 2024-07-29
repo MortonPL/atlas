@@ -10,6 +10,7 @@ use bevy_egui::{
     egui::{self, Context, RichText, Ui},
     EguiPlugin, EguiSettings,
 };
+use egui_file::FileDialog;
 use std::path::Path;
 
 use crate::{
@@ -65,7 +66,7 @@ pub struct UiStateBase {
     /// Size (in pixels) of the viewport, AKA window size - sidebar size (if applicable).
     pub viewport_size: bevy::prelude::Vec2,
     /// All purpose file dialog. Some if open, None if closed.
-    pub file_dialog: Option<egui_file::FileDialog>,
+    pub file_dialog: Option<FileDialog>,
     /// File dialog mode of operation. See [`FileDialogMode`].
     pub file_dialog_mode: FileDialogMode,
     /// Is the error popup window open?
@@ -88,13 +89,13 @@ impl Default for UiStateBase {
     fn default() -> Self {
         Self {
             viewport_size: Default::default(),
-            file_dialog: Default::default(),
+            file_dialog: None,
             file_dialog_mode: Default::default(),
-            error_window_open: Default::default(),
-            overlay_window_open: Default::default(),
+            error_window_open: false,
+            overlay_window_open: false,
             error_message: Default::default(),
             camera: Default::default(),
-            about_open: Default::default(),
+            about_open: false,
             current_layer: Default::default(),
             overlays: [true, true, true],
         }
@@ -435,14 +436,14 @@ pub fn update_viewport(
 /// Open the file dialog in requested mode.
 pub fn open_file_dialog(ui_base: &mut UiStateBase, mode: FileDialogMode) {
     let mut file_picker = match mode {
-        FileDialogMode::SaveConfig => egui_file::FileDialog::save_file(None),
-        FileDialogMode::SaveData(_) => egui_file::FileDialog::save_file(None),
-        FileDialogMode::RenderImage(_) => egui_file::FileDialog::save_file(None),
-        FileDialogMode::LoadConfig => egui_file::FileDialog::open_file(None),
-        FileDialogMode::LoadData(_) => egui_file::FileDialog::open_file(None),
-        FileDialogMode::Import => egui_file::FileDialog::select_folder(None),
-        FileDialogMode::Export => egui_file::FileDialog::select_folder(None),
-        FileDialogMode::ImportSpecial => egui_file::FileDialog::select_folder(None),
+        FileDialogMode::SaveConfig => FileDialog::save_file(None),
+        FileDialogMode::SaveData(_) => FileDialog::save_file(None),
+        FileDialogMode::RenderImage(_) => FileDialog::save_file(None),
+        FileDialogMode::LoadConfig => FileDialog::open_file(None),
+        FileDialogMode::LoadData(_) => FileDialog::open_file(None),
+        FileDialogMode::Import => FileDialog::select_folder(None),
+        FileDialogMode::Export => FileDialog::select_folder(None),
+        FileDialogMode::ImportSpecial => FileDialog::select_folder(None),
     };
     file_picker.open();
     ui_base.file_dialog = Some(file_picker);

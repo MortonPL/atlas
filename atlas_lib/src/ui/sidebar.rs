@@ -17,11 +17,15 @@ pub trait SidebarPanel<C, U>: SidebarPanelCloneHax<C, U> {
     /// Create a config UI for this panel. Nothing shown by default.
     fn make_ui(&mut self, _ui: &mut Ui, _config: &mut C) {}
 
+    /// Create extra UI before the config UI. Nothing shown by default.
+    fn extra_ui_pre(&mut self, _ui: &mut Ui, _config: &mut C, _ui_state: &mut U, _events: &mut EventStruct) {}
+
     /// Create extra UI after the config UI. Nothing shown by default.
     fn extra_ui(&mut self, _ui: &mut Ui, _config: &mut C, _ui_state: &mut U, _events: &mut EventStruct) {}
 
     /// Create UI for this panel.
     fn show(&mut self, ui: &mut Ui, config: &mut C, ui_state: &mut U, events: &mut EventStruct) {
+        self.extra_ui_pre(ui, config, ui_state, events);
         Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
             self.make_ui(ui, config);
         });

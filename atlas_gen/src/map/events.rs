@@ -20,61 +20,31 @@ use atlas_lib::{
 
 use crate::map::generation::{after_generate, generate};
 
-/// Run condition
-///
-/// Check if "load layer data" event needs handling.
-pub fn check_event_loaded(events: Res<EventStruct>) -> bool {
-    events.load_layer_request.is_some()
+/// Make a run condition function.
+macro_rules! rc {
+    ($fun:ident, $field:ident) => {
+        pub fn $fun(events: Res<EventStruct>) -> bool {
+            events.$field.is_some()
+        }
+    };
 }
 
-/// Run condition
-///
-/// Check if "save layer data" event needs handling.
-pub fn check_event_saved(events: Res<EventStruct>) -> bool {
-    events.save_layer_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "save layer image" event needs handling.
-pub fn check_event_rendered(events: Res<EventStruct>) -> bool {
-    events.render_layer_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "clear layer image" event needs handling.
-pub fn check_event_clear(events: Res<EventStruct>) -> bool {
-    events.clear_layer_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "generate layer data" event needs handling.
-pub fn check_event_generate(events: Res<EventStruct>) -> bool {
-    events.generate_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "reload climatemap.png" event needs handling.
-pub fn check_event_climatemap(events: Res<EventStruct>) -> bool {
-    events.load_climatemap_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "import world" event needs handling.
-pub fn check_event_import(events: Res<EventStruct>) -> bool {
-    events.import_world_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "export world" event needs handling.
-pub fn check_event_export(events: Res<EventStruct>) -> bool {
-    events.export_world_request.is_some()
-}
+// Check if "load layer data" event needs handling.
+rc!(check_event_loaded, load_layer_request);
+// Check if "save layer data" event needs handling.
+rc!(check_event_saved, save_layer_request);
+// Check if "save layer image" event needs handling.
+rc!(check_event_rendered, render_layer_request);
+// Check if "clear layer image" event needs handling.
+rc!(check_event_clear, clear_layer_request);
+// Check if "generate layer data" event needs handling.
+rc!(check_event_generate, generate_request);
+// Check if "reload climatemap.png" event needs handling.
+rc!(check_event_climatemap, load_climatemap_request);
+// Check if "import world" event needs handling.
+rc!(check_event_import, import_world_request);
+// Check if "export world" event needs handling.
+rc!(check_event_export, export_world_request);
 
 /// Update system
 ///
@@ -114,7 +84,7 @@ pub fn update_event_saved(
     // Save in color for preview (purely cosmetic) or resources (specially coded), otherwise in greyscale.
     let result = match layer {
         MapDataLayer::Preview => save_image(path, data, width, height),
-        MapDataLayer::Resources => save_image(path, data, width, height),
+        MapDataLayer::Deposits => save_image(path, data, width, height),
         _ => save_image_grey(path, data, width, height),
     };
     events.error_window = result.err().map(|x| x.to_string());

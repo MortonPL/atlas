@@ -30,14 +30,15 @@ impl<C: AtlasConfig> Plugin for MapPluginBase<C> {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<MapGraphicsData>()
             .init_resource::<MapLogicData>()
-            .add_systems(Startup, startup_layers)
-            .add_systems(Startup, startup_model.after(startup_layers))
-            .add_systems(Update, update_event_changed.run_if(check_event_changed))
+            .add_systems(Startup, (startup_layers, startup_model).chain())
             .add_systems(
                 Update,
-                update_event_world_model::<C>.run_if(check_event_world_model),
+                (
+                    update_event_changed.run_if(check_event_changed),
+                    update_event_world_model::<C>.run_if(check_event_world_model),
+                    update_event_regen::<C>.run_if(check_event_regen),
+                ),
             )
-            .add_systems(Update, update_event_regen::<C>.run_if(check_event_regen))
             .add_systems(UiUpdate, update_model_rotation::<C>);
     }
 }

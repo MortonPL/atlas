@@ -13,7 +13,7 @@ mod ui;
 /// Application entry point.
 fn main() {
     App::new()
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -23,12 +23,12 @@ fn main() {
                     ..Default::default()
                 })
                 .set(ImagePlugin::default_nearest()),
-        )
-        .add_plugins(EntropyPlugin::<WyRand>::default())
-        .add_plugins(ConfigPlugin::<AtlasGenConfig>::default())
-        .add_plugins(EventPlugin)
-        .add_plugins(ui::UiPlugin)
-        .add_plugins(map::MapPlugin)
+            EntropyPlugin::<WyRand>::default(),
+            ConfigPlugin::<AtlasGenConfig>::default(),
+            EventPlugin,
+            ui::UiPlugin,
+            map::MapPlugin,
+        ))
         .add_systems(Startup, atlas_lib::set_window_icon)
         .run();
 }

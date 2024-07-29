@@ -6,7 +6,7 @@ use atlas_lib::{
     domain::map::MapDataLayer,
 };
 
-use crate::ui::{panel::MainPanelGeneral, AtlasSimUi};
+use crate::ui::{panel_init::MainPanelGeneral, AtlasSimUi};
 
 /// Reset generator config to defaults.
 pub fn reset_config_clicked(
@@ -20,8 +20,26 @@ pub fn reset_config_clicked(
 }
 
 /// Reset a config from one panel to defaults, and reset relevant logic layers.
-pub fn reset_panel_clicked(_config: &mut AtlasSimConfig, _ui_state: &AtlasSimUi, _events: &mut EventStruct) {
-    // TODO
+pub fn reset_panel_clicked(config: &mut AtlasSimConfig, ui_state: &AtlasSimUi, _events: &mut EventStruct) {
+    macro_rules! reset_panel {
+        ($field:ident) => {{
+            config.$field = Default::default();
+        }};
+        ($field:ident, $subfield:ident) => {{
+            config.$field.$subfield = Default::default();
+        }};
+    }
+    match ui_state.current_panel.get_heading() {
+        "General" => reset_panel!(general),
+        "Scenario" => reset_panel!(scenario),
+        "Rules (Misc)" => reset_panel!(rules, misc),
+        "Rules (Economy)" => reset_panel!(rules, economy),
+        "Rules (Tech)" => reset_panel!(rules, tech),
+        "Rules (Culture)" => reset_panel!(rules, culture),
+        "Rules (City)" => reset_panel!(rules, city),
+        "Climate" => reset_panel!(climate),
+        _ => {}
+    }
 }
 
 /// A handler implementation for the egui file dialog.
