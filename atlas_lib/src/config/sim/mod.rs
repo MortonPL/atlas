@@ -107,7 +107,9 @@ pub struct PolityConfig {
 impl MakeUi for PolityConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
         SidebarColor::new(ui, "Color", &mut self.color).show(None);
-        SidebarSlider::new(ui, "Population", &mut self.population).clamp_range(0.0..=1000000.0).show(None);
+        SidebarSlider::new(ui, "Population", &mut self.population)
+            .clamp_range(0.0..=1000000.0)
+            .show(None);
         ui.heading("Policies");
         ui.end_row();
         SidebarSlider::new(ui, "Expansionist", &mut self.policies[0]).show(None);
@@ -168,6 +170,7 @@ pub struct MiscConfig {
 #[derive(Debug, Deserialize, Resource, Serialize)]
 pub struct EconomyConfig {
     pub pop_growth: f32,
+    pub min_pop: f32,
     pub pop_hospital_penalty: f32,
     pub pop_hospital_factor: f32,
     pub base_supply_need: f32,
@@ -248,70 +251,73 @@ impl Default for ResConfig {
 
 #[derive(Debug, Deserialize, Resource, Serialize)]
 pub struct TechnologiesConfig {
-    pub base_speed: f32,
+    pub speed_major: f32,
+    pub speed_minor: f32,
+    pub max_level_major: f32,
+    pub max_level_minor: f32,
+    pub bonus_major: f32,
+    pub bonus_minor: f32,
     pub base_decay: f32,
-    pub max_level: f32,
-    pub level_bonus: f32,
     pub level_decay: f32,
-    pub techs: [TechConfig; 13],
+    pub techs: [TechConfig; 10],
 }
 
 impl MakeUi for TechnologiesConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarSlider::new(ui, "Base Speed", &mut self.base_speed)
+        SidebarSlider::new(ui, "Major Level Speed", &mut self.speed_major)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Minor Level Speed", &mut self.speed_minor)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Maximum Major Level", &mut self.max_level_major)
+            .clamp_range(0.0..=1000000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Maximum Minor Level", &mut self.max_level_minor)
+            .clamp_range(0.0..=1000000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Major Level Bonus", &mut self.bonus_major)
+            .clamp_range(0.0..=1000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Minor Level Bonus", &mut self.bonus_minor)
             .clamp_range(0.0..=1000.0)
             .show(None);
         SidebarSlider::new(ui, "Base Decay", &mut self.base_decay)
             .clamp_range(0.0..=1000.0)
             .show(None);
-        SidebarSlider::new(ui, "Maximum Level", &mut self.max_level)
-            .clamp_range(0.0..=1000000.0)
-            .show(None);
-        SidebarSlider::new(ui, "Level Bonus", &mut self.level_bonus)
+        SidebarSlider::new(ui, "Major Level Decay", &mut self.level_decay)
             .clamp_range(0.0..=1000.0)
             .show(None);
-        SidebarSlider::new(ui, "Level Decay", &mut self.level_decay)
-            .clamp_range(0.0..=1000.0)
-            .show(None);
-        ui.label("Agriculture");
+        ui.label("Geoscience");
         ui.end_row();
         self.techs[0].make_ui(ui);
-        ui.label("Astronomy");
-        ui.end_row();
-        self.techs[1].make_ui(ui);
-        ui.label("Forestry");
-        ui.end_row();
-        self.techs[2].make_ui(ui);
-        ui.label("Geology");
-        ui.end_row();
-        self.techs[3].make_ui(ui);
-        ui.label("Engineering");
-        ui.end_row();
-        self.techs[4].make_ui(ui);
-        ui.label("Metallurgy");
-        ui.end_row();
-        self.techs[5].make_ui(ui);
-        ui.label("Philosophy");
-        ui.end_row();
-        self.techs[6].make_ui(ui);
-        ui.label("Mathematics");
-        ui.end_row();
-        self.techs[7].make_ui(ui);
         ui.label("Medicine");
         ui.end_row();
-        self.techs[8].make_ui(ui);
+        self.techs[1].make_ui(ui);
+        ui.label("Engineering");
+        ui.end_row();
+        self.techs[2].make_ui(ui);
+        ui.label("Metallurgy");
+        ui.end_row();
+        self.techs[3].make_ui(ui);
+        ui.label("Philosophy");
+        ui.end_row();
+        self.techs[4].make_ui(ui);
+        ui.label("Mathematics");
+        ui.end_row();
+        self.techs[5].make_ui(ui);
         ui.label("Finances");
         ui.end_row();
-        self.techs[9].make_ui(ui);
+        self.techs[6].make_ui(ui);
         ui.label("Law");
         ui.end_row();
-        self.techs[10].make_ui(ui);
+        self.techs[7].make_ui(ui);
         ui.label("Linguistics");
         ui.end_row();
-        self.techs[11].make_ui(ui);
+        self.techs[8].make_ui(ui);
         ui.label("Physics");
         ui.end_row();
-        self.techs[12].make_ui(ui);
+        self.techs[9].make_ui(ui);
     }
 }
 

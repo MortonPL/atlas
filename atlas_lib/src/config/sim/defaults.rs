@@ -63,6 +63,7 @@ impl Default for EconomyConfig {
             base_industry_need: 0.1,
             base_wealth_need: 0.1,
             pop_growth: 0.001,
+            min_pop: 1.0,
             pop_hospital_penalty: 0.5,
             pop_hospital_factor: 10.0,
             resources: [
@@ -97,15 +98,15 @@ impl Default for EconomyConfig {
 impl Default for TechnologiesConfig {
     fn default() -> Self {
         Self {
-            base_speed: 0.002,
+            speed_major: 0.001,
+            speed_minor: 0.002,
+            max_level_major: 10.0,
+            max_level_minor: 10.0,
+            bonus_major: 0.05,
+            bonus_minor: 0.01,
             base_decay: 0.1,
-            max_level: 100.0,
-            level_bonus: 0.05,
             level_decay: 0.05,
             techs: [
-                TechConfig::default(),
-                TechConfig::default(),
-                TechConfig::default(),
                 TechConfig::default(),
                 TechConfig::default(),
                 TechConfig::default(),

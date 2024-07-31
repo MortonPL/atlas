@@ -316,6 +316,7 @@ pub trait UiCreator<C> {
 ///
 /// Spawn the main camera that the viewport will use.
 fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
+    // Spawn camera.
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, -5.0).looking_to(-Vec3::Z, Vec3::Y),

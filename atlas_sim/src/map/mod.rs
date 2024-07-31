@@ -235,12 +235,11 @@ pub fn update_event_start_simulation(
             land_claim_points: config.rules.misc.starting_land_claim_points,
             population: start.polity.population,
             cities: vec![city_entity],
+            policies: start.polity.policies.clone(),
             ..Default::default()
         };
         // Claim initial tile.
         polity.claim_tile(i, None, &mut extras, &config);
-        polity.update_jobs(&config);
-        polity.update_resources(&config);
         // Spawn.
         let polity_entity = commands
             .spawn((

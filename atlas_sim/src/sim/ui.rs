@@ -6,8 +6,8 @@ use atlas_lib::{
 
 use crate::sim::{
     polity::{
-        GreatWork, JobStruct, Ownership, LEN_POL, LEN_RES, LEN_STR, LEN_TECH, LEN_TRAD, POL_LABELS,
-        RES_LABELS, STR_LABELS, TECH_LABELS, TRAD_LABELS,
+        GreatWork, JobStruct, Ownership, LEN_POL, LEN_RES, LEN_SCI, LEN_STR, LEN_TRAD, POL_LABELS,
+        RES_LABELS, SCI_LABELS, STR_LABELS, TRAD_LABELS,
     },
     time_to_string,
 };
@@ -25,8 +25,8 @@ pub struct PolityUi {
     pub deposits: Vec<(String, f32)>,
     /// Total produced resources.
     pub resources: [f32; LEN_RES],
-    /// Researched technology.
-    pub tech: [f32; LEN_TECH],
+    /// Researched technology (major, minor level).
+    pub tech: [[f32; 2]; LEN_SCI],
     /// Tech points accumulated this year.
     pub tech_acc: f32,
     /// Upkept traditions.
@@ -71,8 +71,8 @@ impl PolityUi {
 
     pub fn make_ui_science(&mut self, ui: &mut Ui) {
         SidebarSlider::new(ui, "Accumulated Points", &mut self.tech_acc).show(None);
-        for (x, label) in self.tech.iter_mut().zip(TECH_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
+        for (x, label) in self.tech.iter_mut().zip(SCI_LABELS) {
+            SidebarSliderN::new(ui, label, x).show(None);
         }
     }
 
