@@ -1,14 +1,12 @@
 mod internal;
 
-use std::f32::consts::FRAC_PI_2;
-
 use atlas_lib::{
     base::{
         events::EventStruct,
         map::{resize_helper, MapPluginBase},
         ui::UiStateBase,
     },
-    bevy::{prelude::*, render::mesh::PlaneMeshBuilder},
+    bevy::prelude::*,
     bevy_prng::WyRand,
     bevy_rand::resource::GlobalEntropy,
     config::{
@@ -24,11 +22,11 @@ use atlas_lib::{
 
 use crate::{
     map::internal::{
-        calc_start_point_weights, create_overlays, randomize_point_color,
-        randomize_start_points,
+        calc_start_point_weights, create_overlays, randomize_point_color, randomize_start_points,
     },
     sim::{
-        polity::{init_city, City, Ownership, Polity},
+        polity::{Ownership, Polity},
+        region::{spawn_region_with_city, Region},
         SimControl, SimMapData,
     },
     ui::MapOverlay,
@@ -210,8 +208,10 @@ pub fn update_event_start_simulation(
     mut extras: ResMut<SimMapData>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
     mut ui_base: ResMut<UiStateBase>,
+    asset_server: Res<AssetServer>,
 ) {
     events.simulation_start_request.take();
     sim.paused = false;
@@ -221,52 +221,43 @@ pub fn update_event_start_simulation(
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);
         let pw = config.map_to_world_centered(p);
-        // Prep empty city entity.
+        // Prep empty entities.
+        let polity_entity = commands.spawn_empty().id();
+        let region_entity = commands.spawn_empty().id();
         let city_entity = commands.spawn_empty().id();
-        // Prep polity component.
-        let mut polity = Polity {
+        // Prep region.
+        let mut region = Region::new(polity_entity, city_entity, i, &config);
+        region.population = start.polity.population;
+        region.land_claim_fund = config.scenario.starting_land_claim_points;
+        region.claim_tile(region_entity, i, &mut extras, &config);
+        spawn_region_with_city(
+            region_entity,
+            city_entity,
+            region,
+            pw,
+            &mut commands,
+            &mut meshes,
+            &mut images,
+            &mut materials,
+            &asset_server,
+        );
+        // Prep polity.
+        let polity = Polity {
             ownership: Ownership::Independent,
             color: Color::rgb_u8(
                 start.polity.color[0],
                 start.polity.color[1],
                 start.polity.color[2],
             ),
-            need_visual_update: true,
-            land_claim_points: config.rules.misc.starting_land_claim_points,
             population: start.polity.population,
-            cities: vec![city_entity],
+            regions: vec![region_entity],
             policies: start.polity.policies.clone(),
             ..Default::default()
         };
-        // Claim initial tile.
-        polity.claim_tile(i, None, &mut extras, &config);
-        // Spawn.
-        let polity_entity = commands
-            .spawn((
-                polity,
-                PbrBundle {
-                    mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE).build()),
-                    material: materials.add(StandardMaterial::default()),
-                    transform: Transform::from_xyz(pw.0, pw.1, 0.01)
-                        .with_rotation(Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0))
-                        .with_scale(Vec3::new(0.01, 0.01, 0.01)),
-                    visibility: Visibility::Hidden,
-                    ..Default::default()
-                },
-                MapOverlay::new(MapDataOverlay::Polities),
-            ))
-            .id();
+        commands.get_entity(polity_entity).unwrap().insert((polity,));
         // Post spawn actions.
-        extras.tile_owner[i as usize] = Some(polity_entity.clone());
-        // Create initial city.
-        let city = City {
-            need_visual_update: true,
-            position: i,
-            owner: polity_entity,
-            level: 1.0,
-            structures: Default::default(),
-        };
-        init_city(city, city_entity, pw, &mut meshes, &mut materials, &mut commands);
+        extras.tile_owner[i as usize] = Some(region_entity.clone());
+        extras.rtree.insert((p.0 as i32, p.1 as i32));
     }
     // Force hide start point overlay.
     ui_base.overlays[0] = false;

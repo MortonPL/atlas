@@ -29,8 +29,9 @@ use panel_init::*;
 use panel_sim::*;
 
 use crate::sim::{
-    polity::{City, Polity},
-    ui::{CityUi, PolityUi},
+    polity::Polity,
+    region::{Region, RegionUi},
+    ui::PolityUi,
     SimControl, SimMapData,
 };
 
@@ -88,7 +89,7 @@ fn update_ui(
 struct Selection {
     pub entity: Entity,
     pub polity: Option<PolityUi>,
-    pub city: Option<CityUi>,
+    pub region: Option<RegionUi>,
 }
 
 #[derive(Resource)]
@@ -381,7 +382,7 @@ fn update_click_location(
                 ui_state.selection = Some(Selection {
                     entity,
                     polity: None,
-                    city: None,
+                    region: None,
                 });
             }
         }
@@ -400,7 +401,7 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
     ui_state.selection = Some(Selection {
         entity: event.0,
         polity: None,
-        city: None,
+        region: None,
     });
 }
 
@@ -410,7 +411,7 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
 fn update_selection_data(
     mut ui_state: ResMut<AtlasSimUi>,
     polities: Query<&Polity>,
-    cities: Query<&City>,
+    regions: Query<&Region>,
     config: Res<AtlasSimConfig>,
 ) {
     let selection = if let Some(selection) = &mut ui_state.selection {
@@ -418,9 +419,9 @@ fn update_selection_data(
     } else {
         return;
     };
-    let polity = if let Ok(city) = cities.get(selection.entity) {
-        selection.city = Some(city.into_ui(&config));
-        Some(city.owner)
+    let polity = if let Ok(region) = regions.get(selection.entity) {
+        selection.region = Some(region.into_ui(&config));
+        Some(region.polity)
     } else {
         None
     };

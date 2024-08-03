@@ -78,10 +78,22 @@ pub trait AtlasConfig: Resource + Default {
         point.0 + point.1 * width
     }
 
+    /// Convert a point from map space (signed) to linear tile index.
+    fn map_i_to_index(&self, point: (i32, i32)) -> u32 {
+        let (width, _) = self.get_world_size();
+        point.0 as u32 + point.1 as u32 * width
+    }
+
     /// Convert a point from linear tile index to map space.
     fn index_to_map(&self, index: u32) -> (u32, u32) {
         let (width, _) = self.get_world_size();
         (index % width, index / width)
+    }
+
+    /// Convert a point from linear tile index to map space (signed).
+    fn index_to_map_i(&self, index: u32) -> (i32, i32) {
+        let (width, _) = self.get_world_size();
+        ((index % width) as i32, (index / width) as i32)
     }
 
     /// Convert a point from linear tile index to Bevy world space.

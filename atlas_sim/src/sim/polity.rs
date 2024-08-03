@@ -1,18 +1,8 @@
-use std::{collections::BTreeSet, f32::consts::FRAC_PI_2};
-
 use atlas_lib::{
     bevy::{
         ecs as bevy_ecs,
         prelude::*,
-        render::{
-            mesh::PlaneMeshBuilder,
-            render_asset::RenderAssetUsages,
-            render_resource::{Extent3d, TextureDimension, TextureFormat},
-        },
-        utils::{
-            hashbrown::{HashMap, HashSet},
-            petgraph::matrix_graph::Zero,
-        },
+        utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
     },
     bevy_egui::{self},
     bevy_prng::WyRand,
@@ -20,21 +10,20 @@ use atlas_lib::{
     config::{sim::AtlasSimConfig, AtlasConfig},
     domain::{
         graphics::{color_to_u8, MapLogicData},
-        map::{is_sea, MapDataLayer, MapDataOverlay},
+        map::{is_sea, MapDataLayer},
     },
     rand::Rng,
     ui::{sidebar::*, UiEditableEnum},
     MakeUi,
 };
-use bevy_mod_picking::{prelude::*, PickableBundle};
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::{
-    sim::{check_tick, SimControl, SimMapData},
-    ui::{MapOverlay, UpdateSelectionEvent},
-};
+use crate::sim::{check_tick, SimControl, SimMapData};
 
-use super::ui::{CityUi, PolityUi};
+use super::{
+    region::{spawn_region_with_city, City, Region},
+    ui::PolityUi,
+};
 
 /// Polity simulation.
 pub struct PolityPlugin;
@@ -102,52 +91,30 @@ impl UiEditableEnum for Ownership {
 /// A political entity that owns land and population.
 #[derive(Component, Clone)]
 pub struct Polity {
-    /// Map tile indices that this polity owns.
-    pub tiles: Vec<u32>,
-    /// Map tile indices outside of the polity border.
-    pub border_tiles: BTreeSet<u32>,
-    /// Centroid of owned land, in map coords.
-    pub centroid: Vec2,
-    /// XYWH bounding box in map coordinates.
-    pub xywh: [u32; 4],
-    /// Visuals need to be updated due to color or shape changes.
-    pub need_visual_update: bool,
     /// Ownership status.
     pub ownership: Ownership,
     /// Map color.
     pub color: Color,
-    /// The desire to claim border tiles.
-    pub land_claim_points: f32,
-    /// Map of # of tiles owned in resource chunks.
-    pub resource_chunks: HashMap<u32, u16>,
-    /// Map of available deposits.
-    pub deposits: HashMap<u32, f32>,
     /// Produced resources.
     pub resources: [f32; LEN_RES],
+    /// Yearly accumulated resources.
+    pub resources_acc: [f32; LEN_RES],
     /// Researched technology (major, minor level).
     pub tech: [[f32; 2]; LEN_SCI],
-    /// Tech points accumulated this year.
-    pub tech_acc: f32,
     /// Upkept traditions.
     pub traditions: [f32; LEN_TRAD],
-    /// Tradition points accumulated this year.
-    pub tradition_acc: f32,
     /// Govt policies.
     pub policies: [f32; LEN_POL],
     /// Total polity population.
     pub population: f32,
     /// Population jobs.
     pub jobs: JobStruct,
-    /// Owned cities.
-    pub cities: Vec<Entity>,
+    /// Owned regions.
+    pub regions: Vec<Entity>,
     /// Accumulated heritage.
     pub heritage: [f32; LEN_TRAD],
     /// Created great works.
     pub great_works: Vec<GreatWork>,
-    /// Accumulated polity currency.
-    pub treasure_acc: f32,
-    /// Construction points accumulated this year.
-    pub const_acc: f32,
     /// Advanced resource capacities.
     pub capacities: [f32; 6],
     /// Population split.
@@ -167,30 +134,19 @@ pub struct Polity {
 impl Default for Polity {
     fn default() -> Self {
         Self {
-            tiles: Default::default(),
-            border_tiles: Default::default(),
-            centroid: Vec2::ZERO,
-            xywh: [0, 0, 1, 1],
             ownership: Ownership::Independent,
             color: Default::default(),
-            need_visual_update: true,
-            land_claim_points: 0.0,
-            resource_chunks: Default::default(),
-            deposits: Default::default(),
             resources: Default::default(),
+            resources_acc: Default::default(),
             tech: Default::default(),
-            tech_acc: 0.0,
             traditions: Default::default(),
-            tradition_acc: 0.0,
             policies: Default::default(),
             population: 0.0,
             heritage: Default::default(),
             great_works: Default::default(),
-            cities: Default::default(),
+            regions: Default::default(),
             jobs: Default::default(),
             capacities: Default::default(),
-            treasure_acc: 0.0,
-            const_acc: 0.0,
             manpower_split: Default::default(),
             indu_split: Default::default(),
             wealth_split: Default::default(),
@@ -202,29 +158,20 @@ impl Default for Polity {
 }
 
 impl Polity {
-    pub fn into_ui(&self, config: &AtlasSimConfig) -> PolityUi {
+    pub fn into_ui(&self, _config: &AtlasSimConfig) -> PolityUi {
         PolityUi {
             ownership: self.ownership,
             color: color_to_u8(&self.color),
-            land_claim_points: self.land_claim_points,
-            cities: self.cities.len() as u32,
-            deposits: self
-                .deposits
-                .iter()
-                .map(|(k, v)| (config.deposits.types[*k as usize].name.clone(), *v))
-                .collect(),
+            regions: self.regions.len() as u32,
             resources: self.resources.clone(),
+            resources_acc: self.resources_acc.clone(),
             tech: self.tech.clone(),
-            tech_acc: self.tech_acc,
             traditions: self.traditions.clone(),
-            tradition_acc: self.tradition_acc,
             policies: self.policies.clone(),
             population: self.population,
             heritage: self.heritage.clone(),
             great_works: self.great_works.clone(),
             jobs: self.jobs.clone(),
-            treasure_acc: self.treasure_acc,
-            const_acc: self.const_acc,
         }
     }
 }
@@ -257,52 +204,26 @@ pub struct ResBonusStruct {
     pub max_supply: f32,
     pub max_industry: f32,
     pub max_wealth: f32,
-    pub fac_supply: f32,
-    pub fac_industry: f32,
-    pub fac_wealth: f32,
-}
-
-/// A city belonging to a polity.
-#[derive(Component, Clone)]
-pub struct City {
-    /// Visuals need to be updated due to color or shape changes.
-    pub need_visual_update: bool,
-    /// Position on the map.
-    pub position: u32,
-    /// Owner polity.
-    pub owner: Entity,
-    /// Urbanization level.
-    pub level: f32,
-    /// Level of special structures.
-    pub structures: [f32; LEN_STR],
-}
-
-impl City {
-    pub fn into_ui(&self, _config: &AtlasSimConfig) -> CityUi {
-        CityUi {
-            level: self.level,
-            structures: self.structures.clone(),
-        }
-    }
+    pub bonus: f32,
 }
 
 pub const LEN_RES: usize = 8;
 /// Supply
-const RES_SUPPLY: usize = 0;
+pub const RES_SUPPLY: usize = 0;
 /// Industry Consumption
-const RES_INDU_POPS: usize = 1;
+pub const RES_INDU_POPS: usize = 1;
 /// Civilian Industry
-const RES_CIVILIAN: usize = 2;
+pub const RES_CIVILIAN: usize = 2;
 /// Military Industry
-const RES_MILITARY: usize = 3;
+pub const RES_MILITARY: usize = 3;
 /// Wealth Consumption
-const RES_WEALTH_POPS: usize = 4;
+pub const RES_WEALTH_POPS: usize = 4;
 /// Research
-const RES_RESEARCH: usize = 5;
+pub const RES_RESEARCH: usize = 5;
 /// Culture
-const RES_CULTURE: usize = 6;
+pub const RES_CULTURE: usize = 6;
 /// Treasure
-const RES_TREASURE: usize = 7;
+pub const RES_TREASURE: usize = 7;
 
 pub const RES_LABELS: [&str; LEN_RES] = [
     "Supply",
@@ -436,56 +357,43 @@ pub const STR_LABELS: [&str; LEN_STR] = [
 /// Claim map tiles.
 fn update_mapgrab(
     config: Res<AtlasSimConfig>,
-    mut query: Query<(Entity, &mut Polity)>,
+    mut query: Query<(Entity, &mut Region)>,
     logics: Res<MapLogicData>,
     mut extras: ResMut<SimMapData>,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let climate = logics.get_layer(MapDataLayer::Climate);
     let conts = logics.get_layer(MapDataLayer::Continents);
-    for (entity, mut polity) in query.iter_mut() {
-        // Only claim land when in the mood.
-        if polity.land_claim_points < config.rules.misc.land_claim_cost {
+    for (entity, mut region) in query.iter_mut() {
+        // Only claim land when enough investment was made.
+        if region.land_claim_fund < config.rules.region.land_claim_cost {
             continue;
         }
         // Check border tiles for free land.
-        let weights: Vec<f32> = polity
-            .border_tiles
-            .iter()
-            .map(|i| {
-                let i = *i as usize;
-                match extras.tile_owner[i] {
-                    Some(_) => 0.0,
-                    None => {
-                        if is_sea(conts[i]) {
-                            0.0
-                        } else {
-                            config.get_biome(climate[i]).habitability
-                        }
-                    }
-                }
-            })
-            .collect();
+        let weights = region.update_can_expand(&config, &extras, conts, climate);
         // Don't bother if all land is taken or very bad.
-        if weights.is_empty() || weights.iter().fold(0.0f32, |acc, x| acc.max(*x)) <= 0.1 {
+        if !region.can_expand {
             continue;
         }
         // Choose one of the tiles.
         let table = WalkerTableBuilder::new(&weights).build();
         let i = table.next_rng(rng.as_mut());
-        // Add to polity.
-        let i = *polity.border_tiles.iter().nth(i).unwrap();
-        polity.claim_tile(i, Some(entity.clone()), &mut extras, &config);
-        polity.land_claim_points -= config.rules.misc.land_claim_cost;
+        // Add to region.
+        let i = *region.border_tiles.iter().nth(i).unwrap();
+        region.claim_tile(entity, i, &mut extras, &config);
     }
 }
 
 /// Update system
 ///
 /// Assign jobs and update resources(supply/industry/wealth).
-fn update_jobs_resources(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
-    for mut polity in query.iter_mut() {
-        let res_bonus = polity.update_deposits(&config);
+fn update_jobs_resources(
+    config: Res<AtlasSimConfig>,
+    mut polities: Query<&mut Polity>,
+    regions: Query<&Region>,
+) {
+    for mut polity in polities.iter_mut() {
+        let res_bonus = polity.update_deposits(&config, &regions);
         polity.update_jobs(&config, &res_bonus);
         polity.update_resources(&config, &res_bonus);
     }
@@ -497,31 +405,74 @@ fn update_jobs_resources(config: Res<AtlasSimConfig>, mut query: Query<&mut Poli
 fn update_construction(
     config: Res<AtlasSimConfig>,
     mut query_p: Query<(Entity, &mut Polity)>,
-    mut query_c: Query<&mut City>,
+    mut query_r: Query<&mut Region>,
     sim: Res<SimControl>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
+    mut extras: ResMut<SimMapData>,
+    logics: Res<MapLogicData>,
+    asset_server: Res<AssetServer>,
 ) {
-    if sim.is_new_year() {
-        for (owner, mut polity) in query_p.iter_mut() {
-            // Update construction.
-            let city_request = polity.update_construction(&config, &mut query_c, &mut rng);
-            // Spawn new cities.
-            if let Some(position) = city_request {
-                let entity = commands.spawn_empty().id();
-                let city = City {
-                    need_visual_update: true,
+    if !extras.deferred_regions.is_empty() {
+        // Do logic on newly spawned regions.
+        let mut deferred_regions = std::mem::take(&mut extras.deferred_regions);
+        deferred_regions.retain(|_, v| !v.is_empty());
+        for (polity_entity, vec) in deferred_regions.iter_mut() {
+            let polity_entity = *polity_entity;
+            if let Some((position, region_entity, city_entity)) = vec.pop() {
+                let (_, mut polity) = query_p.get_mut(polity_entity).unwrap();
+                let mut region = Region::new(polity_entity, city_entity, position, &config);
+                region.color_l = rng.gen_range(-0.15..=0.15);
+                polity.add_new_region(
+                    region_entity,
+                    &mut region,
                     position,
-                    owner,
-                    level: 1.0,
-                    structures: Default::default(),
-                };
-                let position = config.index_to_world(position);
-                init_city(city, entity, position, &mut meshes, &mut materials, &mut commands);
-                polity.cities.push(entity);
+                    &config,
+                    &mut query_r,
+                    &mut extras,
+                    &logics,
+                );
+                let world_pos = config.centroid_to_world_centered(region.centroid.into());
+                spawn_region_with_city(
+                    region_entity,
+                    city_entity,
+                    region,
+                    world_pos,
+                    &mut commands,
+                    &mut meshes,
+                    &mut images,
+                    &mut materials,
+                    &asset_server,
+                );
             }
+        }
+        extras.deferred_regions = deferred_regions;
+    }
+    // Update construction.
+    if sim.is_new_year() {
+        for (polity_entity, mut polity) in query_p.iter_mut() {
+            let positions = polity.update_construction(&config, &mut query_r, &mut rng);
+            if positions.is_empty() {
+                continue;
+            }
+            // Defer region spawn.
+            let defer = |vec: &mut Vec<_>| {
+                for position in positions {
+                    let region_entity = commands.spawn_empty().id();
+                    let city_entity = commands.spawn_empty().id();
+                    vec.push((position, region_entity, city_entity));
+                }
+            };
+            if let Some(vec) = extras.deferred_regions.get_mut(&polity_entity) {
+                defer(vec);
+            } else {
+                let mut vec = vec![];
+                defer(&mut vec);
+                extras.deferred_regions.insert(polity_entity, vec);
+            };
         }
     }
 }
@@ -536,9 +487,9 @@ fn update_culture(
     mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     if sim.is_new_year() {
-        query
-            .iter_mut()
-            .for_each(|mut x| x.update_culture(&config, &sim, &mut rng));
+        for mut polity in query.iter_mut() {
+            polity.update_culture(&config, &sim, &mut rng)
+        }
     }
 }
 
@@ -563,8 +514,14 @@ fn update_splits(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim
 /// Update system
 ///
 /// Grow/shrink population based on supply.
-fn update_pops(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>) {
-    query.iter_mut().for_each(|mut x| x.update_pops(&config));
+fn update_pops(
+    config: Res<AtlasSimConfig>,
+    mut query_p: Query<&mut Polity>,
+    mut query_r: Query<&mut Region>,
+) {
+    query_p
+        .iter_mut()
+        .for_each(|mut x| x.update_pops(&config, &mut query_r));
 }
 
 /// Update system
@@ -574,161 +531,123 @@ fn update_visuals(
     config: Res<AtlasSimConfig>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut query_p: Query<(&mut Polity, &mut Transform, &mut Handle<StandardMaterial>), With<Polity>>,
-    mut query_c: Query<(&mut City, &mut Handle<StandardMaterial>), (With<City>, Without<Polity>)>,
-    asset_server: Res<AssetServer>,
+    query_p: Query<&Polity>,
+    mut query_r: Query<(&mut Region, &mut Transform, &mut Handle<StandardMaterial>)>,
+    mut query_c: Query<&mut Handle<StandardMaterial>, (With<City>, Without<Region>)>,
 ) {
-    for (mut polity, mut tran, mut mat) in query_p.iter_mut() {
+    for (mut region, mut tran, mut mat) in query_r.iter_mut() {
         // Don't update if not needed.
-        if !polity.need_visual_update {
+        if !region.need_visual_update {
             continue;
         }
-        let (w, _) = config.get_world_size();
-        let (x, y, width, height) = (polity.xywh[0], polity.xywh[1], polity.xywh[2], polity.xywh[3]);
-        // Make new texture data.
-        let (off, diff) = (w * y + x, w - width);
-        let mut data = vec![0; width as usize * height as usize * 4];
-        for i in &polity.tiles {
-            let i = i - off;
-            let i = ((i - diff * (i / w)) * 4) as usize;
-            data[i] = 255;
-            data[i + 1] = 255;
-            data[i + 2] = 255;
-            data[i + 3] = 255;
-        }
-        // Get world space origin and scale.
-        let p = config.centroid_to_world_centered(polity.centroid.into());
-        let s = (width as f32 / 100.0, height as f32 / 100.0);
-        tran.translation = Vec3::new(p.0, p.1, 0.0);
-        tran.scale = Vec3::new(s.0, s.1, s.1);
-        // Update the material (with tint) and texture (with shape).
-        *mat = materials.add(StandardMaterial {
-            base_color: polity.color,
-            base_color_texture: Some(images.add(Image::new(
-                Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-                TextureDimension::D2,
-                data,
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::all(),
-            ))),
-            unlit: true,
-            alpha_mode: AlphaMode::Blend,
-            ..Default::default()
-        });
-
-        polity.need_visual_update = false;
-    }
-    for (mut city, mut mat) in query_c.iter_mut() {
-        // Don't update if not needed.
-        if !city.need_visual_update {
-            continue;
-        }
-        let (polity, _, _) = query_p.get(city.owner).unwrap();
-        *mat = materials.add(StandardMaterial {
-            base_color: polity.color,
-            base_color_texture: Some(asset_server.load("city.png")),
-            unlit: true,
-            alpha_mode: AlphaMode::Blend,
-            ..Default::default()
-        });
-        city.need_visual_update = false;
+        let polity = query_p.get(region.polity).unwrap();
+        let mut city_mat = query_c.get_mut(region.city).unwrap();
+        region.update_visuals(
+            &config,
+            polity,
+            &mut tran,
+            &mut mat,
+            &mut city_mat,
+            &mut images,
+            &mut materials,
+        );
     }
 }
 
 impl Polity {
-    pub fn claim_tile(
+    pub fn add_new_region(
         &mut self,
-        tile: u32,
-        entity: Option<Entity>,
-        extras: &mut SimMapData,
+        region_entity: Entity,
+        new_region: &mut Region,
+        region_pos: u32,
         config: &AtlasSimConfig,
+        regions: &mut Query<&mut Region>,
+        extras: &mut SimMapData,
+        logics: &MapLogicData,
     ) {
-        self.border_tiles.remove(&tile);
-        extras.tile_owner[tile as usize] = entity;
-        self.tiles.push(tile);
-        // Update xywh.
-        self.tiles.sort();
-        let (width, _) = config.get_world_size();
-        let (first, last) = (self.tiles[0], self.tiles[self.tiles.len() - 1]);
-        let mut min = width;
-        let mut max = 0;
-        for t in &self.tiles {
-            let v = t % width;
-            min = std::cmp::min(min, v);
-            max = std::cmp::max(max, v);
+        let climate = logics.get_layer(MapDataLayer::Climate);
+        let conts = logics.get_layer(MapDataLayer::Continents);
+        let mut all_tiles = vec![];
+        let mut new_tiles = vec![];
+        let mut lookup: HashMap<u32, usize> = Default::default();
+        // Gather all polity tiles.
+        for (i, region) in self.regions.iter().enumerate() {
+            let mut region = regions.get_mut(*region).unwrap();
+            let tiles = std::mem::take(&mut region.tiles);
+            all_tiles.push(tiles);
+            new_tiles.push(vec![region.city_position]);
+            lookup.insert(region.city_position, i);
         }
-        let (x, y, w) = (min, first / width, max - min + 1);
-        let h = last / width + 1 - y;
-        self.xywh = [x, y, w, h];
-        // Recalculate centroid.
-        self.centroid = Vec2::new(x as f32 + w as f32 / 2.0, y as f32 + h as f32 / 2.0);
-        // Update polity borders.
-        if let Some(entity) = entity {
-            self.border_tiles.extend(
-                &mut config
-                    .get_border_tiles_4(tile)
-                    .iter()
-                    .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&entity))),
-            );
-        } else {
-            self.border_tiles
-                .extend(&mut config.get_border_tiles_4(tile).iter());
-        };
-        // Update resource chunk coverage.
-        let j = config.index_to_chunk(tile, config.deposits.chunk_size as u32);
-        let coverage = if let Some(chunk) = self.resource_chunks.get_mut(&j) {
-            *chunk += 1;
-            *chunk
-        } else {
-            self.resource_chunks.insert(j, 1);
-            1
-        };
-        // Update available deposits.
-        let chunk = &config.deposits.chunks[j as usize];
-        let coverage = coverage as f32 / chunk.tile_count as f32;
-        for (resource, amount) in &chunk.deposits {
-            let amount = amount * coverage;
-            if let Some(x) = self.deposits.get_mut(resource) {
-                *x += amount;
-            } else {
-                self.deposits.insert(*resource, amount);
+        // Add new city (region).
+        self.regions.push(region_entity);
+        new_tiles.push(vec![region_pos]);
+        lookup.insert(region_pos, lookup.len());
+        extras.rtree.insert(config.index_to_map_i(region_pos));
+        // Reassign tiles to regions based on distance to cities.
+        let mut num_tiles = 0;
+        for tile in all_tiles.drain(..).flatten() {
+            num_tiles += 1;
+            if lookup.get(&tile).is_some() {
+                continue;
+            }
+            let pos = config.index_to_map_i(tile);
+            let city_pos = extras.rtree.nearest_neighbor(&pos).unwrap();
+            let city_tile = config.map_i_to_index(*city_pos);
+            let i = lookup[&city_tile];
+            new_tiles[i].push(tile);
+        }
+        // Refresh tile ownership map.
+        for (i, tiles) in new_tiles.iter().enumerate() {
+            for tile in tiles {
+                extras.tile_owner[*tile as usize] = Some(self.regions[i]);
             }
         }
-        // Mark to redraw.
-        self.need_visual_update = true;
+        // Update other region properties.
+        for (entity, tiles) in self.regions.iter().zip(new_tiles.drain(..)) {
+            let entity = *entity;
+            if let Ok(mut region) = regions.get_mut(entity) {
+                region.population = self.population * (tiles.len() as f32 / num_tiles as f32);
+                region.reset_tiles(entity, tiles, config, extras, conts, climate);
+            } else {
+                new_region.population = self.population * (tiles.len() as f32 / num_tiles as f32);
+                new_region.reset_tiles(entity, tiles, config, extras, conts, climate);
+            };
+        }
     }
 
-    pub fn update_deposits(&mut self, config: &AtlasSimConfig) -> ResBonusStruct {
+    pub fn update_deposits(&mut self, config: &AtlasSimConfig, regions: &Query<&Region>) -> ResBonusStruct {
         let mut max_supply = 0.0;
-        let mut unit_supply = 0.0;
         let mut max_industry = 0.0;
-        let mut unit_industry = 0.0;
         let mut max_wealth = 0.0;
-        let mut unit_wealth = 0.0;
-        for (id, amount) in self.deposits.iter() {
-            let deposit = &config.deposits.types[*id as usize];
-            let amount_bonus = amount * self.get_tech_multiplier(config, SCI_GEOSCIENCE);
-            max_supply += amount_bonus * deposit.supply;
-            unit_supply += amount * deposit.supply;
-            max_industry += amount_bonus * deposit.industry;
-            unit_industry += amount * deposit.industry;
-            max_wealth += amount_bonus * deposit.wealth;
-            unit_wealth += amount * deposit.wealth;
+        let mut total_dev_bonus = 0.0;
+        self.population = 0.0;
+        for region in self.regions.iter() {
+            let region = if let Ok(region) = regions.get(*region) {
+                region
+            } else {
+                continue;
+            };
+            let dev_bonus = 1.0 + region.development * config.rules.region.dev_bonus;
+            for (id, amount) in region.deposits.iter() {
+                let deposit = &config.deposits.types[*id as usize];
+                let amount = amount * dev_bonus;
+                max_supply += amount * deposit.supply;
+                max_industry += amount * deposit.industry;
+                max_wealth += amount * deposit.wealth;
+            }
+            total_dev_bonus += dev_bonus - 1.0;
+            self.population += region.population;
         }
-        let fac_supply = max_supply / unit_supply;
-        let fac_industry = max_industry / unit_industry;
-        let fac_wealth = max_wealth / unit_wealth;
+        let bonus = self.get_tech_multiplier(config, SCI_GEOSCIENCE);
+        max_supply *= bonus;
+        max_industry *= bonus;
+        max_wealth *= bonus;
+        let bonus = bonus * (1.0 + total_dev_bonus / self.regions.len() as f32);
         ResBonusStruct {
             max_supply,
             max_industry,
             max_wealth,
-            fac_supply,
-            fac_industry,
-            fac_wealth,
+            bonus,
         }
     }
 
@@ -745,15 +664,15 @@ impl Polity {
             return;
         }
         // Helper function.
-        let calc_minimum = |polity: &Polity, res_id: usize, fac: f32, trad: usize| {
+        let calc_minimum = |polity: &Polity, res_id: usize, trad: usize| {
             let minimum_manpower = polity.get_consumption(&config, res_id)
                 / config.rules.economy.resources[res_id].efficiency
-                / fac
+                / res_bonus.bonus
                 / polity.get_tradition_multiplier(config, trad).max(1.0);
             minimum_manpower.min(manpower)
         };
         // Supply.
-        let supply_manpower = calc_minimum(self, RES_SUPPLY, res_bonus.fac_supply, TRAD_AGRARIAN);
+        let supply_manpower = calc_minimum(self, RES_SUPPLY, TRAD_AGRARIAN);
         let spare_manpower = spare_manpower - supply_manpower;
         self.jobs.supply = supply_manpower;
         // Early exit if we used up all manpower.
@@ -761,7 +680,7 @@ impl Polity {
             return;
         }
         // Industry.
-        let indu_manpower = calc_minimum(self, RES_INDU_POPS, res_bonus.fac_industry, TRAD_INDUSTRIOUS);
+        let indu_manpower = calc_minimum(self, RES_INDU_POPS, TRAD_INDUSTRIOUS);
         let spare_manpower = spare_manpower - indu_manpower;
         self.jobs.industry = indu_manpower;
         // Early exit if we used up all manpower.
@@ -769,7 +688,7 @@ impl Polity {
             return;
         }
         // Wealth.
-        let wealth_manpower = calc_minimum(self, RES_WEALTH_POPS, res_bonus.fac_wealth, TRAD_MERCANTILE);
+        let wealth_manpower = calc_minimum(self, RES_WEALTH_POPS, TRAD_MERCANTILE);
         let spare_manpower = spare_manpower - wealth_manpower;
         self.jobs.wealth = wealth_manpower;
         // Early exit if we used up all manpower.
@@ -784,14 +703,14 @@ impl Polity {
 
     pub fn update_resources(&mut self, config: &AtlasSimConfig, rb: &ResBonusStruct) {
         let supply = self.get_resource_yield(
-            (self.jobs.supply * rb.fac_supply, rb.max_supply, -1.0),
+            (self.jobs.supply * rb.bonus, rb.max_supply, -1.0),
             (RES_SUPPLY, 1001, TRAD_AGRARIAN),
             config,
         );
         // Split primary resources into secondary resources (industry).
         let indu_pop = self.get_consumption(&config, RES_INDU_POPS);
         let industry =
-            self.jobs.industry * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * rb.fac_industry;
+            self.jobs.industry * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * rb.bonus;
         let industry = (industry - indu_pop).max(0.0);
         let mut civ_indu = 0.0;
         let mut mil_indu = 0.0;
@@ -809,8 +728,7 @@ impl Polity {
         };
         // Split primary resources into secondary resources (wealth).
         let wealth_pop = self.get_consumption(&config, RES_WEALTH_POPS);
-        let wealth =
-            self.jobs.wealth * self.get_tradition_multiplier(config, TRAD_MERCANTILE) * rb.fac_wealth;
+        let wealth = self.jobs.wealth * self.get_tradition_multiplier(config, TRAD_MERCANTILE) * rb.bonus;
         let wealth = (wealth - wealth_pop).max(0.0);
         let mut research = 0.0;
         let mut culture = 0.0;
@@ -836,96 +754,114 @@ impl Polity {
         self.resources = [
             supply, indu_pop, civ_indu, mil_indu, wealth_pop, research, culture, treasure,
         ];
-        self.const_acc += civ_indu;
-        self.tech_acc += research;
-        self.tradition_acc += culture;
-        self.treasure_acc += treasure;
+        self.resources_acc[RES_CIVILIAN] += civ_indu;
+        self.resources_acc[RES_MILITARY] += mil_indu;
+        self.resources_acc[RES_RESEARCH] += research;
+        self.resources_acc[RES_CULTURE] += culture;
+        self.resources_acc[RES_TREASURE] += treasure;
     }
 
     pub fn update_construction(
         &mut self,
         config: &AtlasSimConfig,
-        query: &mut Query<&mut City>,
+        query: &mut Query<&mut Region>,
         rng: &mut GlobalEntropy<WyRand>,
-    ) -> Option<u32> {
-        let mut city_count = 0.0;
+    ) -> Vec<u32> {
+        let mut build_cities = vec![];
+        let regions_len = self.regions.len() as f32;
+        let mut undeveloped_regions = 0.0;
+        let mut expandable_regions = 0.0;
         // Clear resource capacities.
         self.capacities = Default::default();
         // Find cities that aren't maxxed out.
-        for city in self.cities.iter() {
-            let city = query.get(*city).unwrap();
-            if city.level < config.rules.city.max_level {
-                city_count += 1.0;
+        for region in self.regions.iter() {
+            let region = if let Ok(region) = query.get(*region) {
+                region
+            } else {
+                continue;
+            };
+            if region.development < config.rules.region.max_dev_level {
+                undeveloped_regions += 1.0;
+            }
+            if region.can_expand || region.can_split() {
+                expandable_regions += 1.0;
             }
         }
-        let expansion_points = self.const_acc * self.policies[POL_EXPANSIONIST];
-        let upgrade_points = self.const_acc - expansion_points;
-        let upgrade_points = (upgrade_points / city_count) * config.rules.city.base_speed;
-        // Upgrade city.
-        for city in self.cities.iter() {
-            let mut city = query.get_mut(*city).unwrap();
-            let multiplier = self.get_city_multiplier(config, city.level);
-            let sum = city.structures.iter().fold(0.0, |acc, x| acc + x);
-            let diff = city.level - sum;
-            let mut value_str = upgrade_points.min(diff);
+        let acc_points = self.resources_acc[RES_CIVILIAN];
+        // Clear accumulated resources.
+        self.resources_acc[RES_CIVILIAN] = 0.0;
+        // Divide industrial effort into expansion and development.
+        let expansion_points =
+            acc_points * self.policies[POL_EXPANSIONIST] * config.rules.region.base_claim_speed;
+        let development_points = (acc_points - expansion_points) * config.rules.region.base_dev_speed;
+        let expansion_points = if expandable_regions.is_zero() {
+            0.0
+        } else {
+            expansion_points / expandable_regions
+        };
+        let development_points = if undeveloped_regions.is_zero() {
+            development_points / regions_len
+        } else {
+            development_points / undeveloped_regions
+        };
+        for region in self.regions.iter() {
+            let mut region = if let Ok(region) = query.get_mut(*region) {
+                region
+            } else {
+                continue;
+            };
+            // Distribute expansion points.
+            let can_split = region.can_split();
+            if region.can_expand {
+                if can_split {
+                    let land_claim = expansion_points * self.policies[POL_EXPANSIONIST];
+                    region.land_claim_fund += land_claim;
+                    region.new_city_fund += expansion_points - land_claim;
+                } else {
+                    region.land_claim_fund += expansion_points;
+                }
+            } else if can_split {
+                region.new_city_fund += expansion_points;
+            }
+            // Upgrade region structures.
+            let multiplier = self.get_city_multiplier(config, region.development);
+            let sum = region.structures.iter().fold(0.0, |acc, x| acc + x);
+            let diff = region.development - sum;
+            let mut value_str = development_points.min(diff);
             if diff >= 0.0 {
                 let increment = value_str / multiplier;
                 // Build special structures.
-                for i in 0..city.structures.len() {
-                    city.structures[i] +=
-                        increment * self.struct_split[i] * config.rules.city.structures[i].cost;
+                for i in 0..region.structures.len() {
+                    region.structures[i] +=
+                        increment * self.struct_split[i] * config.rules.region.structures[i].cost;
                 }
             } else {
                 // City level dropped: deal structural damage.
-                value_str = upgrade_points;
-                for i in 0..city.structures.len() {
-                    city.structures[i] = city.level * self.struct_split[i];
+                value_str = development_points;
+                for i in 0..region.structures.len() {
+                    region.structures[i] = region.development * self.struct_split[i];
                 }
             }
-            // Increase city level.
-            if city.level < config.rules.city.max_level {
-                let value = (upgrade_points - value_str).max(0.0) / multiplier;
-                city.level =
-                    (city.level + value * config.rules.city.upgrade_speed).min(config.rules.city.max_level);
+            // Increase city level with leftovers.
+            if region.development < config.rules.region.max_dev_level {
+                let value = (development_points - value_str).max(0.0) / multiplier;
+                region.development = (region.development + value).min(config.rules.region.max_dev_level);
             }
             // Recalculate resource capacities.
             for i in 0..self.capacities.len() {
-                self.capacities[i] += city.structures[i]
-                    * config.rules.city.structures[i].strength
-                    * config.rules.city.base_capacity;
+                self.capacities[i] += region.structures[i]
+                    * config.rules.region.structures[i].strength
+                    * config.rules.region.base_capacity;
+            }
+            // Request splitting regions (by building new cities).
+            let diff = region.new_city_fund - config.rules.region.new_city_cost;
+            if can_split && diff > 0.0 {
+                let i = rng.gen_range(0..region.split_tiles.len());
+                build_cities.push(region.tiles[i]);
+                region.new_city_fund = diff;
             }
         }
-        // Clear accumulated construction.
-        self.const_acc = 0.0;
-        // Request building new cities.
-        // TODO
-        if true {
-            let mut occupied_tiles = HashSet::<u32>::default();
-            for city in self.cities.iter() {
-                let city = query.get(*city).unwrap();
-                occupied_tiles.extend(config.get_border_tiles_9(city.position));
-            }
-            // Choose position
-            let good_tiles: Vec<u32> = self
-                .tiles
-                .iter()
-                .filter_map(|i| {
-                    if occupied_tiles.contains(i) {
-                        None
-                    } else {
-                        Some(*i)
-                    }
-                })
-                .collect();
-            if good_tiles.is_empty() {
-                None
-            } else {
-                let i = rng.gen_range(0..good_tiles.len());
-                Some(good_tiles[i])
-            }
-        } else {
-            None
-        }
+        build_cities
     }
 
     pub fn update_culture(
@@ -934,7 +870,7 @@ impl Polity {
         sim: &SimControl,
         rng: &mut GlobalEntropy<WyRand>,
     ) {
-        let culture = self.tradition_acc * config.rules.culture.base_speed;
+        let culture = self.resources_acc[RES_CULTURE] * config.rules.culture.base_speed;
         for (i, val) in self.traditions.iter_mut().enumerate() {
             let increment = self.trad_split[i] * culture / config.rules.culture.traditions[i].cost;
             let decay = config.rules.culture.base_decay + config.rules.culture.level_decay * val.floor();
@@ -946,7 +882,7 @@ impl Polity {
                 *val = (*val + increment).max(0.0);
             }
         }
-        self.tradition_acc = 0.0;
+        self.resources_acc[RES_CULTURE] = 0.0;
         if config.rules.culture.great_event_heritage <= 0.0 {
             return;
         }
@@ -972,8 +908,8 @@ impl Polity {
     }
 
     pub fn update_tech(&mut self, config: &AtlasSimConfig) {
-        let major_points = self.tech_acc * config.rules.tech.speed_major;
-        let minor_points = self.tech_acc * config.rules.tech.speed_minor;
+        let major_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_major;
+        let minor_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_minor;
         for (i, val) in self.tech.iter_mut().enumerate() {
             let tech = &config.rules.tech.techs[i];
             let major = val[0].trunc();
@@ -981,7 +917,7 @@ impl Polity {
             let decay = config.rules.tech.base_decay + config.rules.tech.level_decay * major;
             // Advance major level if the minor level is maxxed, otherwise advance minor level.
             // Minor level is easier to advance.
-            if val[1] >= 1.0 {
+            if val[1] >= config.rules.tech.max_level_minor {
                 // Advance major level.
                 let increment = self.tech_split[i] * major_points / tech.cost;
                 val[0] = (val[0] + increment - decay).clamp(0.0, config.rules.tech.max_level_major);
@@ -995,7 +931,7 @@ impl Polity {
                 val[1] = (val[1] + increment - decay).clamp(0.0, config.rules.tech.max_level_minor);
             }
         }
-        self.tech_acc = 0.0;
+        self.resources_acc[RES_RESEARCH] = 0.0;
     }
 
     pub fn update_splits(&mut self, config: &AtlasSimConfig) {
@@ -1058,7 +994,7 @@ impl Polity {
         self.struct_split = self.struct_split.map(|x| x / sum);
     }
 
-    pub fn update_pops(&mut self, config: &AtlasSimConfig) {
+    pub fn update_pops(&mut self, config: &AtlasSimConfig, query: &mut Query<&mut Region>) {
         // Calculate the current supply coverage (no consumption == 100% coverage as well).
         let consumption = self.get_consumption(&config, RES_SUPPLY);
         let coverage = if consumption.is_zero() {
@@ -1068,9 +1004,19 @@ impl Polity {
         };
         // Supply the population. Only supplied population survives and grows.
         // Medicine tech improves pop growth (and indirectly increases the pop cap).
-        let supplied_pop = self.population * coverage.min(config.rules.economy.min_pop);
-        self.population = supplied_pop
+        let growth = coverage
             * (1.0 + config.rules.economy.pop_growth * self.get_tech_multiplier(config, SCI_MEDICINE));
+        // Grow the region pops.
+        self.population = 0.0;
+        for region in self.regions.iter() {
+            let mut region = if let Ok(region) = query.get_mut(*region) {
+                region
+            } else {
+                continue;
+            };
+            region.population = (region.population * growth).max(config.rules.economy.min_pop);
+            self.population += region.population;
+        }
     }
 
     fn get_consumption(&self, config: &AtlasSimConfig, res_id: usize) -> f32 {
@@ -1108,7 +1054,7 @@ impl Polity {
 
     #[inline(always)]
     fn get_city_multiplier(&self, config: &AtlasSimConfig, city: f32) -> f32 {
-        1.0 + config.rules.city.level_cost * city.floor()
+        1.0 + config.rules.region.dev_level_cost * city.floor()
     }
 
     #[inline(always)]
@@ -1123,32 +1069,4 @@ impl Polity {
         let strength = config.rules.culture.traditions[i].strength * self.traditions[i].trunc();
         1.0 + config.rules.culture.level_bonus * strength
     }
-}
-
-pub fn init_city(
-    city: City,
-    entity: Entity,
-    position: (f32, f32),
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
-) {
-    commands.get_entity(entity).unwrap().insert((
-        city,
-        PbrBundle {
-            mesh: meshes.add(PlaneMeshBuilder::new(Direction3d::Y, Vec2::ONE / 50.0)),
-            material: materials.add(StandardMaterial::default()),
-            transform: Transform::from_xyz(position.0, position.1, 0.02).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                FRAC_PI_2,
-                0.0,
-                0.0,
-            )),
-            visibility: Visibility::Visible,
-            ..Default::default()
-        },
-        PickableBundle::default(),
-        On::<Pointer<Click>>::send_event::<UpdateSelectionEvent>(),
-        MapOverlay::new(MapDataOverlay::Cities),
-    ));
 }

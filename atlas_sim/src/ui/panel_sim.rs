@@ -55,10 +55,10 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for InfoPanelMisc {
         _events: &mut EventStruct,
     ) {
         if let Some(selection) = &mut ui_state.selection {
-            if let Some(city) = &mut selection.city {
+            if let Some(region) = &mut selection.region {
                 ui.add_enabled_ui(true, |ui| {
                     Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
-                        city.make_ui(ui);
+                        region.make_ui(ui);
                     });
                 });
                 return;

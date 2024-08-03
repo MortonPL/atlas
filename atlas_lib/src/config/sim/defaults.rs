@@ -14,6 +14,7 @@ impl Default for ScenarioConfig {
             num_starts: 10,
             random_point_algorithm: Default::default(),
             start_points: vec![],
+            starting_land_claim_points: 1000.0,
         }
     }
 }
@@ -38,7 +39,7 @@ impl Default for RulesConfig {
             economy: Default::default(),
             tech: Default::default(),
             culture: Default::default(),
-            city: Default::default(),
+            region: Default::default(),
         }
     }
 }
@@ -47,8 +48,6 @@ impl Default for MiscConfig {
     fn default() -> Self {
         Self {
             tile_resolution: 10.0,
-            starting_land_claim_points: 1000.0,
-            land_claim_cost: 100.0,
             default_wealth_split: [0.1, 0.1, 0.8],
             default_tech_split: [TECH_SPLIT; 13],
             default_tradition_split: [TRAD_SPLIT; 8],
@@ -148,13 +147,17 @@ impl Default for CulturesConfig {
     }
 }
 
-impl Default for CitiesConfig {
+impl Default for RegionsConfig {
     fn default() -> Self {
         Self {
-            base_speed: 0.01,
-            upgrade_speed: 0.3,
-            max_level: 10.0,
-            level_cost: 0.5,
+            min_split_size: 9,
+            new_city_cost: 1000.0,
+            land_claim_cost: 100.0,
+            base_claim_speed: 0.1,
+            base_dev_speed: 0.02,
+            max_dev_level: 10.0,
+            dev_level_cost: 0.5,
+            dev_bonus: 0.5,
             base_capacity: 1.0,
             structures: [
                 StructureConfig::default(),

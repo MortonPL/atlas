@@ -4,10 +4,7 @@
 
 - High Priority
   - Improve map claiming system
-    - Expansion desire formula (culture based?)
     - Colony convoy system
-  - Polity & City naming
-  - Polity breakup system
   - Culture rework (wip)
   - Polity government and leaders
   - Great people (wip)

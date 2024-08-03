@@ -1,7 +1,8 @@
-use atlas_lib::bevy::{ecs as bevy_ecs, prelude::*};
+use atlas_lib::{bevy::{ecs as bevy_ecs, prelude::*, utils::HashMap}, rstar::RTree};
 use polity::PolityPlugin;
 
 pub mod polity;
+pub mod region;
 pub mod ui;
 
 /// Plugin responsible for the actual simulation.
@@ -21,12 +22,18 @@ impl Plugin for SimPlugin {
 pub struct SimMapData {
     /// Owner polities of specific map tiles.
     pub tile_owner: Vec<Option<Entity>>,
+    /// Region city rtree.
+    pub rtree: RTree<(i32, i32)>,
+    /// Deferred region spawn data.
+    pub deferred_regions: HashMap<Entity, Vec<(u32, Entity, Entity)>>,
 }
 
 impl Default for SimMapData {
     fn default() -> Self {
         Self {
             tile_owner: Default::default(),
+            rtree: Default::default(),
+            deferred_regions: Default::default(),
         }
     }
 }

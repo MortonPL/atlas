@@ -190,7 +190,7 @@ pub struct MainPanelRulesCity;
 
 impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRulesCity {
     fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.rules.city.make_ui(ui);
+        config.rules.region.make_ui(ui);
     }
 
     fn get_heading(&self) -> &'static str {

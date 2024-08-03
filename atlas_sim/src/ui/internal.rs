@@ -36,7 +36,7 @@ pub fn reset_panel_clicked(config: &mut AtlasSimConfig, ui_state: &AtlasSimUi, _
         "Rules (Economy)" => reset_panel!(rules, economy),
         "Rules (Tech)" => reset_panel!(rules, tech),
         "Rules (Culture)" => reset_panel!(rules, culture),
-        "Rules (City)" => reset_panel!(rules, city),
+        "Rules (City)" => reset_panel!(rules, region),
         "Climate" => reset_panel!(climate),
         _ => {}
     }
