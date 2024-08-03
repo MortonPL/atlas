@@ -14,7 +14,7 @@ impl Default for ScenarioConfig {
             num_starts: 10,
             random_point_algorithm: Default::default(),
             start_points: vec![],
-            starting_land_claim_points: 1000.0,
+            starting_land_claim_points: 100.0,
         }
     }
 }
@@ -150,9 +150,9 @@ impl Default for CulturesConfig {
 impl Default for RegionsConfig {
     fn default() -> Self {
         Self {
-            min_split_size: 9,
-            new_city_cost: 1000.0,
-            land_claim_cost: 100.0,
+            min_split_size: 13,
+            new_city_cost: 100.0,
+            land_claim_cost: 10.0,
             base_claim_speed: 0.1,
             base_dev_speed: 0.02,
             max_dev_level: 10.0,

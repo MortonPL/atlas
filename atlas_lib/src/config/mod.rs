@@ -106,6 +106,16 @@ pub trait AtlasConfig: Resource + Default {
         )
     }
 
+    /// Convert a point from linear tile index to Bevy world space.
+    fn index_to_world_centered(&self, index: u32) -> (f32, f32) {
+        let (width, height) = self.get_world_size();
+        let (x, y) = (index % width, index / width);
+        (
+            (x as f32 - width as f32 / 2.0 + 0.5) / 100.0,
+            (height as f32 / 2.0 - (y as f32) + 0.5) / 100.0,
+        )
+    }
+
     /// Find the chunk that contains this map point.
     fn index_to_chunk(&self, index: u32, chunk_size: u32) -> u32 {
         let (width, _) = self.get_world_size();

@@ -57,8 +57,6 @@ pub struct Region {
     pub new_city_fund: f32,
     /// Tile index of this region's city.
     pub city_position: u32,
-    /// Region city borders - no new city can be built there.
-    pub city_borders: BTreeSet<u32>,
     /// New city can be built here.
     pub split_tiles: BTreeSet<u32>,
     /// Development level.
@@ -68,8 +66,7 @@ pub struct Region {
 }
 
 impl Region {
-    pub fn new(polity: Entity, city: Entity, city_position: u32, config: &AtlasSimConfig) -> Self {
-        let city_borders = config.get_border_tiles_9(city_position);
+    pub fn new(polity: Entity, city: Entity, city_position: u32) -> Self {
         Self {
             centroid: Vec2::ZERO,
             xywh: [0, 0, 1, 1],
@@ -87,7 +84,6 @@ impl Region {
             split_tiles: Default::default(),
             polity,
             city,
-            city_borders,
             color_l: 0.0,
             development: 1.0,
             structures: Default::default(),
@@ -116,7 +112,7 @@ impl Region {
         self.development = self.development - self.development / self.tiles.len() as f32;
         // Check if the region is big and spacious enough to split.
         self.can_split_size = self.tiles.len() as u32 > config.rules.region.min_split_size;
-        if !self.city_borders.contains(&tile) {
+        if !extras.city_borders.contains(&tile) {
             self.split_tiles.insert(tile);
         }
         // Mark to redraw.
@@ -177,7 +173,7 @@ impl Region {
         self.split_tiles = self
             .tiles
             .iter()
-            .filter(|x| !self.city_borders.contains(x))
+            .filter(|x| !extras.city_borders.contains(x))
             .map(|x| *x)
             .collect();
         // Recalculate xywh & centroid.
@@ -265,6 +261,10 @@ impl Region {
         weights
     }
 
+    pub fn update_can_split(&mut self, extras: &SimMapData) {
+        self.split_tiles.retain(|x| !extras.city_borders.contains(x));
+    }
+
     fn update_xywh(&mut self, config: &AtlasSimConfig) {
         self.tiles.sort();
         let (width, _) = config.get_world_size();
@@ -350,13 +350,14 @@ pub fn spawn_region_with_city(
     region_entity: Entity,
     city_entity: Entity,
     region: Region,
-    position: (f32, f32),
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     images: &mut Assets<Image>,
     materials: &mut Assets<StandardMaterial>,
     asset_server: &AssetServer,
+    config: &AtlasSimConfig,
 ) {
+    let city_pos = config.index_to_world_centered(region.city_position);
     commands.get_entity(city_entity).unwrap().insert((
         City,
         PbrBundle {
@@ -367,17 +368,15 @@ pub fn spawn_region_with_city(
                 base_color_texture: Some(asset_server.load("city.png")),
                 ..Default::default()
             }),
-            transform: Transform::from_xyz(position.0, position.1, 0.02).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                FRAC_PI_2,
-                0.0,
-                0.0,
-            )),
+            transform: Transform::from_xyz(city_pos.0, city_pos.1, 0.0002)
+                .with_rotation(Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0))
+                .with_scale(Vec3::new(0.8, 0.8, 0.8)),
             visibility: Visibility::Visible,
             ..Default::default()
         },
         MapOverlay::new(MapDataOverlay::Cities),
     ));
+    let region_pos = config.centroid_to_world_centered(region.centroid.into());
     commands.get_entity(region_entity).unwrap().insert((
         region,
         PbrBundle {
@@ -388,7 +387,7 @@ pub fn spawn_region_with_city(
                 base_color_texture: Some(images.add(Image::default())),
                 ..Default::default()
             }),
-            transform: Transform::from_xyz(position.0, position.1, 0.01)
+            transform: Transform::from_xyz(region_pos.0, region_pos.1, 0.0001)
                 .with_rotation(Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0))
                 .with_scale(Vec3::new(0.01, 0.01, 0.01)),
             visibility: Visibility::Visible,

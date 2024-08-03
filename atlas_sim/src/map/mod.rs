@@ -220,13 +220,13 @@ pub fn update_event_start_simulation(
         // Get all coords.
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);
-        let pw = config.map_to_world_centered(p);
+        let p = (p.0 as i32, p.1 as i32);
         // Prep empty entities.
         let polity_entity = commands.spawn_empty().id();
         let region_entity = commands.spawn_empty().id();
         let city_entity = commands.spawn_empty().id();
         // Prep region.
-        let mut region = Region::new(polity_entity, city_entity, i, &config);
+        let mut region = Region::new(polity_entity, city_entity, i);
         region.population = start.polity.population;
         region.land_claim_fund = config.scenario.starting_land_claim_points;
         region.claim_tile(region_entity, i, &mut extras, &config);
@@ -234,15 +234,15 @@ pub fn update_event_start_simulation(
             region_entity,
             city_entity,
             region,
-            pw,
             &mut commands,
             &mut meshes,
             &mut images,
             &mut materials,
             &asset_server,
+            &config,
         );
         // Prep polity.
-        let polity = Polity {
+        let mut polity = Polity {
             ownership: Ownership::Independent,
             color: Color::rgb_u8(
                 start.polity.color[0],
@@ -254,10 +254,12 @@ pub fn update_event_start_simulation(
             policies: start.polity.policies.clone(),
             ..Default::default()
         };
+        polity.rtree.insert(p);
         commands.get_entity(polity_entity).unwrap().insert((polity,));
         // Post spawn actions.
         extras.tile_owner[i as usize] = Some(region_entity.clone());
-        extras.rtree.insert((p.0 as i32, p.1 as i32));
+        extras.rtree.insert(p);
+        extras.add_city_borders(i, &config);
     }
     // Force hide start point overlay.
     ui_base.overlays[0] = false;

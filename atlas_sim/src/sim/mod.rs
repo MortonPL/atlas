@@ -1,4 +1,6 @@
-use atlas_lib::{bevy::{ecs as bevy_ecs, prelude::*, utils::HashMap}, rstar::RTree};
+use std::collections::BTreeSet;
+
+use atlas_lib::{bevy::{ecs as bevy_ecs, prelude::*, utils::HashMap}, config::{sim::AtlasSimConfig, AtlasConfig}, rstar::RTree};
 use polity::PolityPlugin;
 
 pub mod polity;
@@ -26,6 +28,14 @@ pub struct SimMapData {
     pub rtree: RTree<(i32, i32)>,
     /// Deferred region spawn data.
     pub deferred_regions: HashMap<Entity, Vec<(u32, Entity, Entity)>>,
+    /// Tiles occupied by cities and surroundings.
+    pub city_borders: BTreeSet<u32>,
+}
+
+impl SimMapData {
+    pub fn add_city_borders(&mut self, position: u32, config: &AtlasSimConfig) {
+        self.city_borders.extend(config.get_border_tiles_9(position));
+    }
 }
 
 impl Default for SimMapData {
@@ -34,6 +44,7 @@ impl Default for SimMapData {
             tile_owner: Default::default(),
             rtree: Default::default(),
             deferred_regions: Default::default(),
+            city_borders: Default::default(),
         }
     }
 }

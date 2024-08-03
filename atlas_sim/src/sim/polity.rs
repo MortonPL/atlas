@@ -3,18 +3,10 @@ use atlas_lib::{
         ecs as bevy_ecs,
         prelude::*,
         utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
-    },
-    bevy_egui::{self},
-    bevy_prng::WyRand,
-    bevy_rand::resource::GlobalEntropy,
-    config::{sim::AtlasSimConfig, AtlasConfig},
-    domain::{
+    }, bevy_egui::{self}, bevy_prng::WyRand, bevy_rand::resource::GlobalEntropy, config::{sim::AtlasSimConfig, AtlasConfig}, domain::{
         graphics::{color_to_u8, MapLogicData},
-        map::{is_sea, MapDataLayer},
-    },
-    rand::Rng,
-    ui::{sidebar::*, UiEditableEnum},
-    MakeUi,
+        map::MapDataLayer,
+    }, rand::Rng, rstar::RTree, ui::{sidebar::*, UiEditableEnum}, MakeUi
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
@@ -111,6 +103,8 @@ pub struct Polity {
     pub jobs: JobStruct,
     /// Owned regions.
     pub regions: Vec<Entity>,
+    /// Region rtree.
+    pub rtree: RTree<(i32, i32)>,
     /// Accumulated heritage.
     pub heritage: [f32; LEN_TRAD],
     /// Created great works.
@@ -145,6 +139,7 @@ impl Default for Polity {
             heritage: Default::default(),
             great_works: Default::default(),
             regions: Default::default(),
+            rtree: Default::default(),
             jobs: Default::default(),
             capacities: Default::default(),
             manpower_split: Default::default(),
@@ -424,8 +419,8 @@ fn update_construction(
             let polity_entity = *polity_entity;
             if let Some((position, region_entity, city_entity)) = vec.pop() {
                 let (_, mut polity) = query_p.get_mut(polity_entity).unwrap();
-                let mut region = Region::new(polity_entity, city_entity, position, &config);
-                region.color_l = rng.gen_range(-0.15..=0.15);
+                let mut region = Region::new(polity_entity, city_entity, position);
+                region.color_l = rng.gen_range(-0.2..=0.1);
                 polity.add_new_region(
                     region_entity,
                     &mut region,
@@ -435,17 +430,16 @@ fn update_construction(
                     &mut extras,
                     &logics,
                 );
-                let world_pos = config.centroid_to_world_centered(region.centroid.into());
                 spawn_region_with_city(
                     region_entity,
                     city_entity,
                     region,
-                    world_pos,
                     &mut commands,
                     &mut meshes,
                     &mut images,
                     &mut materials,
                     &asset_server,
+                    &config,
                 );
             }
         }
@@ -454,7 +448,7 @@ fn update_construction(
     // Update construction.
     if sim.is_new_year() {
         for (polity_entity, mut polity) in query_p.iter_mut() {
-            let positions = polity.update_construction(&config, &mut query_r, &mut rng);
+            let positions = polity.update_construction(&config, &mut extras, &mut query_r, &mut rng);
             if positions.is_empty() {
                 continue;
             }
@@ -582,7 +576,9 @@ impl Polity {
         self.regions.push(region_entity);
         new_tiles.push(vec![region_pos]);
         lookup.insert(region_pos, lookup.len());
-        extras.rtree.insert(config.index_to_map_i(region_pos));
+        let pos = config.index_to_map_i(region_pos);
+        self.rtree.insert(pos);
+        extras.rtree.insert(pos);
         // Reassign tiles to regions based on distance to cities.
         let mut num_tiles = 0;
         for tile in all_tiles.drain(..).flatten() {
@@ -591,7 +587,7 @@ impl Polity {
                 continue;
             }
             let pos = config.index_to_map_i(tile);
-            let city_pos = extras.rtree.nearest_neighbor(&pos).unwrap();
+            let city_pos = self.rtree.nearest_neighbor(&pos).unwrap();
             let city_tile = config.map_i_to_index(*city_pos);
             let i = lookup[&city_tile];
             new_tiles[i].push(tile);
@@ -764,6 +760,7 @@ impl Polity {
     pub fn update_construction(
         &mut self,
         config: &AtlasSimConfig,
+        extras: &mut SimMapData,
         query: &mut Query<&mut Region>,
         rng: &mut GlobalEntropy<WyRand>,
     ) -> Vec<u32> {
@@ -810,6 +807,8 @@ impl Polity {
             } else {
                 continue;
             };
+            // Check inner tiles for being close to existing cities.
+            region.update_can_split(&extras);
             // Distribute expansion points.
             let can_split = region.can_split();
             if region.can_expand {
@@ -857,7 +856,9 @@ impl Polity {
             let diff = region.new_city_fund - config.rules.region.new_city_cost;
             if can_split && diff > 0.0 {
                 let i = rng.gen_range(0..region.split_tiles.len());
-                build_cities.push(region.tiles[i]);
+                let i = *region.split_tiles.iter().nth(i).unwrap();
+                build_cities.push(i);
+                extras.add_city_borders(i, &config);
                 region.new_city_fund = diff;
             }
         }
