@@ -7,16 +7,15 @@ use atlas_lib::{
         render::{mesh::PlaneMeshBuilder, render_resource::Extent3d},
         utils::HashMap,
     },
-    bevy_egui::egui::Ui,
     config::{sim::AtlasSimConfig, AtlasConfig},
     domain::map::{is_sea, MapDataOverlay},
-    ui::sidebar::*,
 };
 
 use crate::ui::MapOverlay;
 
 use super::{
-    polity::{Polity, LEN_STR, STR_LABELS},
+    polity::{Polity, LEN_STR},
+    ui::RegionUi,
     SimMapData,
 };
 
@@ -63,6 +62,16 @@ pub struct Region {
     pub development: f32,
     /// Level of special structures.
     pub structures: [f32; LEN_STR],
+    /// Stability level.
+    pub stability: f32,
+    /// Healthcare level.
+    pub healthcare: f32,
+    /// Security force power.
+    pub security: f32,
+    /// Public health power.
+    pub health: f32,
+    /// Sum of all structure levels.
+    pub struct_levels: f32,
 }
 
 impl Region {
@@ -87,6 +96,11 @@ impl Region {
             color_l: 0.0,
             development: 1.0,
             structures: Default::default(),
+            stability: 1.0,
+            healthcare: 1.0,
+            security: 0.0,
+            health: 0.0,
+            struct_levels: 0.0,
         }
     }
 
@@ -132,6 +146,10 @@ impl Region {
             city_fund: self.new_city_fund,
             development: self.development,
             structures: self.structures.clone(),
+            stability: self.stability,
+            healthcare: self.healthcare,
+            security: self.security,
+            health: self.health,
         }
     }
 
@@ -304,44 +322,6 @@ impl Region {
             } else {
                 self.deposits.insert(*resource, amount);
             }
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct RegionUi {
-    /// Region population.
-    pub population: f32,
-    /// Map of available deposits.
-    pub deposits: Vec<(String, f32)>,
-    /// Number of tiles in the region.
-    pub tiles: u32,
-    /// Land claim points.
-    pub land_claim: f32,
-    /// City fund points.
-    pub city_fund: f32,
-    /// Development level.
-    pub development: f32,
-    /// Level of special structures.
-    pub structures: [f32; LEN_STR],
-}
-
-impl MakeUi for RegionUi {
-    fn make_ui(&mut self, ui: &mut Ui) {
-        SidebarSlider::new(ui, "Population", &mut self.population).show(None);
-        SidebarSlider::new(ui, "# of Tiles", &mut self.tiles).show(None);
-        SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim).show(None);
-        SidebarSlider::new(ui, "New Region Points", &mut self.city_fund).show(None);
-        SidebarSlider::new(ui, "Development Level", &mut self.development).show(None);
-        ui.heading("Structures");
-        ui.end_row();
-        for (x, label) in self.structures.iter_mut().zip(STR_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
-        }
-        ui.heading("Deposits");
-        ui.end_row();
-        for (k, v) in &mut self.deposits {
-            SidebarSlider::new(ui, k.clone(), v).show(None);
         }
     }
 }

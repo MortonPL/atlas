@@ -19,6 +19,7 @@ use atlas_lib::{
         map::{MapDataLayer, MapDataOverlay, EXPORT_DATA_LAYERS},
     },
 };
+use internal::randomize_point_policies;
 
 use crate::{
     map::internal::{
@@ -40,18 +41,11 @@ impl Plugin for MapPlugin {
         app.add_plugins(MapPluginBase::<AtlasSimConfig>::default())
             .add_systems(Update, update_event_import_start.run_if(check_event_import_start))
             .add_systems(Update, update_event_random_start.run_if(check_event_random_start))
-            .add_systems(
-                Update,
-                update_event_overlay_changed.run_if(check_event_overlay_changed),
-            )
+            .add_systems(Update, update_event_overlay_changed)
             .add_systems(
                 Update,
                 update_event_start_simulation.run_if(check_event_start_simulation),
             );
-        /*
-        .add_systems(Update, update_event_import.run_if(check_event_import))
-        .add_systems(Update, update_event_export.run_if(check_event_export))
-        */
     }
 }
 
@@ -67,13 +61,6 @@ pub fn check_event_import_start(events: Res<EventStruct>) -> bool {
 /// Check if "randomize start points" event needs handling.
 pub fn check_event_random_start(events: Res<EventStruct>) -> bool {
     events.randomize_starts_request.is_some()
-}
-
-/// Run condition
-///
-/// Check if "changed viewed overlay" event needs handling.
-pub fn check_event_overlay_changed(events: Res<EventStruct>) -> bool {
-    events.viewed_overlay_changed.is_some()
 }
 
 /// Run condition
@@ -161,26 +148,21 @@ pub fn update_event_random_start(
             Some("Failed to choose unique random locations for all points. Try again.".to_string());
     }
     randomize_point_color(&mut config, rng.as_mut());
+    randomize_point_policies(&mut config, rng.as_mut());
     // Recreate overlay markers.
     create_overlays(&config, commands, &mut meshes, &mut materials, query);
     // Force show start point overlay.
     ui_base.overlays[0] = true;
-    events.viewed_overlay_changed = Some((ui_base.overlays.clone(), false));
 }
 
 /// Update system
 ///
 /// Switch the currently visible overlay.
 pub fn update_event_overlay_changed(
-    mut events: ResMut<EventStruct>,
     mut query: Query<(&mut Visibility, &MapOverlay), With<MapOverlay>>,
+    ui_base: Res<UiStateBase>,
 ) {
-    let (mask, deferred) = events.viewed_overlay_changed.take().expect("Always Some");
-    if deferred {
-        events.viewed_overlay_changed = Some((mask, false));
-        return;
-    }
-    let mask = mask.map(|x| {
+    let mask = ui_base.overlays.map(|x| {
         if x {
             Visibility::Visible
         } else {
@@ -263,5 +245,4 @@ pub fn update_event_start_simulation(
     }
     // Force hide start point overlay.
     ui_base.overlays[0] = false;
-    events.viewed_overlay_changed = Some((ui_base.overlays.clone(), true));
 }

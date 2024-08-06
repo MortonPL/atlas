@@ -12,6 +12,7 @@ use atlas_lib::{
         map::{MapDataLayer, MapDataOverlay},
     },
     rand::{distributions::Uniform, Rng},
+    rand_distr::{Distribution, Normal},
 };
 use weighted_rand::{
     builder::{NewBuilder, WalkerTableBuilder},
@@ -120,7 +121,7 @@ pub fn randomize_start_points(
 pub fn randomize_point_color(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
     let uniform_h = Uniform::new_inclusive(0.0, 360.0);
     let uniform_s = Uniform::new_inclusive(0.7, 1.0);
-    let uniform_l = Uniform::new_inclusive(0.5, 1.0);
+    let uniform_l = Uniform::new_inclusive(0.5, 0.9);
     for point in &mut config.scenario.start_points {
         if point.color_locked {
             continue;
@@ -132,6 +133,23 @@ pub fn randomize_point_color(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
         );
         let color = Color::hsl(h, s, l).as_rgba_u8();
         point.polity.color = [color[0], color[1], color[2]];
+    }
+}
+
+pub fn randomize_point_policies(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
+    let normal = Normal::new(config.scenario.policy_mean, config.scenario.policy_deviation).unwrap();
+    for point in &mut config.scenario.start_points {
+        if point.policy_locked {
+            continue;
+        }
+        let len = point.polity.policies.len();
+        point.polity.policies = (&normal)
+            .sample_iter(&mut *rng)
+            .take(len)
+            .map(|x| (x as f32).clamp(0.0, 1.0))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
     }
 }
 

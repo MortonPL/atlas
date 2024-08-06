@@ -1,6 +1,10 @@
 use std::collections::BTreeSet;
 
-use atlas_lib::{bevy::{ecs as bevy_ecs, prelude::*, utils::HashMap}, config::{sim::AtlasSimConfig, AtlasConfig}, rstar::RTree};
+use atlas_lib::{
+    bevy::{ecs as bevy_ecs, prelude::*, utils::HashMap},
+    config::{sim::AtlasSimConfig, AtlasConfig},
+    rstar::RTree,
+};
 use polity::PolityPlugin;
 
 pub mod polity;
@@ -115,4 +119,8 @@ pub fn check_tick(sim: Res<SimControl>) -> bool {
 
 pub fn time_to_string(time: u32) -> String {
     format!("{:02}.{}", time % 12 + 1, time / 12 + 1)
+}
+
+pub fn time_to_string_plus(time: u32, str: &str) -> String {
+    format!("{:02}.{} {}", time % 12 + 1, time / 12 + 1, str)
 }

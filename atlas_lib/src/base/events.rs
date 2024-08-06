@@ -22,8 +22,6 @@ pub struct EventStruct {
     pub world_model_changed: Option<()>,
     /// The currently viewed map layer has been changed.
     pub viewed_layer_changed: Option<MapDataLayer>,
-    /// The currently viewed map overlays have been changed.
-    pub viewed_overlay_changed: Option<([bool; 3], bool)>,
     /// A map layer should be loaded from data.
     pub load_layer_request: Option<(MapDataLayer, Vec<u8>)>,
     /// A map layer should be saved to file.
@@ -57,7 +55,6 @@ impl Default for EventStruct {
         Self {
             world_model_changed: None,
             viewed_layer_changed: None,
-            viewed_overlay_changed: None,
             load_layer_request: None,
             save_layer_request: None,
             render_layer_request: None,

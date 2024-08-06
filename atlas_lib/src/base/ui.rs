@@ -253,7 +253,7 @@ pub trait UiCreator<C> {
         // Handle about window.
         Self::handle_about(ctx, "Atlas History Simulator", &mut ui_base.about_open);
         // Handle overlay window.
-        Self::handle_overlay(ctx, events, ui_base);
+        Self::handle_overlay(ctx, ui_base);
     }
 
     /// Create the top part of the sidebar with configuration S/L.
@@ -299,15 +299,11 @@ pub trait UiCreator<C> {
     fn handle_file_dialog(config: &mut C, events: &mut EventStruct, ctx: &Context, ui_base: &mut UiStateBase);
 
     /// Handle displaying the overlay selection window.
-    fn handle_overlay(ctx: &Context, events: &mut EventStruct, ui_state: &mut UiStateBase) {
+    fn handle_overlay(ctx: &Context, ui_state: &mut UiStateBase) {
         window(ctx, "Overlays", &mut ui_state.overlay_window_open, |ui| {
-            let old = ui_state.overlays.clone();
             ui.checkbox(&mut ui_state.overlays[0], "Start Points");
             ui.checkbox(&mut ui_state.overlays[1], "Polities");
             ui.checkbox(&mut ui_state.overlays[2], "Cities");
-            if old != ui_state.overlays {
-                events.viewed_overlay_changed = Some((ui_state.overlays.clone(), false));
-            }
         });
     }
 }

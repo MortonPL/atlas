@@ -3,10 +3,19 @@ use atlas_lib::{
         ecs as bevy_ecs,
         prelude::*,
         utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
-    }, bevy_egui::{self}, bevy_prng::WyRand, bevy_rand::resource::GlobalEntropy, config::{sim::AtlasSimConfig, AtlasConfig}, domain::{
+    },
+    bevy_egui::{self},
+    bevy_prng::WyRand,
+    bevy_rand::resource::GlobalEntropy,
+    config::{sim::AtlasSimConfig, AtlasConfig},
+    domain::{
         graphics::{color_to_u8, MapLogicData},
         map::MapDataLayer,
-    }, rand::Rng, rstar::RTree, ui::{sidebar::*, UiEditableEnum}, MakeUi
+    },
+    rand::Rng,
+    rstar::RTree,
+    ui::{sidebar::*, UiEditableEnum},
+    MakeUi,
 };
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
@@ -93,8 +102,8 @@ pub struct Polity {
     pub resources_acc: [f32; LEN_RES],
     /// Researched technology (major, minor level).
     pub tech: [[f32; 2]; LEN_SCI],
-    /// Upkept traditions.
-    pub traditions: [f32; LEN_TRAD],
+    /// Upkept traditions and Great work/person bonus.
+    pub traditions: [[f32; 2]; LEN_TRAD],
     /// Govt policies.
     pub policies: [f32; LEN_POL],
     /// Total polity population.
@@ -109,8 +118,14 @@ pub struct Polity {
     pub heritage: [f32; LEN_TRAD],
     /// Created great works.
     pub great_works: Vec<GreatWork>,
+    /// Created great people.
+    pub great_people: Vec<GreatPerson>,
     /// Advanced resource capacities.
     pub capacities: [f32; 6],
+    /// Average stability of all regions/pops.
+    pub avg_stability: f32,
+    /// Average health of all regions/pops.
+    pub avg_health: f32,
     /// Population split.
     pub manpower_split: [f32; 3],
     /// Production split.
@@ -138,6 +153,7 @@ impl Default for Polity {
             population: 0.0,
             heritage: Default::default(),
             great_works: Default::default(),
+            great_people: Default::default(),
             regions: Default::default(),
             rtree: Default::default(),
             jobs: Default::default(),
@@ -148,6 +164,8 @@ impl Default for Polity {
             tech_split: Default::default(),
             trad_split: Default::default(),
             struct_split: Default::default(),
+            avg_stability: 1.0,
+            avg_health: 1.0,
         }
     }
 }
@@ -166,7 +184,10 @@ impl Polity {
             population: self.population,
             heritage: self.heritage.clone(),
             great_works: self.great_works.clone(),
+            great_people: self.great_people.clone(),
             jobs: self.jobs.clone(),
+            avg_stability: self.avg_stability,
+            avg_health: self.avg_health,
         }
     }
 }
@@ -177,6 +198,16 @@ pub struct GreatWork {
     pub tradition: u8,
     /// Time of creation.
     pub time: u32,
+}
+
+#[derive(Clone, Default)]
+pub struct GreatPerson {
+    /// Tradition associated with this great person.
+    pub tradition: u8,
+    /// Time of creation.
+    pub time: u32,
+    /// Is this person still active?
+    pub active: bool,
 }
 
 #[derive(Clone, Default, MakeUi)]
@@ -266,57 +297,55 @@ pub const SCI_LABELS: [&str; LEN_SCI] = [
     "Physics",
 ];
 
-pub const LEN_POL: usize = 7;
+pub const LEN_POL: usize = 6;
 /// Growth policy: Isolationist (improve land) vs Expansionist (claim land)
 const POL_EXPANSIONIST: usize = 0;
 /// Diplomacy policy: Cooperative (deals) vs Competitive (threats)
 const POL_COMPETITIVE: usize = 1;
-/// ??? policy: () vs ()
-const POL_LIBERAL: usize = 2;
 /// Work Split policy: Industrial (industry) vs Mercantile (wealth)
-const POL_MERCANTILE: usize = 3;
+const POL_MERCANTILE: usize = 2;
 /// Industry policy: Pacifist (civilian ind) vs Militarist (military ind)
-const POL_MILITARIST: usize = 4;
+const POL_MILITARIST: usize = 3;
 /// Wealth policy: Traditional (culture) vs Progressive (science)
-const POL_PROGRESSIVE: usize = 5;
+const POL_PROGRESSIVE: usize = 4;
 /// Treasure policy: Spending (low treasure) vs Greedy (high treasure)
-const POL_GREEDY: usize = 6;
+const POL_AUTOCRATIC: usize = 5;
 
 pub const POL_LABELS: [&str; LEN_POL] = [
     "Expansionist",
     "Competitive",
-    "Liberal",
     "Mercantile",
     "Militarist",
     "Progressive",
-    "Spending",
+    "Autocratic",
 ];
 
 pub const LEN_TRAD: usize = 8;
-/// Supply bonus / Great Economist
-const TRAD_AGRARIAN: usize = 0;
-/// Production bonus / Great Economist
-const TRAD_INDUSTRIOUS: usize = 1;
-/// Wealth bonus / Great Economist
-const TRAD_MERCANTILE: usize = 2;
+
+/// Expansion bonus / Great Explorer
+const TRAD_PIONEERING: usize = 0;
+/// Development bonus /  Great Architect
+const TRAD_CREATIVE: usize = 1;
 /// Science bonus / Great Scientist
-const TRAD_PROGRESSIVE: usize = 3;
+const TRAD_INVENTIVE: usize = 2;
 /// Culture bonus / Great Artist
-const TRAD_TRADITIONAL: usize = 4;
+const TRAD_ARTISTIC: usize = 3;
+/// Resource bonus / Great Economy
+const TRAD_INDUSTRIOUS: usize = 4;
 /// Governance bonus / Great Governor
-const TRAD_LEGALIST: usize = 5;
+const TRAD_HONORABLE: usize = 5;
 /// Diplomacy bonus / Great Diplomat
 const TRAD_COOPERATIVE: usize = 6;
 /// Military bonus / Great General
 const TRAD_MILITANT: usize = 7;
 
 pub const TRAD_LABELS: [&str; LEN_TRAD] = [
-    "Agrarian",
+    "Pioneering",
+    "Creative",
+    "Inventive",
+    "Artistic",
     "Industrious",
-    "Mercantile",
-    "Progressive",
-    "Traditional",
-    "Legalist",
+    "Honorable",
     "Cooperative",
     "Militant",
 ];
@@ -515,7 +544,7 @@ fn update_pops(
 ) {
     query_p
         .iter_mut()
-        .for_each(|mut x| x.update_pops(&config, &mut query_r));
+        .for_each(|mut x| x.update_social(&config, &mut query_r));
 }
 
 /// Update system
@@ -664,11 +693,11 @@ impl Polity {
             let minimum_manpower = polity.get_consumption(&config, res_id)
                 / config.rules.economy.resources[res_id].efficiency
                 / res_bonus.bonus
-                / polity.get_tradition_multiplier(config, trad).max(1.0);
+                / polity.get_tradition_multiplier(config, trad);
             minimum_manpower.min(manpower)
         };
         // Supply.
-        let supply_manpower = calc_minimum(self, RES_SUPPLY, TRAD_AGRARIAN);
+        let supply_manpower = calc_minimum(self, RES_SUPPLY, TRAD_INDUSTRIOUS);
         let spare_manpower = spare_manpower - supply_manpower;
         self.jobs.supply = supply_manpower;
         // Early exit if we used up all manpower.
@@ -684,7 +713,7 @@ impl Polity {
             return;
         }
         // Wealth.
-        let wealth_manpower = calc_minimum(self, RES_WEALTH_POPS, TRAD_MERCANTILE);
+        let wealth_manpower = calc_minimum(self, RES_WEALTH_POPS, TRAD_INDUSTRIOUS);
         let spare_manpower = spare_manpower - wealth_manpower;
         self.jobs.wealth = wealth_manpower;
         // Early exit if we used up all manpower.
@@ -700,7 +729,7 @@ impl Polity {
     pub fn update_resources(&mut self, config: &AtlasSimConfig, rb: &ResBonusStruct) {
         let supply = self.get_resource_yield(
             (self.jobs.supply * rb.bonus, rb.max_supply, -1.0),
-            (RES_SUPPLY, 1001, TRAD_AGRARIAN),
+            (RES_SUPPLY, 1001, TRAD_INDUSTRIOUS),
             config,
         );
         // Split primary resources into secondary resources (industry).
@@ -712,36 +741,52 @@ impl Polity {
         let mut mil_indu = 0.0;
         if industry > 0.0 {
             civ_indu = self.get_resource_yield(
-                (industry * self.indu_split[0], rb.max_industry, self.capacities[1]),
+                (
+                    industry * self.indu_split[0],
+                    rb.max_industry,
+                    self.capacities[STR_MANUFACTURE],
+                ),
                 (RES_CIVILIAN, SCI_ENGINEERING, 1001),
                 config,
             );
             mil_indu = self.get_resource_yield(
-                (industry * self.indu_split[1], rb.max_industry, self.capacities[2]),
+                (
+                    industry * self.indu_split[1],
+                    rb.max_industry,
+                    self.capacities[STR_FORGE],
+                ),
                 (RES_MILITARY, SCI_METALLURGY, 1001),
                 config,
             );
         };
         // Split primary resources into secondary resources (wealth).
         let wealth_pop = self.get_consumption(&config, RES_WEALTH_POPS);
-        let wealth = self.jobs.wealth * self.get_tradition_multiplier(config, TRAD_MERCANTILE) * rb.bonus;
+        let wealth = self.jobs.wealth * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * rb.bonus;
         let wealth = (wealth - wealth_pop).max(0.0);
         let mut research = 0.0;
         let mut culture = 0.0;
         let mut treasure = 0.0;
         if wealth > 0.0 {
             research = self.get_resource_yield(
-                (wealth * self.wealth_split[0], rb.max_wealth, self.capacities[3]),
-                (RES_RESEARCH, SCI_MATHEMATICS, TRAD_PROGRESSIVE),
+                (
+                    wealth * self.wealth_split[0],
+                    rb.max_wealth,
+                    self.capacities[STR_UNIVERSITY],
+                ),
+                (RES_RESEARCH, SCI_MATHEMATICS, TRAD_INVENTIVE),
                 config,
             );
             culture = self.get_resource_yield(
-                (wealth * self.wealth_split[1], rb.max_wealth, self.capacities[4]),
-                (RES_CULTURE, SCI_PHILOSOPHY, TRAD_TRADITIONAL),
+                (
+                    wealth * self.wealth_split[1],
+                    rb.max_wealth,
+                    self.capacities[STR_AMPHITHEATER],
+                ),
+                (RES_CULTURE, SCI_PHILOSOPHY, TRAD_ARTISTIC),
                 config,
             );
             treasure = self.get_resource_yield(
-                (wealth * self.wealth_split[2], rb.max_wealth, self.capacities[5]),
+                (wealth * self.wealth_split[2], rb.max_wealth, -1.0),
                 (RES_TREASURE, SCI_FINANCES, 1001),
                 config,
             );
@@ -764,6 +809,11 @@ impl Polity {
         query: &mut Query<&mut Region>,
         rng: &mut GlobalEntropy<WyRand>,
     ) -> Vec<u32> {
+        let can_dev = |region: &Region| region.development < config.rules.region.max_dev_level;
+        let can_build =
+            |region: &Region| region.struct_levels < config.rules.region.max_dev_level * LEN_STR as f32;
+        let can_exp = |region: &Region| region.can_expand;
+        let can_split = |region: &Region| region.can_split();
         let mut build_cities = vec![];
         let regions_len = self.regions.len() as f32;
         let mut undeveloped_regions = 0.0;
@@ -777,10 +827,10 @@ impl Polity {
             } else {
                 continue;
             };
-            if region.development < config.rules.region.max_dev_level {
+            if can_dev(&region) || can_build(&region) {
                 undeveloped_regions += 1.0;
             }
-            if region.can_expand || region.can_split() {
+            if can_exp(&region) || can_split(&region) {
                 expandable_regions += 1.0;
             }
         }
@@ -789,8 +839,11 @@ impl Polity {
         self.resources_acc[RES_CIVILIAN] = 0.0;
         // Divide industrial effort into expansion and development.
         let expansion_points =
-            acc_points * self.policies[POL_EXPANSIONIST] * config.rules.region.base_claim_speed;
-        let development_points = (acc_points - expansion_points) * config.rules.region.base_dev_speed;
+            acc_points * self.policies[POL_EXPANSIONIST] * config.rules.region.base_exp_speed;
+        let development_points = (acc_points - expansion_points)
+            * config.rules.region.base_dev_speed
+            * self.get_tradition_multiplier(config, TRAD_CREATIVE);
+        let expansion_points = expansion_points * self.get_tradition_multiplier(config, TRAD_PIONEERING);
         let expansion_points = if expandable_regions.is_zero() {
             0.0
         } else {
@@ -810,51 +863,75 @@ impl Polity {
             // Check inner tiles for being close to existing cities.
             region.update_can_split(&extras);
             // Distribute expansion points.
-            let can_split = region.can_split();
-            if region.can_expand {
-                if can_split {
-                    let land_claim = expansion_points * self.policies[POL_EXPANSIONIST];
-                    region.land_claim_fund += land_claim;
-                    region.new_city_fund += expansion_points - land_claim;
+            let (exp, split) = match (can_exp(&region), can_split(&region)) {
+                (true, true) => (
+                    self.policies[POL_EXPANSIONIST],
+                    1.0 - self.policies[POL_EXPANSIONIST],
+                ),
+                (true, false) => (1.0, 0.0),
+                (false, true) => (0.0, 1.0),
+                (false, false) => (0.0, 0.0),
+            };
+            // Increase land claim and new city funds.
+            region.land_claim_fund += exp * expansion_points;
+            region.new_city_fund += split * expansion_points;
+            // Distribute development points.
+            let development_points =
+                development_points / self.get_city_cost_multiplier(config, region.development);
+            let (dev, build) = match (can_dev(&region), can_build(&region)) {
+                (true, true) => (
+                    self.policies[POL_EXPANSIONIST],
+                    1.0 - self.policies[POL_EXPANSIONIST],
+                ),
+                (true, false) => (1.0, 0.0),
+                (false, true) => (0.0, 1.0),
+                (false, false) => (0.0, 0.0),
+            };
+            // Increase region development.
+            region.development =
+                (region.development + dev * development_points).min(config.rules.region.max_dev_level);
+            let str_limit = region.development.trunc();
+            // Increase region structure level.
+            let len = region.structures.len();
+            let mut overflow = 0.0;
+            let mut maxxed_count = 0;
+            let build = build * development_points;
+            for i in 0..len {
+                let increment = build * self.struct_split[i] * config.rules.region.structures[i].cost;
+                let diff = region.structures[i] + increment - str_limit;
+                if diff > 0.0 {
+                    region.structures[i] = str_limit;
+                    overflow += diff;
+                    maxxed_count += 1;
                 } else {
-                    region.land_claim_fund += expansion_points;
-                }
-            } else if can_split {
-                region.new_city_fund += expansion_points;
-            }
-            // Upgrade region structures.
-            let multiplier = self.get_city_multiplier(config, region.development);
-            let sum = region.structures.iter().fold(0.0, |acc, x| acc + x);
-            let diff = region.development - sum;
-            let mut value_str = development_points.min(diff);
-            if diff >= 0.0 {
-                let increment = value_str / multiplier;
-                // Build special structures.
-                for i in 0..region.structures.len() {
-                    region.structures[i] +=
-                        increment * self.struct_split[i] * config.rules.region.structures[i].cost;
-                }
-            } else {
-                // City level dropped: deal structural damage.
-                value_str = development_points;
-                for i in 0..region.structures.len() {
-                    region.structures[i] = region.development * self.struct_split[i];
+                    region.structures[i] += increment;
                 }
             }
-            // Increase city level with leftovers.
-            if region.development < config.rules.region.max_dev_level {
-                let value = (development_points - value_str).max(0.0) / multiplier;
-                region.development = (region.development + value).min(config.rules.region.max_dev_level);
+            let build = overflow / (len - maxxed_count) as f32;
+            for i in 0..len {
+                if region.structures[i] < str_limit {
+                    let increment = build * self.struct_split[i] * config.rules.region.structures[i].cost;
+                    region.structures[i] = (region.structures[i] + increment).min(str_limit);
+                }
             }
+            region.struct_levels = region.structures.iter().fold(0.0, |acc, x| acc + x);
             // Recalculate resource capacities.
-            for i in 0..self.capacities.len() {
-                self.capacities[i] += region.structures[i]
+            let calc_capacity = |i: usize, region: &mut Region| {
+                region.structures[i]
                     * config.rules.region.structures[i].strength
-                    * config.rules.region.base_capacity;
+                    * config.rules.region.base_capacity
+            };
+            for i in 0..self.capacities.len() {
+                self.capacities[i] += calc_capacity(i, &mut region);
             }
+            // Recalculate region powers.
+            region.security =
+                calc_capacity(STR_COURTHOUSE, &mut region) * self.get_tech_multiplier(config, SCI_LAW);
+            region.health =
+                calc_capacity(STR_HOSPITAL, &mut region) * self.get_tech_multiplier(config, SCI_MEDICINE);
             // Request splitting regions (by building new cities).
             let diff = region.new_city_fund - config.rules.region.new_city_cost;
-            if can_split && diff > 0.0 {
+            if can_split(&region) && diff > 0.0 {
                 let i = rng.gen_range(0..region.split_tiles.len());
                 let i = *region.split_tiles.iter().nth(i).unwrap();
                 build_cities.push(i);
@@ -874,13 +951,14 @@ impl Polity {
         let culture = self.resources_acc[RES_CULTURE] * config.rules.culture.base_speed;
         for (i, val) in self.traditions.iter_mut().enumerate() {
             let increment = self.trad_split[i] * culture / config.rules.culture.traditions[i].cost;
-            let decay = config.rules.culture.base_decay + config.rules.culture.level_decay * val.floor();
-            let overflow = *val + increment - decay - config.rules.culture.max_level;
+            let decay = config.rules.culture.base_decay + config.rules.culture.level_decay * val[0].floor();
+            let new_val = val[0] + increment - decay;
+            let overflow = new_val - config.rules.culture.max_level;
             if overflow > 0.0 {
-                *val = config.rules.culture.max_level;
+                val[0] = config.rules.culture.max_level;
                 self.heritage[i] += overflow * config.rules.culture.heritage_ratio;
             } else {
-                *val = (*val + increment).max(0.0);
+                val[0] = new_val.max(0.0);
             }
         }
         self.resources_acc[RES_CULTURE] = 0.0;
@@ -896,46 +974,58 @@ impl Polity {
             }
             let great_person = rng.gen_bool(config.rules.culture.great_person_chance as f64);
             if great_person {
-                // TODO add great person
+                // Add great person.
+                self.great_people.push(GreatPerson {
+                    tradition: i as u8,
+                    time: sim.time,
+                    active: true,
+                });
+                self.traditions[i][1] += config.rules.culture.great_person_bonus;
             } else {
-                // add great work
+                // Add great work.
                 self.great_works.push(GreatWork {
                     tradition: i as u8,
                     time: sim.time,
-                })
+                });
+                self.traditions[i][1] += config.rules.culture.great_work_bonus;
             }
             *val = 0.0;
+        }
+        for x in self.great_people.iter_mut() {
+            if (sim.time >= x.time + config.rules.culture.great_person_duration) && x.active {
+                x.active = false;
+                self.traditions[x.tradition as usize][1] -=
+                    config.rules.culture.great_person_bonus - config.rules.culture.great_work_bonus;
+            }
         }
     }
 
     pub fn update_tech(&mut self, config: &AtlasSimConfig) {
-        let major_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_major;
-        let minor_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_minor;
+        let total_major_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_major;
+        let total_minor_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_minor;
         for (i, val) in self.tech.iter_mut().enumerate() {
             let tech = &config.rules.tech.techs[i];
             let major = val[0].trunc();
-            // Get decay (difficulty) based on major level.
+            // Get decay and difficulty based on major level.
             let decay = config.rules.tech.base_decay + config.rules.tech.level_decay * major;
+            let level_difficulty = 1.0 + major * config.rules.tech.level_difficulty;
+            let major_points = (total_major_points * self.tech_split[i] * level_difficulty) / tech.cost;
+            let minor_points = (total_minor_points * self.tech_split[i] * level_difficulty) / tech.cost;
             // Advance major level if the minor level is maxxed, otherwise advance minor level.
             // Minor level is easier to advance.
-            if val[1] >= config.rules.tech.max_level_minor {
+            if val[1] >= config.rules.tech.max_level_minor * major {
                 // Advance major level.
-                let increment = self.tech_split[i] * major_points / tech.cost;
-                val[0] = (val[0] + increment - decay).clamp(0.0, config.rules.tech.max_level_major);
-                // If we reached new major level, reset minor level.
-                if val[0].trunc() > major {
-                    val[1] = 0.0;
-                }
+                val[0] = (val[0] + major_points - decay).clamp(0.0, config.rules.tech.max_level_major);
             } else {
                 // Advance minor level.
-                let increment = self.tech_split[i] * minor_points / tech.cost;
-                val[1] = (val[1] + increment - decay).clamp(0.0, config.rules.tech.max_level_minor);
+                val[1] =
+                    (val[1] + minor_points - decay).clamp(0.0, config.rules.tech.max_level_minor * major);
             }
         }
         self.resources_acc[RES_RESEARCH] = 0.0;
     }
 
-    pub fn update_splits(&mut self, config: &AtlasSimConfig) {
+    pub fn update_splits(&mut self, _config: &AtlasSimConfig) {
         // Update manpower split.
         self.manpower_split = [
             0.0,
@@ -949,10 +1039,11 @@ impl Polity {
         let sum: f32 = self.indu_split.iter().sum();
         self.indu_split = self.indu_split.map(|x| x / sum);
         // Update wealth split.
+        let not_greedy = 1.0 - self.policies[POL_AUTOCRATIC];
         self.wealth_split = [
-            self.policies[POL_PROGRESSIVE],
-            1.0 - self.policies[POL_PROGRESSIVE],
-            self.policies[POL_GREEDY],
+            not_greedy * self.policies[POL_PROGRESSIVE],
+            not_greedy * (1.0 - self.policies[POL_PROGRESSIVE]),
+            self.policies[POL_AUTOCRATIC],
         ];
         let sum: f32 = self.wealth_split.iter().sum();
         self.wealth_split = self.wealth_split.map(|x| x / sum);
@@ -964,38 +1055,41 @@ impl Polity {
             self.policies[POL_MILITARIST],
             1.0 - self.policies[POL_PROGRESSIVE],
             self.policies[POL_PROGRESSIVE],
-            self.policies[POL_GREEDY],
-            1.0 - self.policies[POL_GREEDY],
+            self.policies[POL_AUTOCRATIC],
+            1.0 - self.policies[POL_AUTOCRATIC],
             1.0 - self.policies[POL_COMPETITIVE],
             self.policies[POL_COMPETITIVE],
         ];
         let sum: f32 = self.tech_split.iter().sum();
         self.tech_split = self.tech_split.map(|x| x / sum);
         // Update tradition split.
-        for (x, (tradition, split)) in self.trad_split.iter_mut().zip(
-            self.traditions
-                .iter()
-                .zip(config.rules.misc.default_tradition_split),
-        ) {
-            *x = (1.0 + tradition) * split;
-        }
+        self.trad_split = [
+            self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            self.policies[POL_PROGRESSIVE],
+            1.0 - self.policies[POL_PROGRESSIVE],
+            1.0 - self.policies[POL_AUTOCRATIC],
+            self.policies[POL_AUTOCRATIC],
+            1.0 - self.policies[POL_COMPETITIVE],
+            self.policies[POL_COMPETITIVE],
+        ];
         let sum: f32 = self.trad_split.iter().sum();
         self.trad_split = self.trad_split.map(|x| x / sum);
         // Update structue split.
         self.struct_split = [
-            self.policies[POL_PROGRESSIVE],
-            (1.0 - self.policies[POL_MILITARIST]),
+            1.0 - self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_MILITARIST],
             self.policies[POL_MILITARIST],
             self.policies[POL_PROGRESSIVE],
-            (1.0 - self.policies[POL_PROGRESSIVE]),
-            (1.0 - self.policies[POL_PROGRESSIVE]),
+            1.0 - self.policies[POL_PROGRESSIVE],
+            self.policies[POL_AUTOCRATIC],
             self.policies[POL_COMPETITIVE],
         ];
         let sum: f32 = self.struct_split.iter().sum();
         self.struct_split = self.struct_split.map(|x| x / sum);
     }
 
-    pub fn update_pops(&mut self, config: &AtlasSimConfig, query: &mut Query<&mut Region>) {
+    pub fn update_social(&mut self, config: &AtlasSimConfig, query: &mut Query<&mut Region>) {
         // Calculate the current supply coverage (no consumption == 100% coverage as well).
         let consumption = self.get_consumption(&config, RES_SUPPLY);
         let coverage = if consumption.is_zero() {
@@ -1004,28 +1098,50 @@ impl Polity {
             self.resources[RES_SUPPLY] / consumption
         };
         // Supply the population. Only supplied population survives and grows.
-        // Medicine tech improves pop growth (and indirectly increases the pop cap).
-        let growth = coverage
-            * (1.0 + config.rules.economy.pop_growth * self.get_tech_multiplier(config, SCI_MEDICINE));
-        // Grow the region pops.
+        // Medicine tech improves pop growth and hospital power.
+        let growth = config.rules.economy.pop_growth * self.get_tech_multiplier(config, SCI_MEDICINE);
         self.population = 0.0;
+        self.avg_stability = 0.0;
+        self.avg_health = 0.0;
         for region in self.regions.iter() {
             let mut region = if let Ok(region) = query.get_mut(*region) {
                 region
             } else {
                 continue;
             };
-            region.population = (region.population * growth).max(config.rules.economy.min_pop);
+            // Calculate region health.
+            let sick_pops = ((region.population - region.health).max(0.0) / region.population)
+                .min(config.rules.economy.max_health_penalty);
+            region.healthcare = 1.0 - sick_pops;
+            // Grow the region pops.
+            region.population = (region.population * (coverage + growth * region.healthcare))
+                .max(config.rules.economy.min_pop);
             self.population += region.population;
+            // Calculate region crime/stability.
+            let crime_pops = region.population * config.rules.economy.crime_rate
+                / self.get_tradition_multiplier(config, TRAD_HONORABLE);
+            let crime = (crime_pops - region.security).max(0.0) / region.population;
+            region.stability = 1.0 - crime;
+            self.avg_stability += region.population * region.stability;
+            self.avg_health += region.population * region.healthcare;
         }
+        self.avg_stability /= self.population;
+        self.avg_health /= self.population;
     }
 
     fn get_consumption(&self, config: &AtlasSimConfig, res_id: usize) -> f32 {
+        let chaos = 1.0 - self.avg_stability;
         self.population
             * match res_id {
-                RES_SUPPLY => config.rules.economy.base_supply_need,
-                RES_INDU_POPS => config.rules.economy.base_industry_need,
-                RES_WEALTH_POPS => config.rules.economy.base_wealth_need,
+                RES_SUPPLY => {
+                    config.rules.economy.base_supply_need + config.rules.economy.chaos_supply_loss * chaos
+                }
+                RES_INDU_POPS => {
+                    config.rules.economy.base_industry_need + config.rules.economy.chaos_industry_loss * chaos
+                }
+                RES_WEALTH_POPS => {
+                    config.rules.economy.base_wealth_need + config.rules.economy.chaos_wealth_loss * chaos
+                }
                 _ => panic!(),
             }
     }
@@ -1054,7 +1170,7 @@ impl Polity {
     }
 
     #[inline(always)]
-    fn get_city_multiplier(&self, config: &AtlasSimConfig, city: f32) -> f32 {
+    fn get_city_cost_multiplier(&self, config: &AtlasSimConfig, city: f32) -> f32 {
         1.0 + config.rules.region.dev_level_cost * city.floor()
     }
 
@@ -1067,7 +1183,8 @@ impl Polity {
 
     #[inline(always)]
     fn get_tradition_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
-        let strength = config.rules.culture.traditions[i].strength * self.traditions[i].trunc();
+        let strength = config.rules.culture.traditions[i].strength
+            * (self.traditions[i][0] + self.traditions[i][0]).trunc();
         1.0 + config.rules.culture.level_bonus * strength
     }
 }

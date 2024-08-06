@@ -1,14 +1,12 @@
 use atlas_lib::{
-    bevy_egui::{self, egui::Ui},
+    bevy_egui::{
+        self,
+        egui::{CollapsingHeader, RichText, Ui},
+    },
     ui::sidebar::*,
 };
 
-use crate::sim::{
-    polity::*,
-    time_to_string,
-};
-
-use super::polity::RES_TREASURE;
+use crate::sim::{polity::*, time_to_string, time_to_string_plus};
 
 pub struct PolityUi {
     /// Ownership status.
@@ -24,17 +22,23 @@ pub struct PolityUi {
     /// Researched technology (major, minor level).
     pub tech: [[f32; 2]; LEN_SCI],
     /// Upkept traditions.
-    pub traditions: [f32; LEN_TRAD],
+    pub traditions: [[f32; 2]; LEN_TRAD],
     /// Govt policies.
     pub policies: [f32; LEN_POL],
     /// Accumulated heritage.
     pub heritage: [f32; LEN_TRAD],
     /// Created great works.
     pub great_works: Vec<GreatWork>,
+    /// Created great people.
+    pub great_people: Vec<GreatPerson>,
     /// Total polity population.
     pub population: f32,
     /// List of pop job groups.
     pub jobs: JobStruct,
+    /// Average stability of all regions/pops.
+    pub avg_stability: f32,
+    /// Average health of all regions/pops.
+    pub avg_health: f32,
 }
 
 impl PolityUi {
@@ -42,7 +46,12 @@ impl PolityUi {
         ui.heading("Economy");
         ui.end_row();
         SidebarSlider::new(ui, "Accumulated Treasure", &mut self.resources_acc[RES_TREASURE]).show(None);
-        SidebarSlider::new(ui, "Accumulated Civilian Industry", &mut self.resources_acc[RES_CIVILIAN]).show(None);
+        SidebarSlider::new(
+            ui,
+            "Accumulated Civilian Industry",
+            &mut self.resources_acc[RES_CIVILIAN],
+        )
+        .show(None);
         for (x, label) in self.resources.iter_mut().zip(RES_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
@@ -64,20 +73,34 @@ impl PolityUi {
         ui.end_row();
         SidebarSlider::new(ui, "Accumulated Points", &mut self.resources_acc[RES_CULTURE]).show(None);
         for (x, label) in self.traditions.iter_mut().zip(TRAD_LABELS) {
-            SidebarSlider::new(ui, label, x).show(None);
+            SidebarSliderN::new(ui, label, x).show(None);
         }
         ui.heading("Heritage");
         ui.end_row();
         for (x, label) in self.heritage.iter_mut().zip(TRAD_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
-        ui.heading("Great Works");
+        CollapsingHeader::new(RichText::new("Great Works").heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                for x in self.great_works.iter() {
+                    ui.label(TRAD_LABELS[x.tradition as usize]);
+                    ui.label(time_to_string(x.time));
+                    ui.end_row();
+                }
+            });
         ui.end_row();
-        for x in self.great_works.iter() {
-            ui.label(TRAD_LABELS[x.tradition as usize]);
-            ui.label(time_to_string(x.time));
-            ui.end_row();
-        }
+        CollapsingHeader::new(RichText::new("Great People").heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                for x in self.great_people.iter() {
+                    ui.label(TRAD_LABELS[x.tradition as usize]);
+                    let active = if x.active { "(Active)" } else { "(Retired)" };
+                    ui.label(time_to_string_plus(x.time, active));
+                    ui.end_row();
+                }
+            });
+        ui.end_row();
     }
 }
 
@@ -87,10 +110,64 @@ impl MakeUi for PolityUi {
         SidebarColor::new(ui, "Color", &mut self.color).show(None);
         SidebarSlider::new(ui, "# of Regions", &mut self.regions).show(None);
         SidebarSlider::new(ui, "Total Population", &mut self.population).show(None);
+        SidebarSlider::new(ui, "Average Stability", &mut self.avg_stability).show(None);
+        SidebarSlider::new(ui, "Average Healthcare", &mut self.avg_health).show(None);
         ui.heading("Policy");
         ui.end_row();
         for (x, label) in self.policies.iter_mut().zip(POL_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct RegionUi {
+    /// Region population.
+    pub population: f32,
+    /// Map of available deposits.
+    pub deposits: Vec<(String, f32)>,
+    /// Number of tiles in the region.
+    pub tiles: u32,
+    /// Land claim points.
+    pub land_claim: f32,
+    /// City fund points.
+    pub city_fund: f32,
+    /// Development level.
+    pub development: f32,
+    /// Level of special structures.
+    pub structures: [f32; LEN_STR],
+    /// Stability level.
+    pub stability: f32,
+    /// Healthcare level.
+    pub healthcare: f32,
+    /// Security force power.
+    pub security: f32,
+    /// Public health power.
+    pub health: f32,
+}
+
+impl MakeUi for RegionUi {
+    fn make_ui(&mut self, ui: &mut Ui) {
+        SidebarSlider::new(ui, "Population", &mut self.population).show(None);
+        SidebarSlider::new(ui, "Public Security Power", &mut self.security).show(None);
+        SidebarSlider::new(ui, "Public Health Power", &mut self.health).show(None);
+        SidebarSlider::new(ui, "Stability", &mut self.stability).show(None);
+        SidebarSlider::new(ui, "Healthcare", &mut self.healthcare).show(None);
+        SidebarSlider::new(ui, "# of Tiles", &mut self.tiles).show(None);
+        ui.heading("Expansion & Development");
+        ui.end_row();
+        SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim).show(None);
+        SidebarSlider::new(ui, "New Region Points", &mut self.city_fund).show(None);
+        SidebarSlider::new(ui, "Development Level", &mut self.development).show(None);
+        ui.heading("Structures");
+        ui.end_row();
+        for (x, label) in self.structures.iter_mut().zip(STR_LABELS) {
+            SidebarSlider::new(ui, label, x).show(None);
+        }
+        ui.heading("Deposits");
+        ui.end_row();
+        for (k, v) in &mut self.deposits {
+            SidebarSlider::new(ui, k.clone(), v).show(None);
         }
     }
 }

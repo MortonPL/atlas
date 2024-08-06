@@ -19,6 +19,7 @@ bevy_prng = { version = "0.6", features = ["wyrand"] } # "
 egui_file = "0.17.0"                                   # GUI - file dialog
 png = "0.17.11"                                        # PNG codec
 rand = "0.8.5"                                         # RNG
+rand_distr = "0.4.3"                                   # RNG distributions
 rstar = "0.12.0"                                       # R-tree structure
 serde = "1.0.164"                                      # (de)serialization of data
 serde_derive = "1.0.164"                               # "

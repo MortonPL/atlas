@@ -30,8 +30,8 @@ use panel_sim::*;
 
 use crate::sim::{
     polity::Polity,
-    region::{Region, RegionUi},
-    ui::PolityUi,
+    region::Region,
+    ui::{PolityUi, RegionUi},
     SimControl, SimMapData,
 };
 
@@ -104,6 +104,7 @@ struct AtlasSimUi {
     pub cursor: Option<(u32, u32)>,
     /// Pretend that the current panel has changed this frame.
     pub force_changed: bool,
+    /// Currently selected object.
     pub selection: Option<Selection>,
 }
 
@@ -136,10 +137,10 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     button_action_enabled(ui, "Import Generated World", self.setup_mode, || {
                         open_file_dialog(ui_base, FileDialogMode::ImportSpecial)
                     });
-                    button_action_enabled(ui, "Import World State", self.setup_mode, || {
+                    button_action_enabled(ui, "Import World State", false, || {
                         open_file_dialog(ui_base, FileDialogMode::Import)
                     });
-                    button_action(ui, "Export World State", || {
+                    button_action_enabled(ui, "Export World State", false, || {
                         open_file_dialog(ui_base, FileDialogMode::Export)
                     });
                     button_action(ui, "Exit", || {
