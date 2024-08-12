@@ -3,13 +3,9 @@
 ## SIM
 
 - High Priority
-  - Improve map claiming system
-    - Colony convoy system
-  - Culture rework (wip)
-  - Polity government and leaders
-  - Great people (wip)
+  - Colony convoy system
   - Natural disasters
-  - Military and combat
+  - Military and combat (wip)
   - Diplomacy and deals
   - History log
 

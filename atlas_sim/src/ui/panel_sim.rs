@@ -9,7 +9,10 @@ use atlas_lib::{
 use crate::ui::AtlasSimUi;
 
 macro_rules! make_panel {
-    ($panel:ty, $name:literal, $fun:ident) => {
+    ($panel:ident, $name:literal, $fun:ident) => {
+        #[derive(Default, Clone, Copy)]
+        pub struct $panel;
+
         impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for $panel {
             fn extra_ui(
                 &mut self,
@@ -62,8 +65,14 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for InfoPanelMisc {
                     });
                 });
                 return;
+            } else if let Some(conflict) = &mut selection.conflict {
+                ui.add_enabled_ui(true, |ui| {
+                    Grid::new(format!("{}_panel", self.get_heading())).show(ui, |ui| {
+                        conflict.make_ui(ui);
+                    });
+                });
             } else {
-                // TODO other selectables
+                /* Other selectables */
             }
         }
         ui.label("No object selected.");
@@ -77,22 +86,6 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for InfoPanelMisc {
         MapDataLayer::Preview
     }
 }
-
-/// Panel with polity summary.
-#[derive(Default, Clone, Copy)]
-pub struct InfoPanelPolity;
-
-/// Panel with polity economy summary.
-#[derive(Default, Clone, Copy)]
-pub struct InfoPanelEconomy;
-
-/// Panel with polity research summary.
-#[derive(Default, Clone, Copy)]
-pub struct InfoPanelScience;
-
-/// Panel with polity culture summary.
-#[derive(Default, Clone, Copy)]
-pub struct InfoPanelCulture;
 
 make_panel!(InfoPanelPolity, "General", make_ui);
 make_panel!(InfoPanelEconomy, "Economy", make_ui_economy);

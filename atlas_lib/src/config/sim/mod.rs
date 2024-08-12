@@ -1,5 +1,7 @@
 mod defaults;
 
+use weighted_rand::table::WalkerTable;
+
 use crate::{
     bevy::prelude::*,
     bevy_egui,
@@ -60,8 +62,8 @@ pub struct GeneralConfig {
 pub struct ScenarioConfig {
     #[name("Number of Starting Points")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(1..=255))]
-    pub num_starts: u8,
+    #[add(clamp_range(1..=1000))]
+    pub num_starts: u32,
     #[name("Random Start Point Algorithm")]
     #[control(SidebarEnumDropdown)]
     pub random_point_algorithm: StartPointAlgorithm,
@@ -69,6 +71,10 @@ pub struct ScenarioConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000000.0))]
     pub starting_land_claim_points: f32,
+    #[name("Starting Population")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000000.0))]
+    pub start_pop: f32,
     #[name("Policy Distribution Mean")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
@@ -117,6 +123,7 @@ pub struct PolityConfig {
     pub color: [u8; 3],
     pub population: f32,
     pub policies: [f32; 6],
+    pub next_policy: u32,
 }
 
 impl MakeUi for PolityConfig {
@@ -133,7 +140,7 @@ impl MakeUi for PolityConfig {
             "Mercantile",
             "Militarist",
             "Progressive",
-            "Autocratic",
+            "Legalist",
         ]) {
             SidebarSlider::new(ui, label, x).show(None);
         }
@@ -143,9 +150,6 @@ impl MakeUi for PolityConfig {
 /// Config for general world settings and preview.
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct RulesConfig {
-    #[name("Misc")]
-    #[control(SidebarStructSection)]
-    pub misc: MiscConfig,
     #[name("Economy")]
     #[control(SidebarStructSection)]
     pub economy: EconomyConfig,
@@ -158,14 +162,12 @@ pub struct RulesConfig {
     #[name("Region")]
     #[control(SidebarStructSection)]
     pub region: RegionsConfig,
-}
-
-#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
-pub struct MiscConfig {
-    #[name("Tile Resolution [km]")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(1.0..=100.0))]
-    pub tile_resolution: f32,
+    #[name("Combat")]
+    #[control(SidebarStructSection)]
+    pub combat: CombatConfig,
+    #[name("Diplomacy")]
+    #[control(SidebarStructSection)]
+    pub diplomacy: DiplomacyConfig,
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize)]
@@ -180,7 +182,7 @@ pub struct EconomyConfig {
     pub chaos_industry_loss: f32,
     pub chaos_wealth_loss: f32,
     pub crime_rate: f32,
-    pub resources: [ResConfig; 8],
+    pub resources: [ResConfig; 10],
 }
 
 impl MakeUi for EconomyConfig {
@@ -216,13 +218,15 @@ impl MakeUi for EconomyConfig {
         ui.end_row();
         for (x, label) in self.resources.iter_mut().zip([
             "Supply",
-            "Industry Consumption",
+            "Industry (General)",
             "Civilian Industry",
             "Military Industry",
-            "Wealth Consumption",
+            "Wealth (General)",
             "Research",
             "Culture",
-            "Treasure",
+            "Loyalty",
+            "Industry Tributes",
+            "Wealth Tributes",
         ]) {
             ui.label(label);
             ui.end_row();
@@ -302,10 +306,10 @@ impl MakeUi for TechnologiesConfig {
             "Metallurgy",
             "Philosophy",
             "Mathematics",
-            "Finances",
+            "Management",
             "Law",
             "Linguistics",
-            "Physics",
+            "Military Tech",
         ]) {
             ui.label(label);
             ui.end_row();
@@ -396,7 +400,7 @@ impl MakeUi for CulturesConfig {
             "Artistic",
             "Industrious",
             "Honorable",
-            "Cooperative",
+            "Diplomatic",
             "Militant",
         ]) {
             ui.label(label);
@@ -503,4 +507,168 @@ impl Default for StructureConfig {
             cost: 1.0,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct CombatConfig {
+    #[name("Action Weights (Attacker)")]
+    #[control(SidebarSliderN)]
+    pub action_weights_attacker: [u32; 8],
+    #[name("Action Weights (Defender)")]
+    #[control(SidebarSliderN)]
+    pub action_weights_defender: [u32; 8],
+    #[serde(skip)]
+    pub action_table_attacker: WalkerTable,
+    #[serde(skip)]
+    pub action_table_defender: WalkerTable,
+    #[name("Assault Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub assault_bonus: f32,
+    #[name("Maneouver Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub maneouver_bonus: f32,
+    #[name("Charge Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub charge_bonus: f32,
+    #[name("Rally Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub rally_bonus: f32,
+    #[name("Skirmish Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub skirmish_bonus: f32,
+    #[name("Delay Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub delay_bonus: f32,
+    #[name("Skirmish Penalty")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub skirmish_penalty: f32,
+    #[name("Delay Penalty")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub delay_penalty: f32,
+    #[name("Siege Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub siege_bonus: f32,
+    #[name("Siege Penalty")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub siege_penalty: f32,
+    #[name("Fortify Bonus")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub fortify_bonus: f32,
+    #[name("Fortify Penalty")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub fortify_penalty: f32,
+    #[name("Mobilization Speed")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub mobilization_speed: f32,
+    #[name("Combat Randomness")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub randomness: f32,
+    #[name("Material Damage Fatality")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub fatality: f32,
+    #[name("Morale Damage Fragility")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub fragility: f32,
+    #[name("Material Advantage Power")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub material_advantage: f32,
+    #[name("Morale Advantage Power")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub morale_advantage: f32,
+    #[name("Morale Breakdown Multiplier")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub breakdown: f32,
+    #[name("Morale to Material Ratio Cap")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub morale_cap: f32,
+    #[name("Equipment to Manpower Ratio")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub equipment_manpower_ratio: f32,
+    #[name("Damage to Fort Ratio")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub fort_damage: f32,
+    #[name("Monthly Defender Attrition")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub base_defender_attrition: f32,
+    #[name("Monthly Attacker Attrition")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub base_attacker_attrition: f32,
+    #[name("Attrition From Combat Damage")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub combat_attrition: f32,
+    #[name("Attrition From Civilian Damage")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub civilian_attrition: f32,
+    #[name("Civilian Damage From Unabsorbed Damage %")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub civilian_damage: f32,
+    #[name("Number of Tribute Payments")]
+    #[control(SidebarSlider)]
+    pub tribute_time: u32,
+    #[name("Economy % to Tribute")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub tribute_ratio: f32,
+}
+
+#[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
+pub struct DiplomacyConfig {
+    #[name("Initial Peace Length")]
+    #[control(SidebarSlider)]
+    pub initial_peace_length: u32,
+    #[name("Policy Change Time Mean")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub policy_time_mean: f32,
+    #[name("Policy Change Time Deviation")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub policy_time_dev: f32,
+    #[name("Relations Change Speed")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub relations_speed: f32,
+    #[name("Ally threshold")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub ally_threshold: f32,
+    #[name("Friend threshold")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub friend_threshold: f32,
+    #[name("Rival threshold")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(-1.0..=0.0))]
+    pub rival_threshold: f32,
+    #[name("Enemy threshold")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(-1.0..=0.0))]
+    pub enemy_threshold: f32,
 }

@@ -283,6 +283,35 @@ where
     }
 }
 
+pub struct SidebarEntityLink<'u, 'v, T> {
+    ui: &'u mut Ui,
+    label: WidgetText,
+    value: WidgetText,
+    __: PhantomData<&'v T>,
+}
+
+impl<'u, 'v, T: 'v> SidebarControl<'u, 'v, T> for SidebarEntityLink<'u, 'v, T>
+where
+    &'v mut T: core::fmt::Debug,
+{
+    fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut T) -> Self {
+        Self {
+            ui,
+            label: label.into(),
+            value: format!("{:?}", value).into(),
+            __: PhantomData,
+        }
+    }
+
+    fn show(self, hint: Option<&str>) -> usize {
+        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
+        self.ui.label(self.label).on_hover_text_at_pointer(hint);
+        let result = self.ui.button(self.value).on_hover_text_at_pointer(hint);
+        self.ui.end_row();
+        result.clicked() as usize
+    }
+}
+
 /// A fake control for a header.
 pub struct SidebarHeader<'u, 'v, T> {
     ui: &'u mut Ui,

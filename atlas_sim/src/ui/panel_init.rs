@@ -1,7 +1,7 @@
 use atlas_lib::{
     base::events::EventStruct,
     bevy_egui::egui::Ui,
-    config::sim::{AtlasSimConfig, StartingPoint},
+    config::sim::{AtlasSimConfig, PolityConfig, StartingPoint},
     domain::map::MapDataLayer,
     ui::{
         button, button_action,
@@ -44,22 +44,26 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelGeneral {
     }
 }
 
-/// Panel with climate generation settings.
-#[derive(Default, Clone, Copy)]
-pub struct MainPanelClimate;
+macro_rules! make_panel {
+    ($panel:ident, $name:literal, $field:ident) => {
+        /// Panel with simulation rules.
+        #[derive(Default, Clone, Copy)]
+        pub struct $panel;
 
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelClimate {
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.climate.make_ui(ui);
-    }
+        impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for $panel {
+            fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
+                config.rules.$field.make_ui(ui);
+            }
 
-    fn get_heading(&self) -> &'static str {
-        "Climate"
-    }
+            fn get_heading(&self) -> &'static str {
+                $name
+            }
 
-    fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Climate
-    }
+            fn get_layer(&self) -> MapDataLayer {
+                MapDataLayer::Preview
+            }
+        }
+    };
 }
 
 /// Panel with initial scenario settings.
@@ -98,7 +102,13 @@ impl MainPanelScenario {
         let diff = config.scenario.num_starts as i32 - config.scenario.start_points.len() as i32;
         if diff >= 0 {
             for _ in 0..diff as usize {
-                config.scenario.start_points.push(StartingPoint::default());
+                config.scenario.start_points.push(StartingPoint {
+                    polity: PolityConfig {
+                        population: config.scenario.start_pop,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                });
             }
         } else {
             for _ in 0..(-diff as usize) {
@@ -112,92 +122,27 @@ impl MainPanelScenario {
     }
 }
 
-/// Panel with simulation rules.
+/// Panel with climate generation settings.
 #[derive(Default, Clone, Copy)]
-pub struct MainPanelRulesMisc;
+pub struct MainPanelClimate;
 
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRulesMisc {
+impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelClimate {
     fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.rules.misc.make_ui(ui);
+        config.climate.make_ui(ui);
     }
 
     fn get_heading(&self) -> &'static str {
-        "Rules (Misc)"
+        "Climate"
     }
 
     fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Preview
+        MapDataLayer::Climate
     }
 }
 
-/// Panel with simulation rules.
-#[derive(Default, Clone, Copy)]
-pub struct MainPanelRulesEco;
-
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRulesEco {
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.rules.economy.make_ui(ui);
-    }
-
-    fn get_heading(&self) -> &'static str {
-        "Rules (Economy)"
-    }
-
-    fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Preview
-    }
-}
-
-/// Panel with simulation rules.
-#[derive(Default, Clone, Copy)]
-pub struct MainPanelRulesTech;
-
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRulesTech {
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.rules.tech.make_ui(ui);
-    }
-
-    fn get_heading(&self) -> &'static str {
-        "Rules (Tech)"
-    }
-
-    fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Preview
-    }
-}
-
-/// Panel with simulation rules.
-#[derive(Default, Clone, Copy)]
-pub struct MainPanelRulesCult;
-
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRulesCult {
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.rules.culture.make_ui(ui);
-    }
-
-    fn get_heading(&self) -> &'static str {
-        "Rules (Culture)"
-    }
-
-    fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Preview
-    }
-}
-
-/// Panel with simulation rules.
-#[derive(Default, Clone, Copy)]
-pub struct MainPanelRulesCity;
-
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelRulesCity {
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.rules.region.make_ui(ui);
-    }
-
-    fn get_heading(&self) -> &'static str {
-        "Rules (City)"
-    }
-
-    fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Preview
-    }
-}
+make_panel!(MainPanelRulesDiplo, "Rules (Diplomacy)", diplomacy);
+make_panel!(MainPanelRulesEco, "Rules (Economy)", economy);
+make_panel!(MainPanelRulesTech, "Rules (Tech)", tech);
+make_panel!(MainPanelRulesCulture, "Rules (Culture)", culture);
+make_panel!(MainPanelRulesRegion, "Rules (Region)", region);
+make_panel!(MainPanelRulesCombat, "Rules (Combat)", combat);

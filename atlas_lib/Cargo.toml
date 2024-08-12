@@ -26,4 +26,5 @@ serde_derive = "1.0.164"                               # "
 serde_with = "3.0.0"                                   # "
 thiserror = "1.0.53"                                   # convenient error handling
 toml = "0.8.14"                                        # serde for TOML
+weighted_rand = "0.4.2"                                # weighted random choice
 winit = "0.29.15"                                      # HACK to set runtime app icon

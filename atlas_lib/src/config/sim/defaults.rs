@@ -12,6 +12,7 @@ impl Default for ScenarioConfig {
     fn default() -> Self {
         Self {
             num_starts: 10,
+            start_pop: 1.0,
             random_point_algorithm: Default::default(),
             policy_mean: 0.5,
             policy_deviation: 0.2,
@@ -25,16 +26,9 @@ impl Default for PolityConfig {
     fn default() -> Self {
         Self {
             color: Default::default(),
-            population: 10.0,
+            population: 1.0,
             policies: [0.5; 6],
-        }
-    }
-}
-
-impl Default for MiscConfig {
-    fn default() -> Self {
-        Self {
-            tile_resolution: 10.0,
+            next_policy: 0,
         }
     }
 }
@@ -79,6 +73,8 @@ impl Default for EconomyConfig {
                     efficiency: 1.0,
                     over_cap_efficiency: 0.1,
                 },
+                ResConfig::default(),
+                ResConfig::default(),
             ],
         }
     }
@@ -105,7 +101,7 @@ impl Default for CulturesConfig {
     fn default() -> Self {
         Self {
             base_speed: 0.01,
-            base_decay: 0.1,
+            base_decay: 0.05,
             max_level: 10.0,
             level_bonus: 0.025,
             level_decay: 0.1,
@@ -116,7 +112,19 @@ impl Default for CulturesConfig {
             great_work_bonus: 1.0,
             great_person_bonus: 3.0,
             great_person_duration: 120,
-            traditions: Default::default(),
+            traditions: [
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                TraditionConfig {
+                    strength: 10.0,
+                    cost: 1.0,
+                },
+            ],
         }
     }
 }
@@ -134,6 +142,61 @@ impl Default for RegionsConfig {
             dev_bonus: 0.05,
             base_capacity: 10.0,
             structures: Default::default(),
+        }
+    }
+}
+
+impl Default for CombatConfig {
+    fn default() -> Self {
+        Self {
+            action_weights_attacker: [5, 5, 3, 2, 2, 3, 4, 1],
+            action_weights_defender: [5, 5, 2, 3, 3, 2, 1, 4],
+            action_table_attacker: Default::default(),
+            action_table_defender: Default::default(),
+            assault_bonus: 0.3,
+            maneouver_bonus: 0.3,
+            rally_bonus: 0.3,
+            charge_bonus: 0.3,
+            skirmish_bonus: 0.3,
+            delay_bonus: 0.3,
+            skirmish_penalty: 0.5,
+            delay_penalty: 0.5,
+            siege_penalty: 0.5,
+            siege_bonus: 0.3,
+            fortify_bonus: 1.0,
+            fortify_penalty: 0.3,
+            mobilization_speed: 0.1,
+            randomness: 0.2,
+            fatality: 0.1,
+            fragility: 0.1,
+            material_advantage: 1.0,
+            morale_advantage: 2.0,
+            equipment_manpower_ratio: 1.0,
+            breakdown: 2.0,
+            morale_cap: 2.0,
+            fort_damage: 0.005,
+            base_defender_attrition: 0.005,
+            base_attacker_attrition: 0.005,
+            combat_attrition: 0.3,
+            civilian_attrition: 0.1,
+            civilian_damage: 0.01,
+            tribute_time: 60,
+            tribute_ratio: 0.1,
+        }
+    }
+}
+
+impl Default for DiplomacyConfig {
+    fn default() -> Self {
+        Self {
+            initial_peace_length: 30,
+            policy_time_mean: 40.0,
+            policy_time_dev: 10.0,
+            relations_speed: 0.1,
+            ally_threshold: 0.8,
+            friend_threshold: 0.5,
+            rival_threshold: -0.5,
+            enemy_threshold: -0.8,
         }
     }
 }

@@ -320,6 +320,7 @@ dependencies = [
  "serde_with",
  "thiserror",
  "toml 0.8.14",
+ "weighted_rand",
  "winit",
 ]
 
@@ -338,7 +339,6 @@ version = "0.1.0"
 dependencies = [
  "atlas_lib",
  "bevy_mod_picking",
- "weighted_rand",
  "winresource",
 ]
 

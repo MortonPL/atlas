@@ -5,7 +5,7 @@ use atlas_lib::{
         ecs as bevy_ecs,
         prelude::*,
         render::{mesh::PlaneMeshBuilder, render_resource::Extent3d},
-        utils::HashMap,
+        utils::{HashMap, HashSet},
     },
     config::{sim::AtlasSimConfig, AtlasConfig},
     domain::map::{is_sea, MapDataOverlay},
@@ -104,10 +104,18 @@ impl Region {
         }
     }
 
-    pub fn claim_tile(&mut self, this: Entity, tile: u32, extras: &mut SimMapData, config: &AtlasSimConfig) {
-        self.land_claim_fund -= config.rules.region.land_claim_cost;
+    pub fn claim_tile(
+        &mut self,
+        this: Entity,
+        tile: u32,
+        weight: f32,
+        extras: &mut SimMapData,
+        config: &AtlasSimConfig,
+    ) {
+        self.land_claim_fund -= config.rules.region.land_claim_cost * (2.0 - weight);
         self.border_tiles.remove(&tile);
-        extras.tile_owner[tile as usize] = Some(this);
+        extras.tile_region[tile as usize] = Some(this);
+        extras.tile_polity[tile as usize] = Some(self.polity);
         self.tiles.push(tile);
         // Recalculate xywh & centroid.
         self.update_xywh(config);
@@ -116,7 +124,7 @@ impl Region {
             &mut config
                 .get_border_tiles_4(tile)
                 .iter()
-                .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&this))),
+                .filter(|x| !extras.tile_region[**x as usize].is_some_and(|y| y.eq(&this))),
         );
         // Update resource chunk coverage.
         let (chunk, coverage) = self.update_chunk_coverage(config, tile);
@@ -175,7 +183,7 @@ impl Region {
                 config
                     .get_border_tiles_4(tile)
                     .iter()
-                    .filter(|x| !extras.tile_owner[**x as usize].is_some_and(|y| y.eq(&this))),
+                    .filter(|x| !extras.tile_region[**x as usize].is_some_and(|y| y.eq(&this))),
             );
         }
         // Update available deposits.
@@ -186,7 +194,7 @@ impl Region {
         self.resource_chunks = resource_chunks;
         // Assign tiles, check if the region can expand or split.
         self.tiles = tiles;
-        self.update_can_expand(&config, &extras, conts, climate);
+        self.update_expansion(&config, &extras, conts, climate);
         self.can_split_size = self.tiles.len() as u32 > config.rules.region.min_split_size;
         self.split_tiles = self
             .tiles
@@ -251,32 +259,51 @@ impl Region {
         self.need_visual_update = false;
     }
 
-    pub fn update_can_expand(
+    pub fn update_expansion(
         &mut self,
         config: &AtlasSimConfig,
         extras: &SimMapData,
         conts: &[u8],
         climate: &[u8],
     ) -> Vec<f32> {
-        let weights: Vec<f32> = self
-            .border_tiles
-            .iter()
-            .map(|i| {
-                let i = *i as usize;
-                match extras.tile_owner[i] {
-                    Some(_) => 0.0,
-                    None => {
-                        if is_sea(conts[i]) {
-                            0.0
-                        } else {
-                            config.get_biome(climate[i]).habitability
-                        }
+        let mut weights = vec![];
+        for tile in self.border_tiles.iter() {
+            let tile = *tile as usize;
+            let weight = match extras.tile_region[tile] {
+                Some(_) => 0.0,
+                None => {
+                    if is_sea(conts[tile]) {
+                        0.0
+                    } else {
+                        config.get_biome(climate[tile]).habitability
                     }
                 }
-            })
-            .collect();
+            };
+            weights.push(weight);
+        }
         self.can_expand = !weights.is_empty() && weights.iter().fold(0.0f32, |acc, x| acc.max(*x)) > 0.1;
         weights
+    }
+
+    pub fn get_border_regions(&self, extras: &SimMapData) -> HashMap<Entity, HashSet<Entity>> {
+        let mut map: HashMap<Entity, HashSet<Entity>> = Default::default();
+        for tile in &self.border_tiles {
+            let tile = *tile as usize;
+            let polity = match &extras.tile_polity[tile] {
+                Some(polity) => *polity,
+                None => continue,
+            };
+            if polity == self.polity {
+                continue;
+            }
+            let region = extras.tile_region[tile].unwrap();
+            if let Some(set) = map.get_mut(&polity) {
+                set.insert(region);
+            } else {
+                map.insert(polity, [region].into());
+            }
+        }
+        map
     }
 
     pub fn update_can_split(&mut self, extras: &SimMapData) {

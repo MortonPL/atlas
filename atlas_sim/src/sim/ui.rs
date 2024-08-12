@@ -1,16 +1,16 @@
 use atlas_lib::{
-    bevy_egui::{
-        self,
-        egui::{CollapsingHeader, RichText, Ui},
-    },
+    bevy::prelude::*,
+    bevy_egui::egui::{CollapsingHeader, RichText, Ui},
     ui::sidebar::*,
 };
 
 use crate::sim::{polity::*, time_to_string, time_to_string_plus};
 
+use super::conflict::ConflictMember;
+
 pub struct PolityUi {
-    /// Ownership status.
-    pub ownership: Ownership,
+    /// Polity.
+    pub this: Entity,
     /// Polity map color.
     pub color: [u8; 3],
     /// Number of cities.
@@ -39,13 +39,18 @@ pub struct PolityUi {
     pub avg_stability: f32,
     /// Average health of all regions/pops.
     pub avg_health: f32,
+    /// Tributes to pay.
+    pub tributes: Vec<Tribute>,
+    /// Neighbours and relations,
+    pub neighbours: Vec<(Entity, f32)>,
+    /// Next policy change date.
+    pub next_policy: u32,
 }
 
 impl PolityUi {
     pub fn make_ui_economy(&mut self, ui: &mut Ui) {
         ui.heading("Economy");
         ui.end_row();
-        SidebarSlider::new(ui, "Accumulated Treasure", &mut self.resources_acc[RES_TREASURE]).show(None);
         SidebarSlider::new(
             ui,
             "Accumulated Civilian Industry",
@@ -57,7 +62,12 @@ impl PolityUi {
         }
         ui.heading("Population & Jobs");
         ui.end_row();
-        SidebarSlider::new(ui, "Total Population", &mut self.population).show(None);
+        SidebarSlider::new(
+            ui,
+            "Total Population",
+            &mut (self.population + self.jobs.military),
+        )
+        .show(None);
         SidebarStructSubsection::new(ui, "Sector Employment", &mut self.jobs).show(None);
     }
 
@@ -94,7 +104,7 @@ impl PolityUi {
             .default_open(true)
             .show(ui, |ui| {
                 for x in self.great_people.iter() {
-                    ui.label(TRAD_LABELS[x.tradition as usize]);
+                    ui.label(GRT_LABELS[x.tradition as usize]);
                     let active = if x.active { "(Active)" } else { "(Retired)" };
                     ui.label(time_to_string_plus(x.time, active));
                     ui.end_row();
@@ -105,18 +115,45 @@ impl PolityUi {
 }
 
 impl MakeUi for PolityUi {
-    fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarEnumDropdown::new(ui, "Ownership", &mut self.ownership).show(None);
+    fn make_ui(&mut self, ui: &mut Ui) {
+        SidebarEntityLink::new(ui, "Id", &mut self.this).show(None);
         SidebarColor::new(ui, "Color", &mut self.color).show(None);
         SidebarSlider::new(ui, "# of Regions", &mut self.regions).show(None);
-        SidebarSlider::new(ui, "Total Population", &mut self.population).show(None);
+        SidebarSlider::new(ui, "Civilian Population", &mut self.population).show(None);
         SidebarSlider::new(ui, "Average Stability", &mut self.avg_stability).show(None);
         SidebarSlider::new(ui, "Average Healthcare", &mut self.avg_health).show(None);
         ui.heading("Policy");
         ui.end_row();
+        ui.label("Next Policy Change");
+        ui.label(time_to_string(self.next_policy));
+        ui.end_row();
         for (x, label) in self.policies.iter_mut().zip(POL_LABELS) {
             SidebarSlider::new(ui, label, x).show(None);
         }
+        CollapsingHeader::new(RichText::new("Neighbours").heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                for (entity, relation) in self.neighbours.iter_mut() {
+                    SidebarSlider::new(ui, format!("{:?}", entity), relation).show(None);
+                }
+            });
+        ui.end_row();
+        CollapsingHeader::new(RichText::new("Tributes").heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                for x in self.tributes.iter_mut() {
+                    x.make_ui(ui);
+                }
+            });
+        ui.end_row();
+    }
+}
+
+impl MakeUi for Tribute {
+    fn make_ui(&mut self, ui: &mut Ui) {
+        SidebarEntityLink::new(ui, "Receiver", &mut self.receiver).show(None);
+        SidebarSlider::new(ui, "Economy Fraction", &mut self.fraction).show(None);
+        SidebarSlider::new(ui, "Payments Left", &mut self.time_left).show(None);
     }
 }
 
@@ -169,5 +206,36 @@ impl MakeUi for RegionUi {
         for (k, v) in &mut self.deposits {
             SidebarSlider::new(ui, k.clone(), v).show(None);
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct ConflictUi {
+    pub start_date: u32,
+    pub attackers: Vec<ConflictMember>,
+    pub defenders: Vec<ConflictMember>,
+}
+
+impl MakeUi for ConflictUi {
+    fn make_ui(&mut self, ui: &mut Ui) {
+        ui.label("Start Date");
+        ui.label(time_to_string(self.start_date));
+        ui.end_row();
+        CollapsingHeader::new(RichText::new("Attackers").heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                for x in self.attackers.iter_mut() {
+                    x.make_ui(ui);
+                }
+            });
+        ui.end_row();
+        CollapsingHeader::new(RichText::new("Defenders").heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                for x in self.defenders.iter_mut() {
+                    x.make_ui(ui);
+                }
+            });
+        ui.end_row();
     }
 }

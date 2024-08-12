@@ -5,8 +5,10 @@ use atlas_lib::{
     config::{sim::AtlasSimConfig, AtlasConfig},
     rstar::RTree,
 };
+use conflict::Conflict;
 use polity::PolityPlugin;
 
+pub mod conflict;
 pub mod polity;
 pub mod region;
 pub mod ui;
@@ -26,29 +28,95 @@ impl Plugin for SimPlugin {
 /// Extra map data just for the simulation.
 #[derive(Resource)]
 pub struct SimMapData {
+    /// Owner regions of specific map tiles.
+    pub tile_region: Vec<Option<Entity>>,
     /// Owner polities of specific map tiles.
-    pub tile_owner: Vec<Option<Entity>>,
+    pub tile_polity: Vec<Option<Entity>>,
     /// Region city rtree.
     pub rtree: RTree<(i32, i32)>,
     /// Deferred region spawn data.
     pub deferred_regions: HashMap<Entity, Vec<(u32, Entity, Entity)>>,
     /// Tiles occupied by cities and surroundings.
     pub city_borders: BTreeSet<u32>,
+    /// Active conflicts.
+    pub conflicts: HashMap<u32, Conflict>,
+    /// Counter for unique conflict ids.
+    pub conflict_counter: u32,
+    /// War count map.
+    pub war_map: HashMap<EntityPair, u32>,
+    /// Pending tributes to polities (industry, wealth).
+    pub tributes: HashMap<Entity, (f32, f32)>,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct EntityPair(Entity, Entity);
+
+impl EntityPair {
+    pub fn new(a: Entity, b: Entity) -> Self {
+        if a > b {
+            Self(a, b)
+        } else {
+            Self(b, a)
+        }
+    }
 }
 
 impl SimMapData {
     pub fn add_city_borders(&mut self, position: u32, config: &AtlasSimConfig) {
         self.city_borders.extend(config.get_border_tiles_9(position));
     }
+
+    pub fn get_war_map_num(&mut self, us: Entity, them: Entity) -> u32 {
+        let pair = EntityPair::new(us, them);
+        if let Some(x) = self.war_map.get(&pair) {
+            *x
+        } else {
+            0
+        }
+    }
+
+    pub fn inc_war_map_num(&mut self, us: Entity, them: Entity, decrement: bool) -> u32 {
+        let pair = EntityPair::new(us, them);
+        if let Some(x) = self.war_map.get_mut(&pair) {
+            if decrement {
+                *x -= 1
+            } else {
+                *x += 1
+            };
+            *x
+        } else {
+            self.war_map.insert_unique_unchecked(pair, 1);
+            1
+        }
+    }
+
+    pub fn create_conflict(&mut self, start_date: u32) -> u32 {
+        let id = self.conflict_counter;
+        self.conflict_counter += 1;
+        let conflict = Conflict {
+            id,
+            start_date,
+            concluded: false,
+            attackers: Default::default(),
+            defenders: Default::default(),
+        };
+        self.conflicts.insert(id, conflict);
+        id
+    }
 }
 
 impl Default for SimMapData {
     fn default() -> Self {
         Self {
-            tile_owner: Default::default(),
+            conflict_counter: 0,
+            tile_region: Default::default(),
+            tile_polity: Default::default(),
             rtree: Default::default(),
             deferred_regions: Default::default(),
             city_borders: Default::default(),
+            conflicts: Default::default(),
+            war_map: Default::default(),
+            tributes: Default::default(),
         }
     }
 }

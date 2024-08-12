@@ -29,9 +29,10 @@ use panel_init::*;
 use panel_sim::*;
 
 use crate::sim::{
+    conflict::ConflictMarker,
     polity::Polity,
     region::Region,
-    ui::{PolityUi, RegionUi},
+    ui::{ConflictUi, PolityUi, RegionUi},
     SimControl, SimMapData,
 };
 
@@ -90,6 +91,7 @@ struct Selection {
     pub entity: Entity,
     pub polity: Option<PolityUi>,
     pub region: Option<RegionUi>,
+    pub conflict: Option<ConflictUi>,
 }
 
 #[derive(Resource)]
@@ -231,13 +233,14 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                 egui::menu::bar(ui, |ui| {
                     tab!("General", MainPanelGeneral, ui);
                     tab!("Scenario", MainPanelScenario, ui);
-                    tab!("Rules (Misc)", MainPanelRulesMisc, ui);
+                    tab!("Rules (Misc)", MainPanelRulesDiplo, ui);
                     tab!("Rules (Economy)", MainPanelRulesEco, ui);
                 });
                 egui::menu::bar(ui, |ui| {
                     tab!("Rules (Tech)", MainPanelRulesTech, ui);
-                    tab!("Rules (Culture)", MainPanelRulesCult, ui);
-                    tab!("Rules (City)", MainPanelRulesCity, ui);
+                    tab!("Rules (Culture)", MainPanelRulesCulture, ui);
+                    tab!("Rules (City)", MainPanelRulesRegion, ui);
+                    tab!("Rules (Combat)", MainPanelRulesCombat, ui);
                     tab!("Climate", MainPanelClimate, ui);
                 });
             } else {
@@ -326,6 +329,7 @@ fn startup_location(mut commands: Commands) {
 /// Update the string with current mouse coords (mapped to in-map coords).
 fn update_location(
     mut ui_state: ResMut<AtlasSimUi>,
+    ui_base: Res<UiStateBase>,
     window: Query<&Window, With<PrimaryWindow>>,
     camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     map: Query<&Transform, With<CurrentWorldModel>>,
@@ -347,6 +351,13 @@ fn update_location(
         ui_state.cursor = None;
         return;
     };
+    if (cursor_position[0] > ui_base.viewport_size[0])
+        || (cursor_position[1] > ui_base.viewport_size[1])
+        || ui_base.file_dialog.is_some()
+    {
+        ui_state.cursor = None;
+        return;
+    }
     // Raycast from the camera.
     let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
         ui_state.cursor = None;
@@ -379,11 +390,12 @@ fn update_click_location(
     if mouse_button.just_released(MouseButton::Left) && !ui_state.setup_mode {
         if let Some(cursor) = ui_state.cursor {
             let i = config.map_to_index(cursor) as usize;
-            if let Some(entity) = extras.tile_owner[i] {
+            if let Some(entity) = extras.tile_region[i] {
                 ui_state.selection = Some(Selection {
                     entity,
                     polity: None,
                     region: None,
+                    conflict: None,
                 });
             }
         }
@@ -403,6 +415,7 @@ fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<Upd
         entity: event.0,
         polity: None,
         region: None,
+        conflict: None,
     });
 }
 
@@ -413,6 +426,8 @@ fn update_selection_data(
     mut ui_state: ResMut<AtlasSimUi>,
     polities: Query<&Polity>,
     regions: Query<&Region>,
+    conflicts: Query<&ConflictMarker>,
+    extras: Res<SimMapData>,
     config: Res<AtlasSimConfig>,
 ) {
     let selection = if let Some(selection) = &mut ui_state.selection {
@@ -423,6 +438,10 @@ fn update_selection_data(
     let polity = if let Ok(region) = regions.get(selection.entity) {
         selection.region = Some(region.into_ui(&config));
         Some(region.polity)
+    } else if let Ok(conflict) = conflicts.get(selection.entity) {
+        let conflict = extras.conflicts.get(&conflict.id).unwrap();
+        selection.conflict = Some(conflict.into_ui(&config));
+        None
     } else {
         None
     };

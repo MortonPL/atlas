@@ -2,7 +2,7 @@ use atlas_lib::{
     bevy::{
         ecs as bevy_ecs,
         prelude::*,
-        utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero},
+        utils::{hashbrown::HashMap, petgraph::matrix_graph::Zero, HashSet},
     },
     bevy_egui::{self},
     bevy_prng::WyRand,
@@ -13,13 +13,17 @@ use atlas_lib::{
         map::MapDataLayer,
     },
     rand::Rng,
+    rand_distr::{Distribution, Normal},
     rstar::RTree,
-    ui::{sidebar::*, UiEditableEnum},
+    ui::sidebar::*,
+    weighted_rand::builder::{NewBuilder, WalkerTableBuilder},
     MakeUi,
 };
-use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 
-use crate::sim::{check_tick, SimControl, SimMapData};
+use crate::{
+    map::get_random_policies,
+    sim::{check_tick, SimControl, SimMapData},
+};
 
 use super::{
     region::{spawn_region_with_city, City, Region},
@@ -34,13 +38,15 @@ impl Plugin for PolityPlugin {
         app.add_systems(FixedUpdate, update_visuals).add_systems(
             FixedUpdate,
             (
-                update_mapgrab,
+                update_territory,
                 update_jobs_resources,
                 update_construction,
                 update_culture,
                 update_tech,
-                update_splits,
                 update_pops,
+                update_diplomacy,
+                update_war,
+                update_splits,
             )
                 .chain()
                 .run_if(check_tick),
@@ -48,52 +54,11 @@ impl Plugin for PolityPlugin {
     }
 }
 
-/// Ownership status of a polity.
-#[derive(Default, Clone, Copy)]
-pub enum Ownership {
-    /// This polity is independent and has no master.
-    #[default]
-    Independent,
-    /// This polity has a master but keeps local autonomy.
-    Autonomous(Entity),
-    /// This polity has a master and no local ruler.
-    Integrated(Entity),
-    /// This polity is occupied by an external force.
-    Occupied(Entity),
-}
-
-impl UiEditableEnum for Ownership {
-    const LEN: usize = 4;
-
-    fn self_as_index(&self) -> usize {
-        match self {
-            Ownership::Independent => 0,
-            Ownership::Autonomous(_) => 1,
-            Ownership::Integrated(_) => 2,
-            Ownership::Occupied(_) => 3,
-        }
-    }
-
-    fn index_as_self(&self, _idx: usize) -> Self {
-        unreachable!()
-    }
-
-    fn index_to_str(idx: usize) -> &'static str {
-        match idx {
-            0 => "Independent",
-            1 => "Autonomous",
-            2 => "Integrated",
-            3 => "Occupied",
-            _ => unreachable!(),
-        }
-    }
-}
-
 /// A political entity that owns land and population.
 #[derive(Component, Clone)]
 pub struct Polity {
-    /// Ownership status.
-    pub ownership: Ownership,
+    /// This entity.
+    pub this: Option<Entity>,
     /// Map color.
     pub color: Color,
     /// Produced resources.
@@ -110,8 +75,10 @@ pub struct Polity {
     pub population: f32,
     /// Population jobs.
     pub jobs: JobStruct,
+    /// Number of essential jobs (covering basic resource consumption).
+    pub essential_jobs: f32,
     /// Owned regions.
-    pub regions: Vec<Entity>,
+    pub regions: HashSet<Entity>,
     /// Region rtree.
     pub rtree: RTree<(i32, i32)>,
     /// Accumulated heritage.
@@ -121,11 +88,27 @@ pub struct Polity {
     /// Created great people.
     pub great_people: Vec<GreatPerson>,
     /// Advanced resource capacities.
-    pub capacities: [f32; 6],
+    pub capacities: [f32; LEN_STR],
     /// Average stability of all regions/pops.
     pub avg_stability: f32,
     /// Average health of all regions/pops.
     pub avg_health: f32,
+    /// Neighbouring polities and: their border regions, relations, and flip-flag.
+    pub neighbours: HashMap<Entity, (HashSet<Entity>, f32, bool)>,
+    /// Active conflicts.
+    pub conflicts: HashSet<u32>,
+    /// Available reinforcements per conflict (this month).
+    pub reinforcements: Option<(f32, f32)>,
+    /// Damage dealt to forts (this month).
+    pub fort_damage: f32,
+    /// Damage dealt to civilians (this month).
+    pub civilian_damage: f32,
+    /// Demobilized military waiting to be re-added to the population pool.
+    pub demobilized_material: f32,
+    /// Tributes to pay.
+    pub tributes: Vec<Vec<Tribute>>,
+    /// Date of the next policy change.
+    pub next_policy: u32,
     /// Population split.
     pub manpower_split: [f32; 3],
     /// Production split.
@@ -143,14 +126,22 @@ pub struct Polity {
 impl Default for Polity {
     fn default() -> Self {
         Self {
-            ownership: Ownership::Independent,
+            this: None,
+            reinforcements: None,
+            avg_stability: 1.0,
+            avg_health: 1.0,
+            fort_damage: 0.0,
+            civilian_damage: 0.0,
+            population: 0.0,
+            demobilized_material: 0.0,
+            next_policy: 0,
+            essential_jobs: 0.0,
             color: Default::default(),
             resources: Default::default(),
             resources_acc: Default::default(),
             tech: Default::default(),
             traditions: Default::default(),
             policies: Default::default(),
-            population: 0.0,
             heritage: Default::default(),
             great_works: Default::default(),
             great_people: Default::default(),
@@ -164,8 +155,9 @@ impl Default for Polity {
             tech_split: Default::default(),
             trad_split: Default::default(),
             struct_split: Default::default(),
-            avg_stability: 1.0,
-            avg_health: 1.0,
+            conflicts: Default::default(),
+            neighbours: Default::default(),
+            tributes: Default::default(),
         }
     }
 }
@@ -173,12 +165,13 @@ impl Default for Polity {
 impl Polity {
     pub fn into_ui(&self, _config: &AtlasSimConfig) -> PolityUi {
         PolityUi {
-            ownership: self.ownership,
+            this: self.this.unwrap(),
             color: color_to_u8(&self.color),
             regions: self.regions.len() as u32,
             resources: self.resources.clone(),
             resources_acc: self.resources_acc.clone(),
             tech: self.tech.clone(),
+            next_policy: self.next_policy,
             traditions: self.traditions.clone(),
             policies: self.policies.clone(),
             population: self.population,
@@ -188,6 +181,25 @@ impl Polity {
             jobs: self.jobs.clone(),
             avg_stability: self.avg_stability,
             avg_health: self.avg_health,
+            tributes: self.tributes.iter().flatten().map(|x| x.clone()).collect(),
+            neighbours: self.neighbours.iter().map(|(k, v)| (*k, v.1)).collect(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Tribute {
+    pub receiver: Entity,
+    pub fraction: f32,
+    pub time_left: u32,
+}
+
+impl Tribute {
+    pub fn new(receiver: Entity, fraction: f32, time_left: u32) -> Self {
+        Self {
+            receiver,
+            fraction,
+            time_left,
         }
     }
 }
@@ -212,9 +224,9 @@ pub struct GreatPerson {
 
 #[derive(Clone, Default, MakeUi)]
 pub struct JobStruct {
-    #[name("Non-Working")]
+    #[name("Military")]
     #[control(SidebarSlider)]
-    pub non_working: f32,
+    pub military: f32,
     #[name("Agriculture Workers")]
     #[control(SidebarSlider)]
     pub supply: f32,
@@ -226,6 +238,7 @@ pub struct JobStruct {
     pub wealth: f32,
 }
 
+#[derive(Default)]
 pub struct ResBonusStruct {
     pub max_supply: f32,
     pub max_industry: f32,
@@ -233,7 +246,7 @@ pub struct ResBonusStruct {
     pub bonus: f32,
 }
 
-pub const LEN_RES: usize = 8;
+pub const LEN_RES: usize = 10;
 /// Supply
 pub const RES_SUPPLY: usize = 0;
 /// Industry Consumption
@@ -248,8 +261,12 @@ pub const RES_WEALTH_POPS: usize = 4;
 pub const RES_RESEARCH: usize = 5;
 /// Culture
 pub const RES_CULTURE: usize = 6;
-/// Treasure
-pub const RES_TREASURE: usize = 7;
+/// Loyalty
+pub const RES_LOYALTY: usize = 7;
+/// Industry Tribute
+pub const RES_INDU_TRIB: usize = 8;
+/// Wealth Tribute
+pub const RES_WEALTH_TRIB: usize = 9;
 
 pub const RES_LABELS: [&str; LEN_RES] = [
     "Supply",
@@ -259,14 +276,16 @@ pub const RES_LABELS: [&str; LEN_RES] = [
     "Wealth Consumption",
     "Research",
     "Culture",
-    "Treasure",
+    "Loyalty",
+    "Industry Tributes",
+    "Wealth Tributes",
 ];
 
 pub const LEN_SCI: usize = 10;
 /// Deposit bonuses
 const SCI_GEOSCIENCE: usize = 0;
-/// Pop growth bonus
-const SCI_MEDICINE: usize = 1;
+/// Pop growth bonus / lower damage
+pub const SCI_MEDICINE: usize = 1;
 /// Civil engineering bonus
 const SCI_ENGINEERING: usize = 2;
 /// Military engineering bonus
@@ -275,14 +294,14 @@ const SCI_METALLURGY: usize = 3;
 const SCI_PHILOSOPHY: usize = 4;
 /// Science bonus
 const SCI_MATHEMATICS: usize = 5;
-/// Treasure bonus
-const SCI_FINANCES: usize = 6;
+/// Loyalty bonus
+const SCI_MANAGEMENT: usize = 6;
 /// Governance bonus
 const SCI_LAW: usize = 7;
 /// Diplomacy bonus
 const SCI_LINGUISTICS: usize = 8;
 /// Military bonus
-const SCI_PHYSICS: usize = 9;
+pub const SCI_MILTECH: usize = 9;
 
 pub const SCI_LABELS: [&str; LEN_SCI] = [
     "Geoscience",
@@ -291,10 +310,10 @@ pub const SCI_LABELS: [&str; LEN_SCI] = [
     "Metallurgy",
     "Philosophy",
     "Mathematics",
-    "Finances",
+    "Management",
     "Law",
     "Linguistics",
-    "Physics",
+    "Military Tech",
 ];
 
 pub const LEN_POL: usize = 6;
@@ -304,12 +323,12 @@ const POL_EXPANSIONIST: usize = 0;
 const POL_COMPETITIVE: usize = 1;
 /// Work Split policy: Industrial (industry) vs Mercantile (wealth)
 const POL_MERCANTILE: usize = 2;
-/// Industry policy: Pacifist (civilian ind) vs Militarist (military ind)
+/// Production policy: Pacifist (civilian ind/wealth) vs Militarist (military ind/loyalty)
 const POL_MILITARIST: usize = 3;
 /// Wealth policy: Traditional (culture) vs Progressive (science)
 const POL_PROGRESSIVE: usize = 4;
-/// Treasure policy: Spending (low treasure) vs Greedy (high treasure)
-const POL_AUTOCRATIC: usize = 5;
+/// Stability policy
+const POL_LEGALIST: usize = 5;
 
 pub const POL_LABELS: [&str; LEN_POL] = [
     "Expansionist",
@@ -317,27 +336,27 @@ pub const POL_LABELS: [&str; LEN_POL] = [
     "Mercantile",
     "Militarist",
     "Progressive",
-    "Autocratic",
+    "Legalist",
 ];
 
 pub const LEN_TRAD: usize = 8;
 
 /// Expansion bonus / Great Explorer
 const TRAD_PIONEERING: usize = 0;
-/// Development bonus /  Great Architect
+/// Development bonus / Great Architect
 const TRAD_CREATIVE: usize = 1;
 /// Science bonus / Great Scientist
 const TRAD_INVENTIVE: usize = 2;
 /// Culture bonus / Great Artist
 const TRAD_ARTISTIC: usize = 3;
-/// Resource bonus / Great Economy
+/// Resource bonus / Great Economist
 const TRAD_INDUSTRIOUS: usize = 4;
 /// Governance bonus / Great Governor
 const TRAD_HONORABLE: usize = 5;
 /// Diplomacy bonus / Great Diplomat
-const TRAD_COOPERATIVE: usize = 6;
+pub const TRAD_DIPLOMATIC: usize = 6;
 /// Military bonus / Great General
-const TRAD_MILITANT: usize = 7;
+pub const TRAD_MILITANT: usize = 7;
 
 pub const TRAD_LABELS: [&str; LEN_TRAD] = [
     "Pioneering",
@@ -346,8 +365,19 @@ pub const TRAD_LABELS: [&str; LEN_TRAD] = [
     "Artistic",
     "Industrious",
     "Honorable",
-    "Cooperative",
+    "Diplomatic",
     "Militant",
+];
+
+pub const GRT_LABELS: [&str; LEN_TRAD] = [
+    "Great Pioneer",
+    "Great Architect",
+    "Great Scientist",
+    "Great Artist",
+    "Great Economist",
+    "Great Governor",
+    "Great Diplomat",
+    "Great General",
 ];
 
 pub const LEN_STR: usize = 7;
@@ -363,8 +393,8 @@ const STR_UNIVERSITY: usize = 3;
 const STR_AMPHITHEATER: usize = 4;
 /// Courthouse / Governance cap
 const STR_COURTHOUSE: usize = 5;
-/// Fortress / Military cap
-const STR_FORTRESS: usize = 6;
+/// Fortress / Conflict fortification level
+pub const STR_FORTRESS: usize = 6;
 
 pub const STR_LABELS: [&str; LEN_STR] = [
     "Hospital",
@@ -379,32 +409,18 @@ pub const STR_LABELS: [&str; LEN_STR] = [
 /// Update system
 ///
 /// Claim map tiles.
-fn update_mapgrab(
+fn update_territory(
     config: Res<AtlasSimConfig>,
-    mut query: Query<(Entity, &mut Region)>,
+    mut regions: Query<&mut Region>,
+    mut polities: Query<&mut Polity>,
     logics: Res<MapLogicData>,
     mut extras: ResMut<SimMapData>,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let climate = logics.get_layer(MapDataLayer::Climate);
     let conts = logics.get_layer(MapDataLayer::Continents);
-    for (entity, mut region) in query.iter_mut() {
-        // Only claim land when enough investment was made.
-        if region.land_claim_fund < config.rules.region.land_claim_cost {
-            continue;
-        }
-        // Check border tiles for free land.
-        let weights = region.update_can_expand(&config, &extras, conts, climate);
-        // Don't bother if all land is taken or very bad.
-        if !region.can_expand {
-            continue;
-        }
-        // Choose one of the tiles.
-        let table = WalkerTableBuilder::new(&weights).build();
-        let i = table.next_rng(rng.as_mut());
-        // Add to region.
-        let i = *region.border_tiles.iter().nth(i).unwrap();
-        region.claim_tile(entity, i, &mut extras, &config);
+    for mut polity in polities.iter_mut() {
+        polity.update_territory(&config, &mut regions, &mut extras, conts, climate, rng.as_mut());
     }
 }
 
@@ -413,13 +429,21 @@ fn update_mapgrab(
 /// Assign jobs and update resources(supply/industry/wealth).
 fn update_jobs_resources(
     config: Res<AtlasSimConfig>,
-    mut polities: Query<&mut Polity>,
+    mut polities: Query<(Entity, &mut Polity)>,
     regions: Query<&Region>,
+    mut extras: ResMut<SimMapData>,
 ) {
-    for mut polity in polities.iter_mut() {
+    for (entity, mut polity) in polities.iter_mut() {
         let res_bonus = polity.update_deposits(&config, &regions);
-        polity.update_jobs(&config, &res_bonus);
-        polity.update_resources(&config, &res_bonus);
+        let tribute = if let Some(tribute) = extras.tributes.get_mut(&entity) {
+            let values = tribute.to_owned();
+            *tribute = (0.0, 0.0);
+            values
+        } else {
+            (0.0, 0.0)
+        };
+        polity.update_jobs(&config, &res_bonus, tribute.clone());
+        polity.update_resources(&config, &res_bonus, tribute, &mut extras);
     }
 }
 
@@ -428,8 +452,8 @@ fn update_jobs_resources(
 /// Update construction.
 fn update_construction(
     config: Res<AtlasSimConfig>,
-    mut query_p: Query<(Entity, &mut Polity)>,
-    mut query_r: Query<&mut Region>,
+    mut polities: Query<(Entity, &mut Polity)>,
+    mut regions: Query<&mut Region>,
     sim: Res<SimControl>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -447,15 +471,15 @@ fn update_construction(
         for (polity_entity, vec) in deferred_regions.iter_mut() {
             let polity_entity = *polity_entity;
             if let Some((position, region_entity, city_entity)) = vec.pop() {
-                let (_, mut polity) = query_p.get_mut(polity_entity).unwrap();
+                let (_, mut polity) = polities.get_mut(polity_entity).unwrap();
                 let mut region = Region::new(polity_entity, city_entity, position);
-                region.color_l = rng.gen_range(-0.2..=0.1);
+                region.color_l = rng.gen_range(-0.1..=0.1);
                 polity.add_new_region(
                     region_entity,
                     &mut region,
                     position,
                     &config,
-                    &mut query_r,
+                    &mut regions,
                     &mut extras,
                     &logics,
                 );
@@ -476,8 +500,8 @@ fn update_construction(
     }
     // Update construction.
     if sim.is_new_year() {
-        for (polity_entity, mut polity) in query_p.iter_mut() {
-            let positions = polity.update_construction(&config, &mut extras, &mut query_r, &mut rng);
+        for (polity_entity, mut polity) in polities.iter_mut() {
+            let positions = polity.update_construction(&config, &mut extras, &mut regions, &mut rng);
             if positions.is_empty() {
                 continue;
             }
@@ -505,12 +529,12 @@ fn update_construction(
 /// Update culture.
 fn update_culture(
     config: Res<AtlasSimConfig>,
-    mut query: Query<&mut Polity>,
+    mut polities: Query<&mut Polity>,
     sim: Res<SimControl>,
     mut rng: ResMut<GlobalEntropy<WyRand>>,
 ) {
     if sim.is_new_year() {
-        for mut polity in query.iter_mut() {
+        for mut polity in polities.iter_mut() {
             polity.update_culture(&config, &sim, &mut rng)
         }
     }
@@ -519,18 +543,9 @@ fn update_culture(
 /// Update system
 ///
 /// Update tech.
-fn update_tech(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim: Res<SimControl>) {
+fn update_tech(config: Res<AtlasSimConfig>, mut polities: Query<&mut Polity>, sim: Res<SimControl>) {
     if sim.is_new_year() {
-        query.iter_mut().for_each(|mut x| x.update_tech(&config));
-    }
-}
-
-/// Update system
-///
-/// Update resource splits.
-fn update_splits(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim: Res<SimControl>) {
-    if sim.is_new_year() {
-        query.iter_mut().for_each(|mut x| x.update_splits(&config));
+        polities.iter_mut().for_each(|mut x| x.update_tech(&config));
     }
 }
 
@@ -539,12 +554,81 @@ fn update_splits(config: Res<AtlasSimConfig>, mut query: Query<&mut Polity>, sim
 /// Grow/shrink population based on supply.
 fn update_pops(
     config: Res<AtlasSimConfig>,
-    mut query_p: Query<&mut Polity>,
-    mut query_r: Query<&mut Region>,
+    mut polities: Query<&mut Polity>,
+    mut regions: Query<&mut Region>,
 ) {
-    query_p
+    polities
         .iter_mut()
-        .for_each(|mut x| x.update_social(&config, &mut query_r));
+        .for_each(|mut x| x.update_social(&config, &mut regions));
+}
+
+/// Update system
+///
+/// Update diplomatic stance.
+fn update_diplomacy(
+    config: Res<AtlasSimConfig>,
+    mut polities: Query<(Entity, &mut Polity)>,
+    regions: Query<&Region>,
+    sim: Res<SimControl>,
+    mut extras: ResMut<SimMapData>,
+) {
+    let vec: Vec<_> = polities
+        .iter_mut()
+        .map(|(e, mut x)| {
+            x.update_neighbours(&regions, &mut extras);
+            e
+        })
+        .collect();
+    if sim.is_new_year() {
+        for polity_e in vec {
+            unsafe {
+                let (_, mut polity) = polities.get_unchecked(polity_e).unwrap();
+                polity.update_diplomacy(&config, &polities, polity_e, &mut extras, sim.time);
+            }
+        }
+    }
+}
+
+/// Update system
+///
+/// Update conflicts.
+fn update_war(
+    config: Res<AtlasSimConfig>,
+    mut polities: Query<&mut Polity>,
+    mut regions: Query<&mut Region>,
+    mut extras: ResMut<SimMapData>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
+) {
+    let mut conflicts = std::mem::take(&mut extras.conflicts);
+    conflicts.retain(|_, conflict| {
+        conflict.update(&config, &mut polities, &mut regions, rng.as_mut(), &mut extras);
+        if conflict.concluded {
+            // TODO cleanup
+            false
+        } else {
+            true
+        }
+    });
+    extras.conflicts = conflicts;
+    polities
+        .iter_mut()
+        .for_each(|mut x| x.update_post_conflict(&config, &mut regions));
+}
+
+/// Update system
+///
+/// Update resource splits and policies.
+fn update_splits(
+    config: Res<AtlasSimConfig>,
+    mut polities: Query<&mut Polity>,
+    sim: Res<SimControl>,
+    mut rng: ResMut<GlobalEntropy<WyRand>>,
+) {
+    if sim.is_new_year() {
+        polities
+            .iter_mut()
+            .for_each(|mut x| x.update_splits(&config, sim.time, rng.as_mut()));
+    }
 }
 
 /// Update system
@@ -593,8 +677,9 @@ impl Polity {
         let mut all_tiles = vec![];
         let mut new_tiles = vec![];
         let mut lookup: HashMap<u32, usize> = Default::default();
+        let mut region_vec: Vec<_> = self.regions.drain().collect();
         // Gather all polity tiles.
-        for (i, region) in self.regions.iter().enumerate() {
+        for (i, region) in region_vec.iter().enumerate() {
             let mut region = regions.get_mut(*region).unwrap();
             let tiles = std::mem::take(&mut region.tiles);
             all_tiles.push(tiles);
@@ -602,7 +687,7 @@ impl Polity {
             lookup.insert(region.city_position, i);
         }
         // Add new city (region).
-        self.regions.push(region_entity);
+        region_vec.push(region_entity);
         new_tiles.push(vec![region_pos]);
         lookup.insert(region_pos, lookup.len());
         let pos = config.index_to_map_i(region_pos);
@@ -624,11 +709,11 @@ impl Polity {
         // Refresh tile ownership map.
         for (i, tiles) in new_tiles.iter().enumerate() {
             for tile in tiles {
-                extras.tile_owner[*tile as usize] = Some(self.regions[i]);
+                extras.tile_region[*tile as usize] = Some(region_vec[i]);
             }
         }
         // Update other region properties.
-        for (entity, tiles) in self.regions.iter().zip(new_tiles.drain(..)) {
+        for (entity, tiles) in region_vec.iter().zip(new_tiles.drain(..)) {
             let entity = *entity;
             if let Ok(mut region) = regions.get_mut(entity) {
                 region.population = self.population * (tiles.len() as f32 / num_tiles as f32);
@@ -638,9 +723,48 @@ impl Polity {
                 new_region.reset_tiles(entity, tiles, config, extras, conts, climate);
             };
         }
+        self.regions = region_vec.drain(..).collect();
+    }
+
+    pub fn update_territory(
+        &mut self,
+        config: &AtlasSimConfig,
+        regions: &mut Query<&mut Region>,
+        extras: &mut SimMapData,
+        conts: &[u8],
+        climate: &[u8],
+        rng: &mut GlobalEntropy<WyRand>,
+    ) {
+        for region_entity in self.regions.iter() {
+            let mut region = if let Ok(region) = regions.get_mut(*region_entity) {
+                region
+            } else {
+                continue;
+            };
+            // Only claim land when enough investment was made.
+            if region.land_claim_fund < config.rules.region.land_claim_cost {
+                continue;
+            }
+            // Check border tiles for free land.
+            let weights = region.update_expansion(&config, extras, conts, climate);
+            // Don't bother if all land is taken or very bad.
+            if !region.can_expand {
+                continue;
+            }
+            // Choose one of the tiles.
+            let table = WalkerTableBuilder::new(&weights).build();
+            let i = table.next_rng(rng);
+            // Add to region.
+            let tile = *region.border_tiles.iter().nth(i).unwrap();
+            let weight = weights[i];
+            region.claim_tile(*region_entity, tile, weight, extras, &config);
+        }
     }
 
     pub fn update_deposits(&mut self, config: &AtlasSimConfig, regions: &Query<&Region>) -> ResBonusStruct {
+        if self.regions.is_empty() {
+            return ResBonusStruct::default();
+        }
         let mut max_supply = 0.0;
         let mut max_industry = 0.0;
         let mut max_wealth = 0.0;
@@ -676,46 +800,54 @@ impl Polity {
         }
     }
 
-    pub fn update_jobs(&mut self, config: &AtlasSimConfig, res_bonus: &ResBonusStruct) {
-        let manpower = self.population; // TODO get_population_manpower_ratio()
+    pub fn update_jobs(&mut self, config: &AtlasSimConfig, res_bonus: &ResBonusStruct, tribute: (f32, f32)) {
+        if self.regions.is_empty() {
+            return;
+        }
+        let manpower = self.population;
         let spare_manpower = manpower;
+        self.essential_jobs = 0.0;
         self.jobs = JobStruct {
-            non_working: self.population - manpower,
+            military: self.jobs.military,
             ..Default::default()
         };
         // Early exit if no supplies to be made.
         if res_bonus.max_supply.is_zero() {
             self.jobs.supply = manpower;
+            self.essential_jobs += manpower;
             return;
         }
         // Helper function.
-        let calc_minimum = |polity: &Polity, res_id: usize, trad: usize| {
-            let minimum_manpower = polity.get_consumption(&config, res_id)
+        let calc_minimum = |polity: &Polity, res_id: usize, trad: usize, free: f32| {
+            let minimum_manpower = (polity.get_consumption(&config, res_id) - free).max(0.0)
                 / config.rules.economy.resources[res_id].efficiency
                 / res_bonus.bonus
                 / polity.get_tradition_multiplier(config, trad);
             minimum_manpower.min(manpower)
         };
         // Supply.
-        let supply_manpower = calc_minimum(self, RES_SUPPLY, TRAD_INDUSTRIOUS);
+        let supply_manpower = calc_minimum(self, RES_SUPPLY, TRAD_INDUSTRIOUS, 0.0);
         let spare_manpower = spare_manpower - supply_manpower;
         self.jobs.supply = supply_manpower;
+        self.essential_jobs += supply_manpower;
         // Early exit if we used up all manpower.
         if spare_manpower <= 0.0 {
             return;
         }
         // Industry.
-        let indu_manpower = calc_minimum(self, RES_INDU_POPS, TRAD_INDUSTRIOUS);
+        let indu_manpower = calc_minimum(self, RES_INDU_POPS, TRAD_INDUSTRIOUS, tribute.0);
         let spare_manpower = spare_manpower - indu_manpower;
         self.jobs.industry = indu_manpower;
+        self.essential_jobs += indu_manpower;
         // Early exit if we used up all manpower.
         if spare_manpower <= 0.0 {
             return;
         }
         // Wealth.
-        let wealth_manpower = calc_minimum(self, RES_WEALTH_POPS, TRAD_INDUSTRIOUS);
+        let wealth_manpower = calc_minimum(self, RES_WEALTH_POPS, TRAD_INDUSTRIOUS, tribute.1);
         let spare_manpower = spare_manpower - wealth_manpower;
         self.jobs.wealth = wealth_manpower;
+        self.essential_jobs += wealth_manpower;
         // Early exit if we used up all manpower.
         if spare_manpower <= 0.0 {
             return;
@@ -726,17 +858,65 @@ impl Polity {
         self.jobs.wealth += spare_manpower * self.manpower_split[2];
     }
 
-    pub fn update_resources(&mut self, config: &AtlasSimConfig, rb: &ResBonusStruct) {
+    pub fn update_resources(
+        &mut self,
+        config: &AtlasSimConfig,
+        rb: &ResBonusStruct,
+        tribute: (f32, f32),
+        extras: &mut SimMapData,
+    ) {
+        if self.regions.is_empty() {
+            return;
+        }
+        // Calculate primary resource output.
         let supply = self.get_resource_yield(
             (self.jobs.supply * rb.bonus, rb.max_supply, -1.0),
             (RES_SUPPLY, 1001, TRAD_INDUSTRIOUS),
             config,
         );
-        // Split primary resources into secondary resources (industry).
         let indu_pop = self.get_consumption(&config, RES_INDU_POPS);
-        let industry =
-            self.jobs.industry * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * rb.bonus;
+        let industry = self.get_resource_yield(
+            (self.jobs.industry * rb.bonus, rb.max_industry, -1.0),
+            (RES_INDU_POPS, 1001, TRAD_INDUSTRIOUS),
+            config,
+        ) + tribute.0;
         let industry = (industry - indu_pop).max(0.0);
+        let wealth_pop = self.get_consumption(&config, RES_WEALTH_POPS);
+        let wealth = self.get_resource_yield(
+            (self.jobs.wealth * rb.bonus, rb.max_wealth, -1.0),
+            (RES_WEALTH_POPS, 1001, TRAD_INDUSTRIOUS),
+            config,
+        ) + tribute.1;
+        let wealth = (wealth - wealth_pop).max(0.0);
+        // Handle tributes.
+        let tribute_num = if config.rules.combat.tribute_ratio == 0.0 {
+            0
+        } else {
+            (1.0 / config.rules.combat.tribute_ratio) as usize
+        };
+        let mut indu_tribute = 0.0;
+        let mut wealth_tribute = 0.0;
+        for (i, tribute_list) in self.tributes.iter_mut().enumerate() {
+            if i >= tribute_num {
+                break;
+            }
+            for tribute in tribute_list.iter_mut() {
+                let account = extras.tributes.get_mut(&tribute.receiver).unwrap();
+                let fraction = config.rules.combat.tribute_ratio * tribute.fraction;
+                let indu2 = industry * fraction;
+                let wealth2 = wealth * fraction;
+                indu_tribute += indu2;
+                wealth_tribute += wealth2;
+                account.0 += indu2 * config.rules.economy.resources[RES_INDU_TRIB].efficiency;
+                account.1 += wealth2 * config.rules.economy.resources[RES_WEALTH_TRIB].efficiency;
+                tribute.time_left -= 1;
+            }
+        }
+        self.tributes
+            .retain(|x| x.first().is_some_and(|x| x.time_left > 0));
+        let industry = (industry - indu_tribute).max(0.0);
+        let wealth = (wealth - wealth_tribute).max(0.0);
+        // Split primary resources into secondary resources (industry).
         let mut civ_indu = 0.0;
         let mut mil_indu = 0.0;
         if industry > 0.0 {
@@ -760,12 +940,9 @@ impl Polity {
             );
         };
         // Split primary resources into secondary resources (wealth).
-        let wealth_pop = self.get_consumption(&config, RES_WEALTH_POPS);
-        let wealth = self.jobs.wealth * self.get_tradition_multiplier(config, TRAD_INDUSTRIOUS) * rb.bonus;
-        let wealth = (wealth - wealth_pop).max(0.0);
         let mut research = 0.0;
         let mut culture = 0.0;
-        let mut treasure = 0.0;
+        let mut loyalty = 0.0;
         if wealth > 0.0 {
             research = self.get_resource_yield(
                 (
@@ -785,21 +962,30 @@ impl Polity {
                 (RES_CULTURE, SCI_PHILOSOPHY, TRAD_ARTISTIC),
                 config,
             );
-            treasure = self.get_resource_yield(
+            loyalty = self.get_resource_yield(
                 (wealth * self.wealth_split[2], rb.max_wealth, -1.0),
-                (RES_TREASURE, SCI_FINANCES, 1001),
+                (RES_LOYALTY, SCI_MANAGEMENT, 1001),
                 config,
             );
         }
         // Set new resources.
         self.resources = [
-            supply, indu_pop, civ_indu, mil_indu, wealth_pop, research, culture, treasure,
+            supply,
+            indu_pop,
+            civ_indu,
+            mil_indu,
+            wealth_pop,
+            research,
+            culture,
+            loyalty,
+            indu_tribute,
+            wealth_tribute,
         ];
         self.resources_acc[RES_CIVILIAN] += civ_indu;
-        self.resources_acc[RES_MILITARY] += mil_indu;
         self.resources_acc[RES_RESEARCH] += research;
         self.resources_acc[RES_CULTURE] += culture;
-        self.resources_acc[RES_TREASURE] += treasure;
+        self.resources_acc[RES_MILITARY] = (self.resources_acc[RES_MILITARY] + mil_indu).min(mil_indu * 60.0);
+        self.resources_acc[RES_LOYALTY] = (self.resources_acc[RES_LOYALTY] + loyalty).min(loyalty * 60.0);
     }
 
     pub fn update_construction(
@@ -809,6 +995,9 @@ impl Polity {
         query: &mut Query<&mut Region>,
         rng: &mut GlobalEntropy<WyRand>,
     ) -> Vec<u32> {
+        if self.regions.is_empty() {
+            return vec![];
+        }
         let can_dev = |region: &Region| region.development < config.rules.region.max_dev_level;
         let can_build =
             |region: &Region| region.struct_levels < config.rules.region.max_dev_level * LEN_STR as f32;
@@ -948,6 +1137,9 @@ impl Polity {
         sim: &SimControl,
         rng: &mut GlobalEntropy<WyRand>,
     ) {
+        if self.regions.is_empty() {
+            return;
+        }
         let culture = self.resources_acc[RES_CULTURE] * config.rules.culture.base_speed;
         for (i, val) in self.traditions.iter_mut().enumerate() {
             let increment = self.trad_split[i] * culture / config.rules.culture.traditions[i].cost;
@@ -1001,6 +1193,9 @@ impl Polity {
     }
 
     pub fn update_tech(&mut self, config: &AtlasSimConfig) {
+        if self.regions.is_empty() {
+            return;
+        }
         let total_major_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_major;
         let total_minor_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_minor;
         for (i, val) in self.tech.iter_mut().enumerate() {
@@ -1025,71 +1220,10 @@ impl Polity {
         self.resources_acc[RES_RESEARCH] = 0.0;
     }
 
-    pub fn update_splits(&mut self, _config: &AtlasSimConfig) {
-        // Update manpower split.
-        self.manpower_split = [
-            0.0,
-            1.0 - self.policies[POL_MERCANTILE],
-            self.policies[POL_MERCANTILE],
-        ];
-        let sum: f32 = self.manpower_split.iter().sum();
-        self.manpower_split = self.manpower_split.map(|x| x / sum);
-        // Update industry split.
-        self.indu_split = [1.0 - self.policies[POL_MILITARIST], self.policies[POL_MILITARIST]];
-        let sum: f32 = self.indu_split.iter().sum();
-        self.indu_split = self.indu_split.map(|x| x / sum);
-        // Update wealth split.
-        let not_greedy = 1.0 - self.policies[POL_AUTOCRATIC];
-        self.wealth_split = [
-            not_greedy * self.policies[POL_PROGRESSIVE],
-            not_greedy * (1.0 - self.policies[POL_PROGRESSIVE]),
-            self.policies[POL_AUTOCRATIC],
-        ];
-        let sum: f32 = self.wealth_split.iter().sum();
-        self.wealth_split = self.wealth_split.map(|x| x / sum);
-        // Update technology split.
-        self.tech_split = [
-            self.policies[POL_EXPANSIONIST],
-            1.0 - self.policies[POL_EXPANSIONIST],
-            1.0 - self.policies[POL_MILITARIST],
-            self.policies[POL_MILITARIST],
-            1.0 - self.policies[POL_PROGRESSIVE],
-            self.policies[POL_PROGRESSIVE],
-            self.policies[POL_AUTOCRATIC],
-            1.0 - self.policies[POL_AUTOCRATIC],
-            1.0 - self.policies[POL_COMPETITIVE],
-            self.policies[POL_COMPETITIVE],
-        ];
-        let sum: f32 = self.tech_split.iter().sum();
-        self.tech_split = self.tech_split.map(|x| x / sum);
-        // Update tradition split.
-        self.trad_split = [
-            self.policies[POL_EXPANSIONIST],
-            1.0 - self.policies[POL_EXPANSIONIST],
-            self.policies[POL_PROGRESSIVE],
-            1.0 - self.policies[POL_PROGRESSIVE],
-            1.0 - self.policies[POL_AUTOCRATIC],
-            self.policies[POL_AUTOCRATIC],
-            1.0 - self.policies[POL_COMPETITIVE],
-            self.policies[POL_COMPETITIVE],
-        ];
-        let sum: f32 = self.trad_split.iter().sum();
-        self.trad_split = self.trad_split.map(|x| x / sum);
-        // Update structue split.
-        self.struct_split = [
-            1.0 - self.policies[POL_EXPANSIONIST],
-            1.0 - self.policies[POL_MILITARIST],
-            self.policies[POL_MILITARIST],
-            self.policies[POL_PROGRESSIVE],
-            1.0 - self.policies[POL_PROGRESSIVE],
-            self.policies[POL_AUTOCRATIC],
-            self.policies[POL_COMPETITIVE],
-        ];
-        let sum: f32 = self.struct_split.iter().sum();
-        self.struct_split = self.struct_split.map(|x| x / sum);
-    }
-
     pub fn update_social(&mut self, config: &AtlasSimConfig, query: &mut Query<&mut Region>) {
+        if self.regions.is_empty() {
+            return;
+        }
         // Calculate the current supply coverage (no consumption == 100% coverage as well).
         let consumption = self.get_consumption(&config, RES_SUPPLY);
         let coverage = if consumption.is_zero() {
@@ -1129,9 +1263,284 @@ impl Polity {
         self.avg_health /= self.population;
     }
 
+    pub fn update_neighbours(&mut self, regions: &Query<&Region>, extras: &mut SimMapData) {
+        if self.regions.is_empty() {
+            return;
+        }
+        // Update neighbour list.
+        let flip = !self.neighbours.values().next().map(|x| x.2).unwrap_or_default();
+        for region in self.regions.iter() {
+            let region = if let Ok(region) = regions.get(*region) {
+                region
+            } else {
+                continue;
+            };
+            let border_regions = region.get_border_regions(&extras);
+            for (polity_e, new_set) in border_regions {
+                if let Some((old_set, _, flop)) = self.neighbours.get_mut(&polity_e) {
+                    old_set.extend(new_set);
+                    *flop = flip;
+                } else {
+                    self.neighbours.insert(polity_e, (new_set, 0.0, flip));
+                }
+            }
+        }
+        self.neighbours.retain(|_, v| v.2 == flip);
+    }
+
+    pub fn update_diplomacy(
+        &mut self,
+        config: &AtlasSimConfig,
+        polities: &Query<(Entity, &mut Polity)>,
+        us_e: Entity,
+        extras: &mut SimMapData,
+        time: u32,
+    ) {
+        if self.regions.is_empty() {
+            return;
+        }
+        let mut neighbours = std::mem::take(&mut self.neighbours);
+        for (them_e, (_, relation_us, _)) in neighbours.iter_mut() {
+            let (_, mut them) = unsafe { polities.get_unchecked(*them_e).unwrap() };
+            // General stance: x > 0 cooperative, x < 0 competitive, x ~ 0 neutral
+            let stance_us = (0.5 - self.policies[POL_COMPETITIVE])
+                * 2.0
+                * self.get_tech_multiplier(config, SCI_LINGUISTICS);
+            let stance_them = (0.5 - them.policies[POL_COMPETITIVE])
+                * 2.0
+                * them.get_tech_multiplier(config, SCI_LINGUISTICS);
+            // Get reference to relations from their POV.
+            let (_, relation_them, _) = them.neighbours.get_mut(&us_e).unwrap();
+            // Relations improve if both cooperative, heavily degrade if both competitive, otherwise slightly degrade.
+            let shift = if (stance_us >= 0.0) == (stance_them >= 0.0) {
+                (stance_us + stance_them) / 2.0
+            } else {
+                stance_us.min(stance_them)
+            };
+            // Set new relations.
+            let new_relations = (*relation_us
+                + (shift * config.rules.diplomacy.relations_speed) * (1.3 - *relation_us))
+                .clamp(-1.0, 1.0);
+            *relation_us = new_relations;
+            *relation_them = new_relations;
+            // Handle conflicts.
+            if new_relations >= config.rules.diplomacy.ally_threshold {
+                // TODO
+            } else if new_relations >= config.rules.diplomacy.friend_threshold {
+                // TODO
+            } else if new_relations <= config.rules.diplomacy.enemy_threshold {
+                // 15 minutes no rush.
+                if config.rules.diplomacy.initial_peace_length * 12 >= time {
+                    continue;
+                }
+                // Don't start a war if we're already fighting them somewhere else.
+                if extras.get_war_map_num(us_e, *them_e) > 0 {
+                    continue;
+                }
+                // Start a new war against them.
+                let us_attack = self.policies[POL_COMPETITIVE] > them.policies[POL_COMPETITIVE];
+                let id = extras.create_conflict(time);
+                let conflict = extras.conflicts.get_mut(&id).unwrap();
+                let color = self.color.as_rgba_u8();
+                conflict.add_member(us_e, [color[0], color[1], color[2]], us_attack);
+                self.conflicts.insert(id);
+                let color = them.color.as_rgba_u8();
+                conflict.add_member(*them_e, [color[0], color[1], color[2]], !us_attack);
+                them.conflicts.insert(id);
+                extras.inc_war_map_num(us_e, *them_e, false);
+            } else if new_relations <= config.rules.diplomacy.rival_threshold {
+                // TODO
+            }
+        }
+        self.neighbours = neighbours;
+        // Conflict rules: never join a war against primary member allies.
+        //
+        // If relation = ally:
+        // Always join defensive wars of allies.
+        // Join offensive wars of allies against neutral/rivals/enemies (unless at war).
+        // Join support wars of allies against neutral/rivals/enemies (unless at war, if ally's ally is friend/neutral).
+        //
+        // If relation = friend:
+        // Join defensive wars against neutral/rivals (unless at war).
+        //
+        // If relation = neutral: nothing
+        //
+        // If relation = rival: nothing
+        //
+        // If relation = enemy:
+        // Declare war (polity with higher competitiveness is the attacker)
+    }
+
+    pub fn update_post_conflict(&mut self, config: &AtlasSimConfig, regions: &mut Query<&mut Region>) {
+        if self.regions.is_empty() {
+            return;
+        }
+        if self.conflicts.is_empty() {
+            self.demobilized_material += self.jobs.military;
+            self.resources_acc[RES_MILITARY] +=
+                self.jobs.military * config.rules.combat.equipment_manpower_ratio;
+        }
+        self.reinforcements = None;
+        let adjust_forts = self.fort_damage != 0.0;
+        let adjust_pops = (self.civilian_damage != 0.0) || (self.demobilized_material != 0.0);
+        if !adjust_forts && !adjust_pops {
+            return;
+        }
+        self.jobs.military -= self.demobilized_material;
+        let forts_factor = 1.0 - (self.fort_damage / self.capacities[STR_FORTRESS]).max(0.0);
+        let pops_factor =
+            (self.population + self.demobilized_material - self.civilian_damage).max(0.0) / self.population;
+        self.fort_damage = 0.0;
+        self.demobilized_material = 0.0;
+        self.civilian_damage = 0.0;
+        if adjust_forts {
+            self.capacities[STR_FORTRESS] -= self.fort_damage;
+        }
+        if adjust_pops {
+            self.population = 0.0;
+        }
+        for region in self.regions.iter() {
+            let mut region = if let Ok(region) = regions.get_mut(*region) {
+                region
+            } else {
+                continue;
+            };
+            if adjust_forts {
+                region.structures[STR_FORTRESS] *= forts_factor;
+            }
+            if adjust_pops {
+                region.population = (region.population * pops_factor).max(config.rules.economy.min_pop);
+                self.population += region.population;
+            }
+        }
+    }
+
+    pub fn update_splits(&mut self, config: &AtlasSimConfig, time: u32, rng: &mut impl Rng) {
+        if self.regions.is_empty() {
+            return;
+        }
+        // Update policies.
+        if time >= self.next_policy {
+            let normal = Normal::new(config.scenario.policy_mean, config.scenario.policy_deviation).unwrap();
+            self.policies = get_random_policies(rng, &normal);
+            let normal = Normal::new(
+                config.rules.diplomacy.policy_time_mean,
+                config.rules.diplomacy.policy_time_dev,
+            )
+            .unwrap();
+            self.next_policy = time + normal.sample(rng).trunc() as u32 * 12;
+        }
+        // Update manpower split.
+        self.manpower_split = [
+            0.0,
+            2.0 - self.policies[POL_MERCANTILE],
+            1.0 + self.policies[POL_MERCANTILE],
+        ];
+        let sum: f32 = self.manpower_split.iter().sum();
+        self.manpower_split = self.manpower_split.map(|x| x / sum);
+        // Update industry split.
+        let not_military = 1.0 - self.policies[POL_MILITARIST];
+        self.indu_split = [1.0 + not_military, 1.0 + self.policies[POL_MILITARIST]];
+        let sum: f32 = self.indu_split.iter().sum();
+        self.indu_split = self.indu_split.map(|x| x / sum);
+        // Update wealth split.
+        self.wealth_split = [
+            1.0 + not_military * self.policies[POL_PROGRESSIVE],
+            1.0 + not_military * (1.0 - self.policies[POL_PROGRESSIVE]),
+            1.0 + self.policies[POL_MILITARIST],
+        ];
+        let sum: f32 = self.wealth_split.iter().sum();
+        self.wealth_split = self.wealth_split.map(|x| x / sum);
+        // Update technology split.
+        self.tech_split = [
+            self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            not_military,
+            self.policies[POL_MILITARIST],
+            1.0 - self.policies[POL_PROGRESSIVE],
+            self.policies[POL_PROGRESSIVE],
+            self.policies[POL_MILITARIST],
+            self.policies[POL_LEGALIST],
+            1.0 - self.policies[POL_COMPETITIVE],
+            self.policies[POL_COMPETITIVE],
+        ];
+        let sum: f32 = self.tech_split.iter().sum();
+        self.tech_split = self.tech_split.map(|x| x / sum);
+        // Update tradition split.
+        self.trad_split = [
+            self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_EXPANSIONIST],
+            self.policies[POL_PROGRESSIVE],
+            1.0 - self.policies[POL_PROGRESSIVE],
+            1.0 - self.policies[POL_LEGALIST],
+            self.policies[POL_LEGALIST],
+            1.0 - self.policies[POL_COMPETITIVE],
+            self.policies[POL_COMPETITIVE],
+        ];
+        let sum: f32 = self.trad_split.iter().sum();
+        self.trad_split = self.trad_split.map(|x| x / sum);
+        // Update structue split.
+        self.struct_split = [
+            1.0 - self.policies[POL_EXPANSIONIST],
+            1.0 - self.policies[POL_MILITARIST],
+            self.policies[POL_MILITARIST],
+            self.policies[POL_PROGRESSIVE],
+            1.0 - self.policies[POL_PROGRESSIVE],
+            self.policies[POL_LEGALIST],
+            1.0 - self.policies[POL_COMPETITIVE],
+        ];
+        let sum: f32 = self.struct_split.iter().sum();
+        self.struct_split = self.struct_split.map(|x| x / sum);
+    }
+
+    pub fn mobilize(&mut self, config: &AtlasSimConfig) -> (f32, f32) {
+        if self.reinforcements.is_some() {
+            return self.reinforcements.clone().unwrap();
+        }
+        let total_pop = self.population + self.jobs.military;
+        let recruits_left =
+            (total_pop * self.policies[POL_MILITARIST] - self.jobs.military - self.essential_jobs).max(0.0);
+        let recruits = (total_pop * self.policies[POL_MILITARIST] * config.rules.combat.mobilization_speed)
+            .min(recruits_left);
+        let len = self.conflicts.len() as f32;
+        let morale = self.resources_acc[RES_LOYALTY] / len;
+        self.resources_acc[RES_LOYALTY] = 0.0;
+        // Can't go over military service limits.
+        if recruits <= 0.0 {
+            return (0.0, morale);
+        }
+        let material = recruits
+            .min(self.resources_acc[RES_MILITARY] / config.rules.combat.equipment_manpower_ratio)
+            / len;
+        self.resources_acc[RES_MILITARY] -= material * len * config.rules.combat.equipment_manpower_ratio;
+        self.population -= material * len;
+        self.jobs.military += material * len;
+        self.reinforcements = Some((material, morale));
+        (material, morale)
+    }
+
+    pub fn demobilize(&mut self, id: u32, material: f32, morale: f32, config: &AtlasSimConfig) {
+        self.conflicts.remove(&id);
+        self.demobilized_material += material;
+        self.resources_acc[RES_MILITARY] += material * config.rules.combat.equipment_manpower_ratio;
+        self.resources_acc[RES_LOYALTY] += morale;
+    }
+
+    pub fn deal_military_damage(&mut self, damage: f32) {
+        self.jobs.military = (self.jobs.military - damage).max(0.0);
+    }
+
+    pub fn deal_fort_damage(&mut self, damage: f32) {
+        self.fort_damage += damage;
+    }
+
+    pub fn deal_civilian_damage(&mut self, damage: f32) {
+        self.civilian_damage += damage;
+    }
+
     fn get_consumption(&self, config: &AtlasSimConfig, res_id: usize) -> f32 {
         let chaos = 1.0 - self.avg_stability;
-        self.population
+        (self.population + self.jobs.military)
             * match res_id {
                 RES_SUPPLY => {
                     config.rules.economy.base_supply_need + config.rules.economy.chaos_supply_loss * chaos
@@ -1175,14 +1584,14 @@ impl Polity {
     }
 
     #[inline(always)]
-    fn get_tech_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
+    pub fn get_tech_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
         let bonus = config.rules.tech.bonus_major * self.tech[i][0].trunc()
             + config.rules.tech.bonus_minor * self.tech[i][1].trunc();
         1.0 + bonus * config.rules.tech.techs[i].strength
     }
 
     #[inline(always)]
-    fn get_tradition_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
+    pub fn get_tradition_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
         let strength = config.rules.culture.traditions[i].strength
             * (self.traditions[i][0] + self.traditions[i][0]).trunc();
         1.0 + config.rules.culture.level_bonus * strength

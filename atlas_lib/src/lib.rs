@@ -19,6 +19,7 @@ pub use serde_derive;
 pub use serde_with;
 pub use thiserror;
 pub use toml;
+pub use weighted_rand;
 pub use winit;
 
 /// Helpers

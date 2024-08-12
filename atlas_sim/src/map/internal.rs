@@ -13,13 +13,13 @@ use atlas_lib::{
     },
     rand::{distributions::Uniform, Rng},
     rand_distr::{Distribution, Normal},
-};
-use weighted_rand::{
-    builder::{NewBuilder, WalkerTableBuilder},
-    table::WalkerTable,
+    weighted_rand::{
+        builder::{NewBuilder, WalkerTableBuilder},
+        table::WalkerTable,
+    },
 };
 
-use crate::ui::MapOverlay;
+use crate::{sim::polity::LEN_POL, ui::MapOverlay};
 
 /// Calculate weights for random choice of starting points. Returns all weights and weight strips (horizontal).
 pub fn calc_start_point_weights(
@@ -137,20 +137,29 @@ pub fn randomize_point_color(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
 }
 
 pub fn randomize_point_policies(config: &mut AtlasSimConfig, rng: &mut impl Rng) {
-    let normal = Normal::new(config.scenario.policy_mean, config.scenario.policy_deviation).unwrap();
+    let normal_val = Normal::new(config.scenario.policy_mean, config.scenario.policy_deviation).unwrap();
+    let normal_time = Normal::new(
+        config.rules.diplomacy.policy_time_mean,
+        config.rules.diplomacy.policy_time_dev,
+    )
+    .unwrap();
     for point in &mut config.scenario.start_points {
         if point.policy_locked {
             continue;
         }
-        let len = point.polity.policies.len();
-        point.polity.policies = (&normal)
-            .sample_iter(&mut *rng)
-            .take(len)
-            .map(|x| (x as f32).clamp(0.0, 1.0))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        point.polity.policies = get_random_policies(rng, &normal_val);
+        point.polity.next_policy = normal_time.sample(rng).trunc() as u32 * 12;
     }
+}
+
+pub fn get_random_policies(rng: &mut impl Rng, normal: &Normal<f32>) -> [f32; LEN_POL] {
+    normal
+        .sample_iter(&mut *rng)
+        .take(LEN_POL)
+        .map(|x| (x as f32).clamp(0.0, 1.0))
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
 }
 
 pub fn create_overlays(

@@ -18,6 +18,7 @@ use atlas_lib::{
         graphics::{MapLogicData, WorldGlobeMesh, WorldMapMesh},
         map::{MapDataLayer, MapDataOverlay, EXPORT_DATA_LAYERS},
     },
+    weighted_rand::builder::{NewBuilder, WalkerTableBuilder},
 };
 use internal::randomize_point_policies;
 
@@ -26,12 +27,14 @@ use crate::{
         calc_start_point_weights, create_overlays, randomize_point_color, randomize_start_points,
     },
     sim::{
-        polity::{Ownership, Polity},
+        polity::Polity,
         region::{spawn_region_with_city, Region},
         SimControl, SimMapData,
     },
     ui::MapOverlay,
 };
+
+pub use internal::get_random_policies;
 
 /// Plugin responsible for the world graphics and generation.
 pub struct MapPlugin;
@@ -118,7 +121,8 @@ pub fn update_event_import_start(
     regen_layers.push(MapDataLayer::Preview);
     // Resize if needed.
     resize_helper(commands, config.as_ref(), map, globe, logics);
-    extras.tile_owner.resize((width * height) as usize, None);
+    extras.tile_region.resize((width * height) as usize, None);
+    extras.tile_polity.resize((width * height) as usize, None);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
 }
@@ -185,7 +189,7 @@ pub fn update_event_overlay_changed(
 /// Set up everything needed to run the simulation.
 pub fn update_event_start_simulation(
     mut events: ResMut<EventStruct>,
-    config: Res<AtlasSimConfig>,
+    mut config: ResMut<AtlasSimConfig>,
     mut sim: ResMut<SimControl>,
     mut extras: ResMut<SimMapData>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -197,6 +201,10 @@ pub fn update_event_start_simulation(
 ) {
     events.simulation_start_request.take();
     sim.paused = false;
+    config.rules.combat.action_table_attacker =
+        WalkerTableBuilder::new(&config.rules.combat.action_weights_attacker).build();
+    config.rules.combat.action_table_defender =
+        WalkerTableBuilder::new(&config.rules.combat.action_weights_defender).build();
     // Spawn polities.
     for start in &config.scenario.start_points {
         // Get all coords.
@@ -211,7 +219,7 @@ pub fn update_event_start_simulation(
         let mut region = Region::new(polity_entity, city_entity, i);
         region.population = start.polity.population;
         region.land_claim_fund = config.scenario.starting_land_claim_points;
-        region.claim_tile(region_entity, i, &mut extras, &config);
+        region.claim_tile(region_entity, i, 2.0, &mut extras, &config);
         spawn_region_with_city(
             region_entity,
             city_entity,
@@ -225,21 +233,23 @@ pub fn update_event_start_simulation(
         );
         // Prep polity.
         let mut polity = Polity {
-            ownership: Ownership::Independent,
+            this: Some(polity_entity),
             color: Color::rgb_u8(
                 start.polity.color[0],
                 start.polity.color[1],
                 start.polity.color[2],
             ),
             population: start.polity.population,
-            regions: vec![region_entity],
+            regions: [region_entity].into(),
             policies: start.polity.policies.clone(),
+            next_policy: start.polity.next_policy,
             ..Default::default()
         };
         polity.rtree.insert(p);
         commands.get_entity(polity_entity).unwrap().insert((polity,));
         // Post spawn actions.
-        extras.tile_owner[i as usize] = Some(region_entity.clone());
+        extras.tile_region[i as usize] = Some(region_entity.clone());
+        extras.tile_polity[i as usize] = Some(polity_entity.clone());
         extras.rtree.insert(p);
         extras.add_city_borders(i, &config);
     }
