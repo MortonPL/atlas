@@ -17,7 +17,7 @@ impl Default for ScenarioConfig {
             policy_mean: 0.5,
             policy_deviation: 0.2,
             start_points: vec![],
-            starting_land_claim_points: 100.0,
+            starting_land_claim_points: 70.0,
         }
     }
 }
@@ -134,8 +134,9 @@ impl Default for RegionsConfig {
     fn default() -> Self {
         Self {
             min_split_size: 13,
-            new_city_cost: 100.0,
-            land_claim_cost: 10.0,
+            new_city_cost: 90.0,
+            sprawl_penalty: 1.0,
+            land_claim_cost: 7.0,
             base_exp_speed: 0.1,
             base_dev_speed: 0.05,
             max_dev_level: 10.0,
@@ -195,14 +196,15 @@ impl Default for DiplomacyConfig {
     fn default() -> Self {
         Self {
             initial_peace_length: 30,
-            truce_length: 5,
-            policy_time_mean: 40.0,
-            policy_time_dev: 10.0,
+            truce_length: 10,
+            policy_time_mean: 20.0,
+            policy_time_dev: 5.0,
             relations_speed: 0.1,
+            base_good_shift: 0.1,
             ally_threshold: 0.8,
             friend_threshold: 0.5,
             rival_threshold: -0.5,
-            enemy_threshold: -0.8,
+            enemy_threshold: -0.9,
         }
     }
 }

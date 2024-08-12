@@ -440,6 +440,7 @@ pub struct RegionsConfig {
     pub new_city_cost: f32,
     pub min_split_size: u32,
     pub land_claim_cost: f32,
+    pub sprawl_penalty: f32,
     pub base_exp_speed: f32,
     pub base_dev_speed: f32,
     pub max_dev_level: f32,
@@ -456,6 +457,9 @@ impl MakeUi for RegionsConfig {
             .clamp_range(0.0..=1000000.0)
             .show(None);
         SidebarSlider::new(ui, "Land Claim Cost Per Tile", &mut self.land_claim_cost)
+            .clamp_range(0.0..=10000.0)
+            .show(None);
+        SidebarSlider::new(ui, "Expansion Cost Increase Per Region", &mut self.sprawl_penalty)
             .clamp_range(0.0..=10000.0)
             .show(None);
         SidebarSlider::new(ui, "Base Expansion Speed", &mut self.base_exp_speed)
@@ -678,6 +682,10 @@ pub struct DiplomacyConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub relations_speed: f32,
+    #[name("Base Relations Improvement")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub base_good_shift: f32,
     #[name("Ally threshold")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]

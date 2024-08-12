@@ -175,23 +175,29 @@ impl Conflict {
         let (mat_d_atk, mor_d_atk, mat_d_def, mor_d_def, active_d, siege_d) =
             Self::handle_actions(config, polities, rng, &mut self.defenders);
         let material_d = self.defenders.values().fold(0.0, |acc, x| acc + x.material);
-        let morale_d = self.defenders.values().fold(0.0, |acc, x| acc + x.morale);
         // Apply attacker action.
         let (mat_a_atk, mor_a_atk, mat_a_def, mor_a_def, active_a, siege_a) =
             Self::handle_actions(config, polities, rng, &mut self.attackers);
         let material_a = self.attackers.values().fold(0.0, |acc, x| acc + x.material);
-        let morale_a = self.attackers.values().fold(0.0, |acc, x| acc + x.morale);
         // Resolve combat.
-        let mat_a_mod = (mat_a_atk / mat_d_def).powf(config.rules.combat.material_advantage);
-        let mor_a_mod = (mor_a_atk / mor_d_def).powf(config.rules.combat.morale_advantage);
-        let mat_d_mod = (mat_d_atk / mat_a_def).powf(config.rules.combat.material_advantage);
-        let mor_d_mod = (mor_d_atk / mor_a_def).powf(config.rules.combat.morale_advantage);
+        let mat_a_mod = (mat_a_atk / mat_d_def)
+            .clamp(0.33, 3.0)
+            .powf(config.rules.combat.material_advantage);
+        let mor_a_mod = (mor_a_atk / mor_d_def)
+            .clamp(0.33, 3.0)
+            .powf(config.rules.combat.morale_advantage);
+        let mat_d_mod = (mat_d_atk / mat_a_def)
+            .clamp(0.33, 3.0)
+            .powf(config.rules.combat.material_advantage);
+        let mor_d_mod = (mor_d_atk / mor_a_def)
+            .clamp(0.33, 3.0)
+            .powf(config.rules.combat.morale_advantage);
         let mod_a = mat_a_mod * mor_a_mod;
         let mod_d = mat_d_mod * mor_d_mod;
         let mat_d_dmg = (material_a * config.rules.combat.fatality * mod_a) / active_d as f32;
         let mat_a_dmg = (material_d * config.rules.combat.fatality * mod_d) / active_a as f32;
-        let mor_d_dmg = (morale_a * config.rules.combat.fragility * mod_a) / active_d as f32;
-        let mor_a_dmg = (morale_d * config.rules.combat.fragility * mod_d) / active_a as f32;
+        let mor_d_dmg = (material_a * config.rules.combat.fragility * mod_a) / active_d as f32;
+        let mor_a_dmg = (material_d * config.rules.combat.fragility * mod_d) / active_a as f32;
         let siege_d_dmg = (siege_a * mod_a) / active_d as f32;
         let siege_a_dmg = (siege_d * mod_d) / active_a as f32;
         // Deal damage (defenders).

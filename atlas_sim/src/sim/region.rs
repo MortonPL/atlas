@@ -112,10 +112,11 @@ impl Region {
         this: Entity,
         tile: u32,
         weight: f32,
+        sprawl: f32,
         extras: &mut SimMapData,
         config: &AtlasSimConfig,
     ) {
-        self.land_claim_fund -= config.rules.region.land_claim_cost * (2.0 - weight);
+        self.land_claim_fund -= config.rules.region.land_claim_cost * (2.0 - weight) + sprawl;
         self.border_tiles.remove(&tile);
         extras.tile_region[tile as usize] = Some(this);
         extras.tile_polity[tile as usize] = Some(self.polity);

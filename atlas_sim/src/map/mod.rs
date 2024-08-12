@@ -219,7 +219,7 @@ pub fn update_event_start_simulation(
         let mut region = Region::new(polity_entity, city_entity, i);
         region.population = start.polity.population;
         region.land_claim_fund = config.scenario.starting_land_claim_points;
-        region.claim_tile(region_entity, i, 2.0, &mut extras, &config);
+        region.claim_tile(region_entity, i, 2.0, 0.0, &mut extras, &config);
         spawn_region_with_city(
             region_entity,
             city_entity,

@@ -104,11 +104,13 @@ pub struct Polity {
     /// Damage dealt to civilians (this month).
     pub civilian_damage: f32,
     /// Demobilized military waiting to be re-added to the population pool.
-    pub demobilized_material: f32,
+    pub demobilized_troops: f32,
     /// Tributes to pay.
     pub tributes: Vec<Vec<Tribute>>,
     /// Date of the next policy change.
     pub next_policy: u32,
+    /// Regional sprawl penalty.
+    pub sprawl_penalty: f32,
     /// Population split.
     pub manpower_split: [f32; 3],
     /// Production split.
@@ -133,7 +135,8 @@ impl Default for Polity {
             fort_damage: 0.0,
             civilian_damage: 0.0,
             population: 0.0,
-            demobilized_material: 0.0,
+            demobilized_troops: 0.0,
+            sprawl_penalty: 0.0,
             next_policy: 0,
             essential_jobs: 0.0,
             color: Default::default(),
@@ -760,7 +763,7 @@ impl Polity {
             // Add to region.
             let tile = *region.border_tiles.iter().nth(i).unwrap();
             let weight = weights[i];
-            region.claim_tile(*region_entity, tile, weight, extras, &config);
+            region.claim_tile(*region_entity, tile, weight, self.sprawl_penalty, extras, &config);
         }
     }
 
@@ -1030,6 +1033,7 @@ impl Polity {
         // Clear accumulated resources.
         self.resources_acc[RES_CIVILIAN] = 0.0;
         // Divide industrial effort into expansion and development.
+        self.sprawl_penalty = config.rules.region.sprawl_penalty * regions_len as f32;
         let expansion_points =
             acc_points * self.policies[POL_EXPANSIONIST] * config.rules.region.base_exp_speed;
         let development_points = (acc_points - expansion_points)
@@ -1085,26 +1089,10 @@ impl Polity {
             let str_limit = region.development.trunc();
             // Increase region structure level.
             let len = region.structures.len();
-            let mut overflow = 0.0;
-            let mut maxxed_count = 0;
             let build = build * development_points;
             for i in 0..len {
                 let increment = build * self.struct_split[i] * config.rules.region.structures[i].cost;
-                let diff = region.structures[i] + increment - str_limit;
-                if diff > 0.0 {
-                    region.structures[i] = str_limit;
-                    overflow += diff;
-                    maxxed_count += 1;
-                } else {
-                    region.structures[i] += increment;
-                }
-            }
-            let build = overflow / (len - maxxed_count) as f32;
-            for i in 0..len {
-                if region.structures[i] < str_limit {
-                    let increment = build * self.struct_split[i] * config.rules.region.structures[i].cost;
-                    region.structures[i] = (region.structures[i] + increment).min(str_limit);
-                }
+                region.structures[i] = (region.structures[i] + increment).min(str_limit);
             }
             region.struct_levels = region.structures.iter().fold(0.0, |acc, x| acc + x);
             // Recalculate resource capacities.
@@ -1122,7 +1110,7 @@ impl Polity {
             region.health =
                 calc_capacity(STR_HOSPITAL, &mut region) * self.get_tech_multiplier(config, SCI_MEDICINE);
             // Request splitting regions (by building new cities).
-            let diff = region.new_city_fund - config.rules.region.new_city_cost;
+            let diff = region.new_city_fund - config.rules.region.new_city_cost - self.sprawl_penalty;
             if can_split(&region) && diff > 0.0 {
                 let i = rng.gen_range(0..region.split_tiles.len());
                 let i = *region.split_tiles.iter().nth(i).unwrap();
@@ -1332,10 +1320,10 @@ impl Polity {
                 (stance_us + stance_them) / 2.0
             } else {
                 stance_us.min(stance_them)
-            };
+            } + config.rules.diplomacy.base_good_shift;
             // Set new relations.
             let new_relations = (*relation_us
-                + (shift * config.rules.diplomacy.relations_speed) * (1.3 - *relation_us))
+                + (shift * config.rules.diplomacy.relations_speed) * (1.4 - *relation_us))
                 .clamp(-1.0, 1.0);
             *relation_us = new_relations;
             *relation_them = new_relations;
@@ -1343,7 +1331,7 @@ impl Polity {
             if new_relations >= config.rules.diplomacy.ally_threshold {
                 self.update_diplo_ally(us_e, them_e, &mut them, config, extras);
             } else if new_relations >= config.rules.diplomacy.friend_threshold {
-                /* Do nothing. */
+                self.update_diplo_friend(us_e, them_e, &mut them, config, extras);
             } else if new_relations <= config.rules.diplomacy.enemy_threshold {
                 // 15 minutes no rush.
                 if config.rules.diplomacy.initial_peace_length * 12 >= time {
@@ -1371,23 +1359,23 @@ impl Polity {
         if self.regions.is_empty() {
             return;
         }
-        if self.conflicts.is_empty() {
-            self.demobilized_material += self.jobs.military;
+        if self.conflicts.is_empty() && self.jobs.military > 0.0 {
+            self.demobilized_troops += self.jobs.military;
             self.resources_acc[RES_MILITARY] +=
                 self.jobs.military * config.rules.combat.equipment_manpower_ratio;
+            self.jobs.military = 0.0;
         }
         self.reinforcements = None;
         let adjust_forts = self.fort_damage != 0.0;
-        let adjust_pops = (self.civilian_damage != 0.0) || (self.demobilized_material != 0.0);
+        let adjust_pops = (self.civilian_damage != 0.0) || (self.demobilized_troops != 0.0);
         if !adjust_forts && !adjust_pops {
             return;
         }
-        self.jobs.military -= self.demobilized_material;
         let forts_factor = 1.0 - (self.fort_damage / self.capacities[STR_FORTRESS]).max(0.0);
         let pops_factor =
-            (self.population + self.demobilized_material - self.civilian_damage).max(0.0) / self.population;
+            (self.population + self.demobilized_troops - self.civilian_damage).max(0.0) / self.population;
         self.fort_damage = 0.0;
-        self.demobilized_material = 0.0;
+        self.demobilized_troops = 0.0;
         self.civilian_damage = 0.0;
         if adjust_forts {
             self.capacities[STR_FORTRESS] -= self.fort_damage;
@@ -1626,7 +1614,8 @@ impl Polity {
 
     pub fn demobilize(&mut self, id: u32, material: f32, morale: f32, config: &AtlasSimConfig) {
         self.conflicts.remove(&id);
-        self.demobilized_material += material;
+        self.jobs.military -= material;
+        self.demobilized_troops += material;
         self.resources_acc[RES_MILITARY] += material * config.rules.combat.equipment_manpower_ratio;
         self.resources_acc[RES_LOYALTY] += morale;
     }
