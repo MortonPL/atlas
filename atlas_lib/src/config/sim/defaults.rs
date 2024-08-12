@@ -45,7 +45,8 @@ impl Default for EconomyConfig {
             pop_growth: 0.001,
             max_health_penalty: 0.9,
             min_pop: 1.0,
-            crime_rate: 0.5,
+            crime_rate: 0.1,
+            rebelion_speed: 0.1,
             resources: [
                 ResConfig {
                     efficiency: 1.1,
@@ -91,7 +92,7 @@ impl Default for TechnologiesConfig {
             bonus_minor: 0.01,
             base_decay: 0.01,
             level_decay: 0.1,
-            level_difficulty: 1.0,
+            level_difficulty: 2.0,
             techs: Default::default(),
         }
     }
@@ -136,11 +137,11 @@ impl Default for RegionsConfig {
             new_city_cost: 100.0,
             land_claim_cost: 10.0,
             base_exp_speed: 0.1,
-            base_dev_speed: 0.01,
+            base_dev_speed: 0.05,
             max_dev_level: 10.0,
             dev_level_cost: 1.0,
             dev_bonus: 0.05,
-            base_capacity: 10.0,
+            base_capacity: 5.0,
             structures: Default::default(),
         }
     }
@@ -166,20 +167,24 @@ impl Default for CombatConfig {
             fortify_bonus: 1.0,
             fortify_penalty: 0.3,
             mobilization_speed: 0.1,
+            base_recruit_factor: 0.2,
             randomness: 0.2,
             fatality: 0.1,
             fragility: 0.1,
             material_advantage: 1.0,
             morale_advantage: 2.0,
-            equipment_manpower_ratio: 1.0,
+            equipment_manpower_ratio: 3.0,
             breakdown: 2.0,
-            morale_cap: 2.0,
+            morale_cap: 3.0,
             fort_damage: 0.005,
             base_defender_attrition: 0.005,
             base_attacker_attrition: 0.005,
             combat_attrition: 0.3,
             civilian_attrition: 0.1,
             civilian_damage: 0.01,
+            civilian_damage_max: 0.02,
+            claim_difficulty: 1.5,
+            base_rebel_rate: 0.2,
             tribute_time: 60,
             tribute_ratio: 0.1,
         }
@@ -190,6 +195,7 @@ impl Default for DiplomacyConfig {
     fn default() -> Self {
         Self {
             initial_peace_length: 30,
+            truce_length: 5,
             policy_time_mean: 40.0,
             policy_time_dev: 10.0,
             relations_speed: 0.1,

@@ -42,10 +42,49 @@ pub struct SimMapData {
     pub conflicts: HashMap<u32, Conflict>,
     /// Counter for unique conflict ids.
     pub conflict_counter: u32,
-    /// War count map.
-    pub war_map: HashMap<EntityPair, u32>,
+    /// Polity pair map of current wars and truce time.
+    pub war_map: WarMap,
     /// Pending tributes to polities (industry, wealth).
     pub tributes: HashMap<Entity, (f32, f32)>,
+}
+
+#[derive(Resource, Default)]
+pub struct WarMap(HashMap<EntityPair, (u32, u32)>);
+
+impl WarMap {
+    pub fn get_war_map_num(&mut self, us: Entity, them: Entity) -> (u32, u32) {
+        let pair = EntityPair::new(us, them);
+        if let Some((num, truce)) = self.0.get(&pair) {
+            (*num, *truce)
+        } else {
+            (0, 0)
+        }
+    }
+
+    pub fn inc_war_map_num(&mut self, us: Entity, them: Entity) -> u32 {
+        let pair = EntityPair::new(us, them);
+        if let Some((num, _)) = self.0.get_mut(&pair) {
+            *num += 1;
+            *num
+        } else {
+            self.0.insert_unique_unchecked(pair, (1, 0));
+            1
+        }
+    }
+
+    pub fn dec_war_map_num(&mut self, us: Entity, them: Entity, truce: u32) -> u32 {
+        let pair = EntityPair::new(us, them);
+        if let Some((num, trc)) = self.0.get_mut(&pair) {
+            *num -= 1;
+            if *num == 0 {
+                *trc = truce;
+            }
+            *num
+        } else {
+            self.0.insert_unique_unchecked(pair, (0, truce));
+            1
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -66,31 +105,7 @@ impl SimMapData {
         self.city_borders.extend(config.get_border_tiles_9(position));
     }
 
-    pub fn get_war_map_num(&mut self, us: Entity, them: Entity) -> u32 {
-        let pair = EntityPair::new(us, them);
-        if let Some(x) = self.war_map.get(&pair) {
-            *x
-        } else {
-            0
-        }
-    }
-
-    pub fn inc_war_map_num(&mut self, us: Entity, them: Entity, decrement: bool) -> u32 {
-        let pair = EntityPair::new(us, them);
-        if let Some(x) = self.war_map.get_mut(&pair) {
-            if decrement {
-                *x -= 1
-            } else {
-                *x += 1
-            };
-            *x
-        } else {
-            self.war_map.insert_unique_unchecked(pair, 1);
-            1
-        }
-    }
-
-    pub fn create_conflict(&mut self, start_date: u32) -> u32 {
+    pub fn create_conflict(&mut self, start_date: u32, attacker: Entity, defender: Entity) -> u32 {
         let id = self.conflict_counter;
         self.conflict_counter += 1;
         let conflict = Conflict {
@@ -99,9 +114,24 @@ impl SimMapData {
             concluded: false,
             attackers: Default::default(),
             defenders: Default::default(),
+            primary_attacker: attacker,
+            primary_defender: defender,
         };
         self.conflicts.insert(id, conflict);
         id
+    }
+
+    pub fn add_conflict_member(&mut self, us_e: Entity, color: [u8; 3], id: u32, is_attacker: bool) {
+        let conflict = self.conflicts.get_mut(&id).unwrap();
+        conflict.add_member(us_e, color, is_attacker);
+        let enemies = if is_attacker {
+            conflict.defenders.keys()
+        } else {
+            conflict.attackers.keys()
+        };
+        for enemy_e in enemies {
+            self.war_map.inc_war_map_num(us_e, *enemy_e);
+        }
     }
 }
 

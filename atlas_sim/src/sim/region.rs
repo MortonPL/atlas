@@ -72,6 +72,8 @@ pub struct Region {
     pub health: f32,
     /// Sum of all structure levels.
     pub struct_levels: f32,
+    /// % of rebel population.
+    pub rebel_rate: f32,
 }
 
 impl Region {
@@ -101,6 +103,7 @@ impl Region {
             security: 0.0,
             health: 0.0,
             struct_levels: 0.0,
+            rebel_rate: 0.0,
         }
     }
 

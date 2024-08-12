@@ -182,6 +182,7 @@ pub struct EconomyConfig {
     pub chaos_industry_loss: f32,
     pub chaos_wealth_loss: f32,
     pub crime_rate: f32,
+    pub rebelion_speed: f32,
     pub resources: [ResConfig; 10],
 }
 
@@ -211,8 +212,11 @@ impl MakeUi for EconomyConfig {
         SidebarSlider::new(ui, "Wealth Loss to Chaos", &mut self.chaos_wealth_loss)
             .clamp_range(0.0..=1000000.0)
             .show(None);
-        SidebarSlider::new(ui, "Crime Rate", &mut self.crime_rate)
+        SidebarSlider::new(ui, "Base Crime Rate", &mut self.crime_rate)
             .clamp_range(0.0..=1.0)
+            .show(None);
+        SidebarSlider::new(ui, "Rebelion Speed", &mut self.rebelion_speed)
+            .clamp_range(0.0..=1000000.0)
             .show(None);
         ui.heading("Resources");
         ui.end_row();
@@ -573,6 +577,10 @@ pub struct CombatConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub mobilization_speed: f32,
+    #[name("Base Recruitable Pop %")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub base_recruit_factor: f32,
     #[name("Combat Randomness")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
@@ -625,10 +633,22 @@ pub struct CombatConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub civilian_attrition: f32,
-    #[name("Civilian Damage From Unabsorbed Damage %")]
+    #[name("Civilian Damage From Combat Modifier")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub civilian_damage: f32,
+    #[name("Maximum Civilian Damage Ratio")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub civilian_damage_max: f32,
+    #[name("Region Claim Difficulty")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub claim_difficulty: f32,
+    #[name("Base Rebel Rate in Claimed Regions")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub base_rebel_rate: f32,
     #[name("Number of Tribute Payments")]
     #[control(SidebarSlider)]
     pub tribute_time: u32,
@@ -643,6 +663,9 @@ pub struct DiplomacyConfig {
     #[name("Initial Peace Length")]
     #[control(SidebarSlider)]
     pub initial_peace_length: u32,
+    #[name("Truce Length")]
+    #[control(SidebarSlider)]
+    pub truce_length: u32,
     #[name("Policy Change Time Mean")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]

@@ -9,7 +9,10 @@ use atlas_lib::{
 };
 
 use crate::sim::{
-    polity::{Polity, Tribute, SCI_MEDICINE, SCI_MILTECH, STR_FORTRESS, TRAD_DIPLOMATIC, TRAD_MILITANT},
+    polity::{
+        Polity, Tribute, POL_MILITARIST, SCI_MEDICINE, SCI_MILTECH, STR_FORTRESS, TRAD_DIPLOMATIC,
+        TRAD_MILITANT,
+    },
     region::Region,
     ui::ConflictUi,
     SimMapData,
@@ -20,6 +23,8 @@ pub struct Conflict {
     pub id: u32,
     pub start_date: u32,
     pub concluded: bool,
+    pub primary_attacker: Entity,
+    pub primary_defender: Entity,
     pub attackers: HashMap<Entity, ConflictMember>,
     pub defenders: HashMap<Entity, ConflictMember>,
     //pub marker: Entity, // TODO simple conflict markers?
@@ -27,11 +32,20 @@ pub struct Conflict {
 
 impl Conflict {
     pub fn add_member(&mut self, entity: Entity, color: [u8; 3], is_attacker: bool) {
+        let member = ConflictMember::new(entity, color);
         if is_attacker {
-            self.attackers.insert(entity, ConflictMember::new(entity, color))
+            self.attackers.insert(entity, member)
         } else {
-            self.defenders.insert(entity, ConflictMember::new(entity, color))
+            self.defenders.insert(entity, member)
         };
+    }
+
+    pub fn is_primary_attacker(&self, entity: Entity) -> bool {
+        self.primary_attacker == entity
+    }
+
+    pub fn is_primary_defender(&self, entity: Entity) -> bool {
+        self.primary_defender == entity
     }
 
     pub fn is_member(&self, entity: &Entity, is_attacker: bool, is_any: bool) -> bool {
@@ -258,10 +272,10 @@ impl Conflict {
             siege_sum += sg;
         }
         (
-            mat_atk_sum.max(0.01),
-            mor_atk_sum.max(0.01),
-            mat_def_sum.max(0.01),
-            mor_def_sum.max(0.01),
+            mat_atk_sum.max(0.001),
+            mor_atk_sum.max(0.001),
+            mat_def_sum.max(0.001),
+            mor_def_sum.max(0.001),
             active,
             siege_sum,
         )
@@ -283,13 +297,14 @@ impl Conflict {
             (&mut self.defenders, &mut self.attackers)
         };
         // Calculate final contribution ratios.
-        for (winner_e, member) in winners.iter() {
+        for (winner_e, member) in winners.iter_mut() {
             let winner_p = polities.get_mut(*winner_e).unwrap();
-            winner_contrib +=
-                member.contribution * winner_p.get_tradition_multiplier(config, TRAD_DIPLOMATIC);
+            member.contribution *= winner_p.get_tradition_multiplier(config, TRAD_DIPLOMATIC);
+            winner_contrib += member.contribution;
         }
-        for (_, member) in winners.iter_mut() {
-            member.contribution = (member.contribution / winner_contrib).max(0.0);
+        for (loser_e, member) in losers.iter_mut() {
+            let loser_p = polities.get_mut(*loser_e).unwrap();
+            member.contribution *= loser_p.get_tradition_multiplier(config, TRAD_DIPLOMATIC);
         }
         // Make region claims.
         let mut region_claims_num = HashMap::<Entity, HashMap<Entity, u32>>::default(); // <Winner <Loser, count>>
@@ -297,14 +312,17 @@ impl Conflict {
         let mut region_claims = HashMap::<Entity, (Entity, f32)>::default(); // <Region, (Winner, claim)>
         for (winner_e, winner_m) in winners.iter_mut() {
             let winner_e = *winner_e;
+            let contribution_ratio = (winner_m.contribution / winner_contrib).max(0.0);
             // NOTE: Unsafe is ok, the same polity cannot be a winner and loser in a conflict.
             let mut winner_p = unsafe { polities.get_unchecked(winner_e).unwrap() };
-            let winner_diplomacy = winner_p.get_tradition_multiplier(config, TRAD_DIPLOMATIC);
             let mut claims = HashMap::<Entity, u32>::default();
-            for (loser_e, _) in losers.iter_mut() {
+            for (loser_e, loser_m) in losers.iter_mut() {
                 let mut loser_p = unsafe { polities.get_unchecked(*loser_e).unwrap() };
                 let loser_diplomacy = loser_p.get_tradition_multiplier(config, TRAD_DIPLOMATIC);
-                let wars = extras.inc_war_map_num(winner_e, *loser_e, true);
+                let wars =
+                    extras
+                        .war_map
+                        .dec_war_map_num(winner_e, *loser_e, config.rules.diplomacy.truce_length);
                 // If winner borders loser, claim border regions.
                 // Lose right to tribute when claiming land.
                 if let Some((borders, relation, _)) = winner_p.neighbours.get_mut(loser_e) {
@@ -317,8 +335,10 @@ impl Conflict {
                     }
                     //
                     let mut regions_taken = 0;
-                    let mut skip_regions =
-                        ((loser_diplomacy - winner_diplomacy).max(0.0) * borders.len() as f32).ceil() as u32;
+                    let difficulty = (loser_m.contribution * config.rules.combat.claim_difficulty
+                        / winner_m.contribution)
+                        .min(1.0);
+                    let mut skip_regions = (difficulty * borders.len() as f32) as u32;
                     for region in borders.iter() {
                         // Sanity check: what if someone from another war got this region and it haven't updated yet?
                         if !loser_p.regions.contains(region) {
@@ -326,7 +346,7 @@ impl Conflict {
                         }
                         if let Some((claimee, strength)) = region_claims.get_mut(region) {
                             // If someone made a claim, but they have lower contribution, take it.
-                            if winner_m.contribution > *strength {
+                            if contribution_ratio > *strength {
                                 if skip_regions > 0 {
                                     skip_regions -= 1;
                                     continue;
@@ -337,7 +357,7 @@ impl Conflict {
                                     .get_mut(loser_e)
                                     .unwrap() -= 1;
                                 *claimee = winner_e;
-                                *strength = winner_m.contribution;
+                                *strength = contribution_ratio;
                                 regions_taken += 1;
                             }
                         } else {
@@ -345,7 +365,7 @@ impl Conflict {
                                 skip_regions -= 1;
                                 continue;
                             }
-                            region_claims.insert(*region, (winner_e, winner_m.contribution));
+                            region_claims.insert(*region, (winner_e, contribution_ratio));
                             regions_taken += 1;
                         }
                     }
@@ -354,7 +374,7 @@ impl Conflict {
                 // Preliminary tribute calculation.
                 let tribute = Tribute::new(
                     winner_e,
-                    winner_m.contribution / loser_diplomacy,
+                    contribution_ratio / loser_diplomacy,
                     config.rules.combat.tribute_time,
                 );
                 if let Some(vec) = tribute_claims.get_mut(loser_e) {
@@ -393,6 +413,10 @@ impl Conflict {
             loser_p.population -= region.population;
             loser_p.regions.remove(&region_e);
             loser_p.rtree.remove(&pos);
+            region.rebel_rate = (region.rebel_rate
+                + config.rules.combat.base_rebel_rate
+                + loser_p.policies[POL_MILITARIST] * loser_p.get_tradition_multiplier(config, TRAD_MILITANT))
+            .clamp(0.0, 2.0);
             let mut winner_p = polities.get_mut(winner_e).unwrap();
             region.polity = winner_e;
             region.color_l = rng.gen_range(-0.1..=0.1);
@@ -562,7 +586,10 @@ impl ConflictMember {
         if mat_dmg_left > 0.0 {
             let mat_dmg_left = mat_dmg_left / polity.get_tech_multiplier(config, SCI_MEDICINE);
             self.attrition += (mat_dmg_left * config.rules.combat.civilian_attrition) / total_pop;
-            polity.deal_civilian_damage(mat_dmg_left * config.rules.combat.civilian_damage);
+            polity.deal_civilian_damage(
+                ((mat_dmg_left * config.rules.combat.civilian_damage) / total_pop)
+                    .min(config.rules.combat.civilian_damage_max),
+            );
         }
     }
 

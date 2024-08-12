@@ -22,12 +22,12 @@ use atlas_lib::{
 
 use crate::{
     map::get_random_policies,
-    sim::{check_tick, SimControl, SimMapData},
-};
-
-use super::{
-    region::{spawn_region_with_city, City, Region},
-    ui::PolityUi,
+    sim::{
+        check_tick,
+        region::{spawn_region_with_city, City, Region},
+        ui::PolityUi,
+        SimControl, SimMapData,
+    },
 };
 
 /// Polity simulation.
@@ -324,7 +324,7 @@ const POL_COMPETITIVE: usize = 1;
 /// Work Split policy: Industrial (industry) vs Mercantile (wealth)
 const POL_MERCANTILE: usize = 2;
 /// Production policy: Pacifist (civilian ind/wealth) vs Militarist (military ind/loyalty)
-const POL_MILITARIST: usize = 3;
+pub const POL_MILITARIST: usize = 3;
 /// Wealth policy: Traditional (culture) vs Progressive (science)
 const POL_PROGRESSIVE: usize = 4;
 /// Stability policy
@@ -580,6 +580,9 @@ fn update_diplomacy(
         })
         .collect();
     if sim.is_new_year() {
+        for (_, truce) in extras.war_map.0.values_mut() {
+            *truce = truce.checked_sub(1).unwrap_or_default();
+        }
         for polity_e in vec {
             unsafe {
                 let (_, mut polity) = polities.get_unchecked(polity_e).unwrap();
@@ -1204,17 +1207,22 @@ impl Polity {
             // Get decay and difficulty based on major level.
             let decay = config.rules.tech.base_decay + config.rules.tech.level_decay * major;
             let level_difficulty = 1.0 + major * config.rules.tech.level_difficulty;
-            let major_points = (total_major_points * self.tech_split[i] * level_difficulty) / tech.cost;
-            let minor_points = (total_minor_points * self.tech_split[i] * level_difficulty) / tech.cost;
             // Advance major level if the minor level is maxxed, otherwise advance minor level.
             // Minor level is easier to advance.
             if val[1] >= config.rules.tech.max_level_minor * major {
                 // Advance major level.
-                val[0] = (val[0] + major_points - decay).clamp(0.0, config.rules.tech.max_level_major);
+                let mut major_points = (total_major_points * self.tech_split[i]) / tech.cost - decay;
+                if major_points > 0.0 {
+                    major_points /= level_difficulty;
+                }
+                val[0] = (val[0] + major_points).clamp(0.0, config.rules.tech.max_level_major);
             } else {
                 // Advance minor level.
-                val[1] =
-                    (val[1] + minor_points - decay).clamp(0.0, config.rules.tech.max_level_minor * major);
+                let mut minor_points = (total_minor_points * self.tech_split[i]) / tech.cost - decay;
+                if minor_points > 0.0 {
+                    minor_points /= level_difficulty;
+                }
+                val[1] = (val[1] + minor_points).clamp(0.0, config.rules.tech.max_level_minor * major);
             }
         }
         self.resources_acc[RES_RESEARCH] = 0.0;
@@ -1244,22 +1252,25 @@ impl Polity {
                 continue;
             };
             // Calculate region health.
-            let sick_pops = ((region.population - region.health).max(0.0) / region.population)
+            let sickness = ((region.population - region.health).max(0.0) / region.population)
                 .min(config.rules.economy.max_health_penalty);
-            region.healthcare = 1.0 - sick_pops;
+            region.healthcare = 1.0 - sickness;
             // Grow the region pops.
             region.population = (region.population * (coverage + growth * region.healthcare))
                 .max(config.rules.economy.min_pop);
             self.population += region.population;
             // Calculate region crime/stability.
-            let crime_pops = region.population * config.rules.economy.crime_rate
+            let crime_pops = region.population * (config.rules.economy.crime_rate + region.rebel_rate)
                 / self.get_tradition_multiplier(config, TRAD_HONORABLE);
             let crime = (crime_pops - region.security).max(0.0) / region.population;
             region.stability = 1.0 - crime;
+            region.rebel_rate = (region.rebel_rate
+                - (region.stability - region.rebel_rate) * config.rules.economy.rebelion_speed)
+                .clamp(0.0, 2.0);
             self.avg_stability += region.population * region.stability;
             self.avg_health += region.population * region.healthcare;
         }
-        self.avg_stability /= self.population;
+        self.avg_stability = (self.avg_stability / self.population).clamp(0.0, 1.0);
         self.avg_health /= self.population;
     }
 
@@ -1301,7 +1312,8 @@ impl Polity {
         }
         let mut neighbours = std::mem::take(&mut self.neighbours);
         for (them_e, (_, relation_us, _)) in neighbours.iter_mut() {
-            let (_, mut them) = unsafe { polities.get_unchecked(*them_e).unwrap() };
+            let them_e = *them_e;
+            let (_, mut them) = unsafe { polities.get_unchecked(them_e).unwrap() };
             // General stance: x > 0 cooperative, x < 0 competitive, x ~ 0 neutral
             let stance_us = (0.5 - self.policies[POL_COMPETITIVE])
                 * 2.0
@@ -1310,7 +1322,11 @@ impl Polity {
                 * 2.0
                 * them.get_tech_multiplier(config, SCI_LINGUISTICS);
             // Get reference to relations from their POV.
-            let (_, relation_them, _) = them.neighbours.get_mut(&us_e).unwrap();
+            let (_, relation_them, _) = if let Some(x) = them.neighbours.get_mut(&us_e) {
+                x
+            } else {
+                continue;
+            };
             // Relations improve if both cooperative, heavily degrade if both competitive, otherwise slightly degrade.
             let shift = if (stance_us >= 0.0) == (stance_them >= 0.0) {
                 (stance_us + stance_them) / 2.0
@@ -1325,50 +1341,30 @@ impl Polity {
             *relation_them = new_relations;
             // Handle conflicts.
             if new_relations >= config.rules.diplomacy.ally_threshold {
-                // TODO
+                self.update_diplo_ally(us_e, them_e, &mut them, config, extras);
             } else if new_relations >= config.rules.diplomacy.friend_threshold {
-                // TODO
+                /* Do nothing. */
             } else if new_relations <= config.rules.diplomacy.enemy_threshold {
                 // 15 minutes no rush.
                 if config.rules.diplomacy.initial_peace_length * 12 >= time {
                     continue;
                 }
-                // Don't start a war if we're already fighting them somewhere else.
-                if extras.get_war_map_num(us_e, *them_e) > 0 {
+                // Don't start a war if we're still fighting or if there's a truce.
+                let (wars, truce) = extras.war_map.get_war_map_num(us_e, them_e);
+                if wars > 0 || truce > 0 {
                     continue;
                 }
-                // Start a new war against them.
+                // Declare war (polity with higher competitiveness is the attacker).
                 let us_attack = self.policies[POL_COMPETITIVE] > them.policies[POL_COMPETITIVE];
-                let id = extras.create_conflict(time);
-                let conflict = extras.conflicts.get_mut(&id).unwrap();
-                let color = self.color.as_rgba_u8();
-                conflict.add_member(us_e, [color[0], color[1], color[2]], us_attack);
-                self.conflicts.insert(id);
-                let color = them.color.as_rgba_u8();
-                conflict.add_member(*them_e, [color[0], color[1], color[2]], !us_attack);
-                them.conflicts.insert(id);
-                extras.inc_war_map_num(us_e, *them_e, false);
+                let att_def = if us_attack { (us_e, them_e) } else { (them_e, us_e) };
+                let id = extras.create_conflict(time, att_def.0, att_def.1);
+                self.join_conflict(us_e, id, extras, us_attack);
+                them.join_conflict(them_e, id, extras, !us_attack);
             } else if new_relations <= config.rules.diplomacy.rival_threshold {
-                // TODO
+                /* Do nothing. */
             }
         }
         self.neighbours = neighbours;
-        // Conflict rules: never join a war against primary member allies.
-        //
-        // If relation = ally:
-        // Always join defensive wars of allies.
-        // Join offensive wars of allies against neutral/rivals/enemies (unless at war).
-        // Join support wars of allies against neutral/rivals/enemies (unless at war, if ally's ally is friend/neutral).
-        //
-        // If relation = friend:
-        // Join defensive wars against neutral/rivals (unless at war).
-        //
-        // If relation = neutral: nothing
-        //
-        // If relation = rival: nothing
-        //
-        // If relation = enemy:
-        // Declare war (polity with higher competitiveness is the attacker)
     }
 
     pub fn update_post_conflict(&mut self, config: &AtlasSimConfig, regions: &mut Query<&mut Region>) {
@@ -1493,15 +1489,124 @@ impl Polity {
         self.struct_split = self.struct_split.map(|x| x / sum);
     }
 
+    pub fn update_diplo_ally(
+        &mut self,
+        us_e: Entity,
+        them_e: Entity,
+        them: &mut Polity,
+        config: &AtlasSimConfig,
+        extras: &mut SimMapData,
+    ) {
+        for id in them.conflicts.iter() {
+            // Don't join a conflict we're already in.
+            if self.conflicts.contains(id) {
+                continue;
+            }
+            let conflict = extras.conflicts.get_mut(id).unwrap();
+            // Don't join a conflict in which we would fight an ally.
+            let invalid = self.neighbours.iter().any(|(e, (_, relation, _))| {
+                conflict.is_opposing(&us_e, e)
+                    && ((*relation >= config.rules.diplomacy.ally_threshold)
+                        || (extras.war_map.get_war_map_num(us_e, them_e).1 > 0))
+            });
+            if invalid {
+                continue;
+            }
+            // Join defensive wars of allies.
+            if conflict.is_primary_defender(them_e) {
+                self.join_conflict(us_e, conflict.id, extras, false);
+                continue;
+            // Join other wars only if not at war.
+            } else if self.conflicts.is_empty() {
+                // Join offensive wars of allies against unknowns or rivals.
+                if conflict.is_primary_attacker(them_e) {
+                    if !self
+                        .known_and_above(&conflict.primary_defender, config.rules.diplomacy.rival_threshold)
+                    {
+                        self.join_conflict(us_e, conflict.id, extras, true);
+                    }
+                // Join support wars of allies if their primary is known and friendly and enemy primary is known and rival.
+                } else {
+                    let ally_attacker = conflict.is_member(&them_e, true, false);
+                    let primary = if ally_attacker {
+                        &conflict.primary_attacker
+                    } else {
+                        &conflict.primary_defender
+                    };
+                    if !self.known_and_above(primary, config.rules.diplomacy.friend_threshold) {
+                        continue;
+                    }
+                    if self.known_and_below(primary, config.rules.diplomacy.rival_threshold) {
+                        continue;
+                    }
+                    self.join_conflict(us_e, conflict.id, extras, ally_attacker);
+                }
+            }
+        }
+    }
+
+    pub fn update_diplo_friend(
+        &mut self,
+        us_e: Entity,
+        them_e: Entity,
+        them: &mut Polity,
+        config: &AtlasSimConfig,
+        extras: &mut SimMapData,
+    ) {
+        for id in them.conflicts.iter() {
+            // Don't join a conflict we're already in.
+            if self.conflicts.contains(id) {
+                continue;
+            }
+            let conflict = extras.conflicts.get_mut(id).unwrap();
+            // Don't join a conflict in which we would fight an ally.
+            let invalid = self.neighbours.iter().any(|(e, (_, relation, _))| {
+                conflict.is_opposing(&us_e, e)
+                    && ((*relation >= config.rules.diplomacy.ally_threshold)
+                        || (extras.war_map.get_war_map_num(us_e, them_e).1 > 0))
+            });
+            if invalid {
+                continue;
+            }
+            // Join defensive wars of friends against unknowns or rivals.
+            if conflict.is_primary_defender(them_e) {
+                if !self.known_and_above(&conflict.primary_defender, config.rules.diplomacy.rival_threshold) {
+                    self.join_conflict(us_e, conflict.id, extras, true);
+                }
+            }
+        }
+    }
+
+    pub fn known_and_above(&self, entity: &Entity, threshold: f32) -> bool {
+        self.neighbours
+            .get(entity)
+            .and_then(|(_, x, _)| Some(*x > threshold))
+            .unwrap_or_default()
+    }
+
+    pub fn known_and_below(&self, entity: &Entity, threshold: f32) -> bool {
+        self.neighbours
+            .get(entity)
+            .and_then(|(_, x, _)| Some(*x <= threshold))
+            .unwrap_or_default()
+    }
+
+    pub fn join_conflict(&mut self, us_e: Entity, id: u32, extras: &mut SimMapData, is_attacker: bool) {
+        let color = self.color.as_rgba_u8();
+        let color = [color[0], color[1], color[2]];
+        extras.add_conflict_member(us_e, color, id, is_attacker);
+        self.conflicts.insert(id);
+    }
+
     pub fn mobilize(&mut self, config: &AtlasSimConfig) -> (f32, f32) {
         if self.reinforcements.is_some() {
             return self.reinforcements.clone().unwrap();
         }
         let total_pop = self.population + self.jobs.military;
-        let recruits_left =
-            (total_pop * self.policies[POL_MILITARIST] - self.jobs.military - self.essential_jobs).max(0.0);
-        let recruits = (total_pop * self.policies[POL_MILITARIST] * config.rules.combat.mobilization_speed)
-            .min(recruits_left);
+        let recruitable =
+            total_pop * (self.policies[POL_MILITARIST] + config.rules.combat.base_recruit_factor).min(1.0);
+        let recruits_left = (recruitable - self.jobs.military - self.essential_jobs).max(0.0);
+        let recruits = (recruitable * config.rules.combat.mobilization_speed).min(recruits_left);
         let len = self.conflicts.len() as f32;
         let morale = self.resources_acc[RES_LOYALTY] / len;
         self.resources_acc[RES_LOYALTY] = 0.0;
@@ -1535,7 +1640,7 @@ impl Polity {
     }
 
     pub fn deal_civilian_damage(&mut self, damage: f32) {
-        self.civilian_damage += damage;
+        self.civilian_damage += damage * self.population;
     }
 
     fn get_consumption(&self, config: &AtlasSimConfig, res_id: usize) -> f32 {

@@ -5,8 +5,6 @@
 - High Priority
   - Colony convoy system
   - Natural disasters
-  - Military and combat (wip)
-  - Diplomacy and deals
   - History log
 
 ## GEN
