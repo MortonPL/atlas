@@ -1,8 +1,8 @@
-//#![windows_subsystem = "windows"] // DEBUG
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use atlas_lib::{
     base::events::EventPlugin,
-    bevy::prelude::*,
+    bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*, tasks::available_parallelism},
     bevy_prng::WyRand,
     bevy_rand::plugin::EntropyPlugin,
     config::{gen::AtlasGenConfig, ConfigPlugin},
@@ -22,7 +22,17 @@ fn main() {
                     }),
                     ..Default::default()
                 })
-                .set(ImagePlugin::default_nearest()),
+                .set(ImagePlugin::default_nearest())
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        compute: TaskPoolThreadAssignmentPolicy {
+                            min_threads: available_parallelism(),
+                            max_threads: std::usize::MAX,
+                            percent: 1.0,
+                        },
+                        ..Default::default()
+                    },
+                }),
             EntropyPlugin::<WyRand>::default(),
             ConfigPlugin::<AtlasGenConfig>::default(),
             EventPlugin,

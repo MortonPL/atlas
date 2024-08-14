@@ -79,7 +79,8 @@ impl MapLogicData {
     }
 
     pub fn load_climatemap(&mut self) -> Result<(), crate::config::Error> {
-        let result = load_image_grey(CLIMATEMAP_NAME, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32);
+        let path = std::env::current_dir()?.join(CLIMATEMAP_NAME);
+        let result = load_image_grey(path, CLIMATEMAP_SIZE as u32, CLIMATEMAP_SIZE as u32);
         if let Ok(vec) = result {
             self.climatemap = vec;
             Ok(())

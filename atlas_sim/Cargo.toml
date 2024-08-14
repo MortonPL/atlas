@@ -12,7 +12,6 @@ homepage.workspace = true
 
 [dependencies]
 atlas_lib = { path = "../atlas_lib" }     # inhouse common library
-bevy_mod_picking = "0.19"                 # pickable (clickable) entities
 
 [build-dependencies]
 winresource = "0.1.17"                    # set resource icon

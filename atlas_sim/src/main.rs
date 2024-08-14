@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"] // DEBUG
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod map;
 mod sim;
@@ -6,12 +6,11 @@ mod ui;
 
 use atlas_lib::{
     base::events::EventPlugin,
-    bevy::prelude::*,
+    bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*, tasks::available_parallelism},
     bevy_prng::WyRand,
     bevy_rand::prelude::EntropyPlugin,
     config::{sim::AtlasSimConfig, ConfigPlugin},
 };
-use bevy_mod_picking::{highlight::DefaultHighlightingPlugin, DefaultPickingPlugins};
 
 /// Application entry point.
 fn main() {
@@ -25,12 +24,17 @@ fn main() {
                     }),
                     ..Default::default()
                 })
-                .set(ImagePlugin::default_nearest()),
-        )
-        .add_plugins(
-            DefaultPickingPlugins
-                .build()
-                .disable::<DefaultHighlightingPlugin>(),
+                .set(ImagePlugin::default_nearest())
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        compute: TaskPoolThreadAssignmentPolicy {
+                            min_threads: available_parallelism(),
+                            max_threads: std::usize::MAX,
+                            percent: 1.0,
+                        },
+                        ..Default::default()
+                    },
+                }),
         )
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(EntropyPlugin::<WyRand>::default())

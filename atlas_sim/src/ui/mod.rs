@@ -23,7 +23,6 @@ use atlas_lib::{
         window,
     },
 };
-use bevy_mod_picking::{events::Pointer, prelude::*};
 use internal::{reset_config_clicked, reset_panel_clicked, FileDialogHandler};
 use panel_init::*;
 use panel_sim::*;
@@ -50,11 +49,9 @@ impl Plugin for UiPlugin {
                     update_viewport,
                     update_location,
                     update_click_location,
-                    update_selection.run_if(on_event::<UpdateSelectionEvent>()),
                 )
                     .chain(),
             )
-            .add_event::<UpdateSelectionEvent>()
             .add_systems(UiUpdate, update_selection_data);
     }
 }
@@ -372,15 +369,6 @@ fn update_location(
     ui_state.cursor = config.world_to_map((coords.x, coords.y));
 }
 
-#[derive(Event)]
-pub struct UpdateSelectionEvent(Entity);
-
-impl From<ListenerInput<Pointer<Click>>> for UpdateSelectionEvent {
-    fn from(event: ListenerInput<Pointer<Click>>) -> Self {
-        UpdateSelectionEvent(event.target)
-    }
-}
-
 fn update_click_location(
     mut ui_state: ResMut<AtlasSimUi>,
     extras: Res<SimMapData>,
@@ -400,23 +388,6 @@ fn update_click_location(
             }
         }
     }
-}
-
-/// Update system
-///
-/// Update the selection if the user clicked.
-fn update_selection(mut ui_state: ResMut<AtlasSimUi>, mut event: EventReader<UpdateSelectionEvent>) {
-    let event = if let Some(event) = event.read().next() {
-        event
-    } else {
-        return;
-    };
-    ui_state.selection = Some(Selection {
-        entity: event.0,
-        polity: None,
-        region: None,
-        conflict: None,
-    });
 }
 
 /// Update system

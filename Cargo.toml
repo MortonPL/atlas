@@ -23,7 +23,7 @@ overflow-checks = false
 lto = "thin"
 panic = 'unwind'
 incremental = false
-codegen-units = 16
+codegen-units = 1
 rpath = false
 
 [profile.dev]
