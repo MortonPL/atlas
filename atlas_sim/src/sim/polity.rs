@@ -166,7 +166,7 @@ impl Default for Polity {
 }
 
 impl Polity {
-    pub fn into_ui(&self, _config: &AtlasSimConfig) -> PolityUi {
+    pub fn into_ui(&self, config: &AtlasSimConfig, extras: &SimMapData) -> PolityUi {
         PolityUi {
             this: self.this.unwrap(),
             color: color_to_u8(&self.color),
@@ -186,6 +186,11 @@ impl Polity {
             avg_health: self.avg_health,
             tributes: self.tributes.iter().flatten().map(|x| x.clone()).collect(),
             neighbours: self.neighbours.iter().map(|(k, v)| (*k, v.1)).collect(),
+            conflicts: self
+                .conflicts
+                .iter()
+                .map(|x| extras.conflicts.get(x).unwrap().into_ui(config))
+                .collect(),
         }
     }
 }
@@ -895,10 +900,10 @@ impl Polity {
         ) + tribute.1;
         let wealth = (wealth - wealth_pop).max(0.0);
         // Handle tributes.
-        let tribute_num = if config.rules.combat.tribute_ratio == 0.0 {
+        let tribute_num = if config.rules.diplomacy.tribute_ratio == 0.0 {
             0
         } else {
-            (1.0 / config.rules.combat.tribute_ratio) as usize
+            (1.0 / config.rules.diplomacy.tribute_ratio) as usize
         };
         let mut indu_tribute = 0.0;
         let mut wealth_tribute = 0.0;
@@ -908,7 +913,7 @@ impl Polity {
             }
             for tribute in tribute_list.iter_mut() {
                 let account = extras.tributes.get_mut(&tribute.receiver).unwrap();
-                let fraction = config.rules.combat.tribute_ratio * tribute.fraction;
+                let fraction = config.rules.diplomacy.tribute_ratio * tribute.fraction;
                 let indu2 = industry * fraction;
                 let wealth2 = wealth * fraction;
                 indu_tribute += indu2;
@@ -1175,7 +1180,7 @@ impl Polity {
             *val = 0.0;
         }
         for x in self.great_people.iter_mut() {
-            if (sim.time >= x.time + config.rules.culture.great_person_duration) && x.active {
+            if (sim.time >= x.time + config.rules.culture.great_person_duration * 12) && x.active {
                 x.active = false;
                 self.traditions[x.tradition as usize][1] -=
                     config.rules.culture.great_person_bonus - config.rules.culture.great_work_bonus;

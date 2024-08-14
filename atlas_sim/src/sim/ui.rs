@@ -45,6 +45,8 @@ pub struct PolityUi {
     pub neighbours: Vec<(Entity, f32)>,
     /// Next policy change date.
     pub next_policy: u32,
+    /// Active conflicts.
+    pub conflicts: Vec<ConflictUi>,
 }
 
 impl PolityUi {
@@ -111,6 +113,12 @@ impl PolityUi {
                 }
             });
         ui.end_row();
+    }
+
+    pub fn make_ui_combat(&mut self, ui: &mut Ui) {
+        for x in self.conflicts.iter_mut() {
+            x.make_ui(ui);
+        }
     }
 }
 
@@ -188,8 +196,8 @@ impl MakeUi for RegionUi {
         SidebarSlider::new(ui, "Population", &mut self.population).show(None);
         SidebarSlider::new(ui, "Public Security Power", &mut self.security).show(None);
         SidebarSlider::new(ui, "Public Health Power", &mut self.health).show(None);
-        SidebarSlider::new(ui, "Stability", &mut self.stability).show(None);
-        SidebarSlider::new(ui, "Healthcare", &mut self.healthcare).show(None);
+        SidebarSlider::new(ui, "Avg. Stability", &mut self.stability).show(None);
+        SidebarSlider::new(ui, "Avg. Healthcare", &mut self.healthcare).show(None);
         SidebarSlider::new(ui, "# of Tiles", &mut self.tiles).show(None);
         ui.heading("Expansion & Development");
         ui.end_row();
@@ -212,6 +220,8 @@ impl MakeUi for RegionUi {
 #[derive(Clone)]
 pub struct ConflictUi {
     pub start_date: u32,
+    pub primary_attacker: Entity,
+    pub primary_defender: Entity,
     pub attackers: Vec<ConflictMember>,
     pub defenders: Vec<ConflictMember>,
 }
@@ -221,6 +231,8 @@ impl MakeUi for ConflictUi {
         ui.label("Start Date");
         ui.label(time_to_string(self.start_date));
         ui.end_row();
+        SidebarEntityLink::new(ui, "Primary Attacker", &mut self.primary_attacker).show(None);
+        SidebarEntityLink::new(ui, "Primary Defender", &mut self.primary_defender).show(None);
         CollapsingHeader::new(RichText::new("Attackers").heading())
             .default_open(true)
             .show(ui, |ui| {

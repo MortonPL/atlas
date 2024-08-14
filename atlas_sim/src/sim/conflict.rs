@@ -31,6 +31,16 @@ pub struct Conflict {
 }
 
 impl Conflict {
+    pub fn into_ui(&self, _config: &AtlasSimConfig) -> ConflictUi {
+        ConflictUi {
+            start_date: self.start_date,
+            primary_attacker: self.primary_attacker,
+            primary_defender: self.primary_defender,
+            attackers: self.attackers.values().map(|x| x.to_owned()).collect(),
+            defenders: self.defenders.values().map(|x| x.to_owned()).collect(),
+        }
+    }
+
     pub fn add_member(&mut self, entity: Entity, color: [u8; 3], is_attacker: bool) {
         let member = ConflictMember::new(entity, color);
         if is_attacker {
@@ -341,7 +351,7 @@ impl Conflict {
                     }
                     //
                     let mut regions_taken = 0;
-                    let difficulty = (loser_m.contribution * config.rules.combat.claim_difficulty
+                    let difficulty = (loser_m.contribution * config.rules.diplomacy.claim_difficulty
                         / winner_m.contribution)
                         .min(1.0);
                     let mut skip_regions = (difficulty * borders.len() as f32) as u32;
@@ -381,7 +391,7 @@ impl Conflict {
                 let tribute = Tribute::new(
                     winner_e,
                     contribution_ratio / loser_diplomacy,
-                    config.rules.combat.tribute_time,
+                    config.rules.diplomacy.tribute_time,
                 );
                 if let Some(vec) = tribute_claims.get_mut(loser_e) {
                     vec.push(tribute);
@@ -420,7 +430,7 @@ impl Conflict {
             loser_p.regions.remove(&region_e);
             loser_p.rtree.remove(&pos);
             region.rebel_rate = (region.rebel_rate
-                + config.rules.combat.base_rebel_rate
+                + config.rules.diplomacy.base_rebel_rate
                 + loser_p.policies[POL_MILITARIST] * loser_p.get_tradition_multiplier(config, TRAD_MILITANT))
             .clamp(0.0, 2.0);
             let mut winner_p = polities.get_mut(winner_e).unwrap();
@@ -448,16 +458,6 @@ impl Conflict {
             polity.demobilize(self.id, member.material, member.morale, config);
         }
         self.concluded = true;
-    }
-}
-
-impl Conflict {
-    pub fn into_ui(&self, _config: &AtlasSimConfig) -> ConflictUi {
-        ConflictUi {
-            start_date: self.start_date,
-            attackers: self.attackers.values().map(|x| x.to_owned()).collect(),
-            defenders: self.defenders.values().map(|x| x.to_owned()).collect(),
-        }
     }
 }
 

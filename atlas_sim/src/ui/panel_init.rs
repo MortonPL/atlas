@@ -4,45 +4,12 @@ use atlas_lib::{
     config::sim::{AtlasSimConfig, PolityConfig, StartingPoint},
     domain::map::MapDataLayer,
     ui::{
-        button, button_action,
+        button, button_action_enabled,
         sidebar::{MakeUi, SidebarPanel},
     },
 };
 
 use crate::ui::{panel_sim::InfoPanelPolity, AtlasSimUi};
-
-/// Panel with general simulation settings.
-#[derive(Default, Clone, Copy)]
-pub struct MainPanelGeneral;
-
-impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelGeneral {
-    fn extra_ui(
-        &mut self,
-        ui: &mut Ui,
-        _config: &mut AtlasSimConfig,
-        ui_state: &mut AtlasSimUi,
-        events: &mut EventStruct,
-    ) {
-        button_action(ui, "Begin Simulation", || {
-            events.simulation_start_request = Some(());
-            ui_state.setup_mode = false;
-            ui_state.current_panel = Box::<InfoPanelPolity>::default();
-            ui_state.force_changed = true;
-        });
-    }
-
-    fn make_ui(&mut self, ui: &mut Ui, config: &mut AtlasSimConfig) {
-        config.general.make_ui(ui);
-    }
-
-    fn get_heading(&self) -> &'static str {
-        "General"
-    }
-
-    fn get_layer(&self) -> MapDataLayer {
-        MapDataLayer::Preview
-    }
-}
 
 macro_rules! make_panel {
     ($panel:ident, $name:literal, $field:ident) => {
@@ -80,9 +47,15 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelScenario {
         &mut self,
         ui: &mut Ui,
         _config: &mut AtlasSimConfig,
-        _ui_state: &mut AtlasSimUi,
+        ui_state: &mut AtlasSimUi,
         events: &mut EventStruct,
     ) {
+        button_action_enabled(ui, "Begin Simulation", ui_state.world_loaded, || {
+            events.simulation_start_request = Some(());
+            ui_state.setup_mode = false;
+            ui_state.current_panel = Box::<InfoPanelPolity>::default();
+            ui_state.force_changed = true;
+        });
         if button(ui, "Randomize Starting Points") {
             events.randomize_starts_request = Some(());
         }

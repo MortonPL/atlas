@@ -16,7 +16,9 @@ fn get_output_path() -> path::PathBuf {
     // https://stackoverflow.com/a/67516503
     let manifest_dir_string = env::var("CARGO_MANIFEST_DIR").unwrap();
     let build_type = env::var("PROFILE").unwrap();
-    let path = path::Path::new(&manifest_dir_string).parent().unwrap()
+    let path = path::Path::new(&manifest_dir_string)
+        .parent()
+        .unwrap()
         .join("target")
         .join(build_type);
     return path::PathBuf::from(path);

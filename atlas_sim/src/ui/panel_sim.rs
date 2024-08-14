@@ -91,3 +91,4 @@ make_panel!(InfoPanelPolity, "General", make_ui);
 make_panel!(InfoPanelEconomy, "Economy", make_ui_economy);
 make_panel!(InfoPanelScience, "Science", make_ui_science);
 make_panel!(InfoPanelCulture, "Culture", make_ui_culture);
+make_panel!(InfoPanelCombat, "Combat", make_ui_combat);

@@ -44,13 +44,7 @@ impl Plugin for UiPlugin {
             .add_systems(Startup, startup_location)
             .add_systems(
                 UiUpdate,
-                (
-                    update_ui,
-                    update_viewport,
-                    update_location,
-                    update_click_location,
-                )
-                    .chain(),
+                (update_ui, update_viewport, update_location, update_click_location).chain(),
             )
             .add_systems(UiUpdate, update_selection_data);
     }
@@ -84,7 +78,7 @@ fn update_ui(
 }
 
 #[derive(Resource)]
-struct Selection {
+pub struct Selection {
     pub entity: Entity,
     pub polity: Option<PolityUi>,
     pub region: Option<RegionUi>,
@@ -92,7 +86,7 @@ struct Selection {
 }
 
 #[derive(Resource)]
-struct AtlasSimUi {
+pub struct AtlasSimUi {
     /// Is the simulation not running yet? Can we still make changes to the configuration?
     pub setup_mode: bool,
     /// SimControl copy.
@@ -105,6 +99,8 @@ struct AtlasSimUi {
     pub force_changed: bool,
     /// Currently selected object.
     pub selection: Option<Selection>,
+    /// Has a world been loaded?
+    pub world_loaded: bool,
 }
 
 impl Default for AtlasSimUi {
@@ -112,10 +108,11 @@ impl Default for AtlasSimUi {
         Self {
             setup_mode: true,
             sim_control: default(),
-            current_panel: Box::<MainPanelGeneral>::default(),
+            current_panel: Box::<MainPanelScenario>::default(),
             cursor: None,
             force_changed: false,
             selection: None,
+            world_loaded: false,
         }
     }
 }
@@ -228,15 +225,14 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
             }
             if self.setup_mode {
                 egui::menu::bar(ui, |ui| {
-                    tab!("General", MainPanelGeneral, ui);
                     tab!("Scenario", MainPanelScenario, ui);
-                    tab!("Rules (Misc)", MainPanelRulesDiplo, ui);
                     tab!("Rules (Economy)", MainPanelRulesEco, ui);
+                    tab!("Rules (Region)", MainPanelRulesRegion, ui);
+                    tab!("Rules (Diplomacy)", MainPanelRulesDiplo, ui);
                 });
                 egui::menu::bar(ui, |ui| {
                     tab!("Rules (Tech)", MainPanelRulesTech, ui);
                     tab!("Rules (Culture)", MainPanelRulesCulture, ui);
-                    tab!("Rules (City)", MainPanelRulesRegion, ui);
                     tab!("Rules (Combat)", MainPanelRulesCombat, ui);
                     tab!("Climate", MainPanelClimate, ui);
                 });
@@ -247,6 +243,7 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     tab!("Economy", InfoPanelEconomy, ui);
                     tab!("Science", InfoPanelScience, ui);
                     tab!("Culture", InfoPanelCulture, ui);
+                    tab!("Combat", InfoPanelCombat, ui);
                 });
             }
             if changed || self.force_changed {
@@ -417,7 +414,7 @@ fn update_selection_data(
         None
     };
     if let Ok(polity) = polities.get(polity.unwrap_or(selection.entity)) {
-        selection.polity = Some(polity.into_ui(&config));
+        selection.polity = Some(polity.into_ui(&config, &extras));
     }
 }
 

@@ -114,6 +114,7 @@ pub fn randomize_start_points(
                 break;
             }
         }
+        point.disabled = !success;
     }
     success
 }

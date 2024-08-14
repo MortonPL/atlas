@@ -6,7 +6,7 @@ use atlas_lib::{
     domain::map::MapDataLayer,
 };
 
-use crate::ui::{panel_init::MainPanelGeneral, AtlasSimUi};
+use crate::ui::{panel_init::MainPanelScenario, AtlasSimUi};
 
 /// Reset generator config to defaults.
 pub fn reset_config_clicked(
@@ -15,7 +15,7 @@ pub fn reset_config_clicked(
     events: &mut EventStruct,
 ) {
     *config = AtlasSimConfig::default();
-    ui_state.current_panel = Box::<MainPanelGeneral>::default();
+    ui_state.current_panel = Box::<MainPanelScenario>::default();
     events.world_model_changed = Some(());
 }
 
@@ -30,7 +30,6 @@ pub fn reset_panel_clicked(config: &mut AtlasSimConfig, ui_state: &AtlasSimUi, _
         }};
     }
     match ui_state.current_panel.get_heading() {
-        "General" => reset_panel!(general),
         "Scenario" => reset_panel!(scenario),
         "Rules (Economy)" => reset_panel!(rules, economy),
         "Rules (Tech)" => reset_panel!(rules, tech),

@@ -31,7 +31,7 @@ use crate::{
         region::{spawn_region_with_city, Region},
         SimControl, SimMapData,
     },
-    ui::MapOverlay,
+    ui::{AtlasSimUi, MapOverlay},
 };
 
 pub use internal::get_random_policies;
@@ -81,6 +81,7 @@ pub fn update_event_import_start(
     mut logics: ResMut<MapLogicData>,
     mut config: ResMut<AtlasSimConfig>,
     mut extras: ResMut<SimMapData>,
+    mut ui_state: ResMut<AtlasSimUi>,
     map: Query<(Entity, &mut Visibility, &mut Transform), With<WorldMapMesh>>,
     globe: Query<(Entity, &mut Visibility), (With<WorldGlobeMesh>, Without<WorldMapMesh>)>,
     commands: Commands,
@@ -125,6 +126,7 @@ pub fn update_event_import_start(
     extras.tile_polity.resize((width * height) as usize, None);
     // Refresh layers.
     events.regen_layer_request = Some(regen_layers);
+    ui_state.world_loaded = true;
 }
 
 /// Update system
@@ -146,13 +148,19 @@ pub fn update_event_random_start(
     let (width, height) = (width as usize, height as usize);
     // Generate tile weights.
     let (weights, strip_weights) = calc_start_point_weights(&config, &mut logics, width, height);
-    // Randomize starting points.
-    if !randomize_start_points(&mut config, rng.as_mut(), &weights, &strip_weights, width) {
-        events.error_window =
-            Some("Failed to choose unique random locations for all points. Try again.".to_string());
+    // Randomize data.
+    if !config.scenario.lock_positions {
+        if !randomize_start_points(&mut config, rng.as_mut(), &weights, &strip_weights, width) {
+            events.error_window =
+                Some("Failed to choose unique random locations for all points. Try again.".to_string());
+        }
     }
-    randomize_point_color(&mut config, rng.as_mut());
-    randomize_point_policies(&mut config, rng.as_mut());
+    if !config.scenario.lock_colors {
+        randomize_point_color(&mut config, rng.as_mut());
+    }
+    if !config.scenario.lock_policies {
+        randomize_point_policies(&mut config, rng.as_mut());
+    }
     // Recreate overlay markers.
     create_overlays(&config, commands, &mut meshes, &mut materials, query);
     // Force show start point overlay.
@@ -207,6 +215,9 @@ pub fn update_event_start_simulation(
         WalkerTableBuilder::new(&config.rules.combat.action_weights_defender).build();
     // Spawn polities.
     for start in &config.scenario.start_points {
+        if start.disabled {
+            continue;
+        }
         // Get all coords.
         let p = (start.position[0], start.position[1]);
         let i = config.map_to_index(p);

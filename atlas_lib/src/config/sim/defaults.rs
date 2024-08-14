@@ -17,6 +17,9 @@ impl Default for ScenarioConfig {
             policy_mean: 0.5,
             policy_deviation: 0.2,
             start_points: vec![],
+            lock_positions: false,
+            lock_colors: false,
+            lock_policies: false,
             starting_land_claim_points: 70.0,
         }
     }
@@ -112,7 +115,7 @@ impl Default for CulturesConfig {
             great_event_chance_max: 0.1,
             great_work_bonus: 1.0,
             great_person_bonus: 3.0,
-            great_person_duration: 120,
+            great_person_duration: 10,
             traditions: [
                 Default::default(),
                 Default::default(),
@@ -184,10 +187,6 @@ impl Default for CombatConfig {
             civilian_attrition: 0.1,
             civilian_damage: 0.01,
             civilian_damage_max: 0.02,
-            claim_difficulty: 1.5,
-            base_rebel_rate: 0.2,
-            tribute_time: 60,
-            tribute_ratio: 0.1,
         }
     }
 }
@@ -205,6 +204,10 @@ impl Default for DiplomacyConfig {
             friend_threshold: 0.5,
             rival_threshold: -0.5,
             enemy_threshold: -0.9,
+            claim_difficulty: 1.5,
+            base_rebel_rate: 0.2,
+            tribute_time: 5,
+            tribute_ratio: 0.1,
         }
     }
 }

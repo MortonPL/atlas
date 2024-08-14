@@ -60,7 +60,7 @@ pub struct GeneralConfig {
 /// Initial scenario config.
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct ScenarioConfig {
-    #[name("Number of Starting Points")]
+    #[name("# of Starting Points")]
     #[control(SidebarSlider)]
     #[add(clamp_range(1..=1000))]
     pub num_starts: u32,
@@ -83,6 +83,15 @@ pub struct ScenarioConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub policy_deviation: f32,
+    #[name("Lock All Colors")]
+    #[control(SidebarCheckbox)]
+    pub lock_colors: bool,
+    #[name("Lock All Positions")]
+    #[control(SidebarCheckbox)]
+    pub lock_positions: bool,
+    #[name("Lock All Policies")]
+    #[control(SidebarCheckbox)]
+    pub lock_policies: bool,
     #[name("Starting Points")]
     #[control(SidebarStructList)]
     pub start_points: Vec<StartingPoint>,
@@ -90,18 +99,20 @@ pub struct ScenarioConfig {
 
 #[derive(Default, Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct StartingPoint {
-    #[name("Locked Position")]
+    #[serde(skip)]
+    pub disabled: bool,
+    #[name("Lock Position")]
     #[control(SidebarCheckbox)]
     pub position_locked: bool,
+    #[name("Lock Polity Color")]
+    #[control(SidebarCheckbox)]
+    pub color_locked: bool,
+    #[name("Lock Polity Policies")]
+    #[control(SidebarCheckbox)]
+    pub policy_locked: bool,
     #[name("Position")]
     #[control(SidebarSliderN)]
     pub position: [u32; 2],
-    #[name("Locked Polity Color")]
-    #[control(SidebarCheckbox)]
-    pub color_locked: bool,
-    #[name("Locked Polity Policies")]
-    #[control(SidebarCheckbox)]
-    pub policy_locked: bool,
     #[name("Polity")]
     #[control(SidebarStructSection)]
     pub polity: PolityConfig,
@@ -188,10 +199,10 @@ pub struct EconomyConfig {
 
 impl MakeUi for EconomyConfig {
     fn make_ui(&mut self, ui: &mut bevy_egui::egui::Ui) {
-        SidebarSlider::new(ui, "Monthly Base Pop Growth", &mut self.pop_growth)
+        SidebarSlider::new(ui, "Monthly Base Pop Growth [%]", &mut self.pop_growth)
             .clamp_range(0.0..=1.0)
             .show(None);
-        SidebarSlider::new(ui, "Maximum Healthcare Penalty", &mut self.max_health_penalty)
+        SidebarSlider::new(ui, "Maximum Healthcare Penalty [%]", &mut self.max_health_penalty)
             .clamp_range(0.0..=1.0)
             .show(None);
         SidebarSlider::new(ui, "Supply Need per Pop", &mut self.base_supply_need)
@@ -212,7 +223,7 @@ impl MakeUi for EconomyConfig {
         SidebarSlider::new(ui, "Wealth Loss to Chaos", &mut self.chaos_wealth_loss)
             .clamp_range(0.0..=1000000.0)
             .show(None);
-        SidebarSlider::new(ui, "Base Crime Rate", &mut self.crime_rate)
+        SidebarSlider::new(ui, "Base Crime Rate [%]", &mut self.crime_rate)
             .clamp_range(0.0..=1.0)
             .show(None);
         SidebarSlider::new(ui, "Rebelion Speed", &mut self.rebelion_speed)
@@ -377,16 +388,20 @@ impl MakeUi for CulturesConfig {
         SidebarSlider::new(ui, "Level Decay", &mut self.level_decay)
             .clamp_range(0.0..=1000.0)
             .show(None);
-        SidebarSlider::new(ui, "Overflow Culture to Heritage Ratio", &mut self.heritage_ratio)
-            .clamp_range(0.0..=1.0)
-            .show(None);
+        SidebarSlider::new(
+            ui,
+            "Overflow Culture to Heritage Ratio [%]",
+            &mut self.heritage_ratio,
+        )
+        .clamp_range(0.0..=1.0)
+        .show(None);
         SidebarSlider::new(ui, "Great Event Heritage Cost", &mut self.great_event_heritage)
             .clamp_range(0.0..=10000000.0)
             .show(None);
-        SidebarSlider::new(ui, "Great Event Max Chance", &mut self.great_event_chance_max)
+        SidebarSlider::new(ui, "Great Event Max Chance [%]", &mut self.great_event_chance_max)
             .clamp_range(0.0..=1.0)
             .show(None);
-        SidebarSlider::new(ui, "Great Person Chance", &mut self.great_person_chance)
+        SidebarSlider::new(ui, "Great Person Chance [%]", &mut self.great_person_chance)
             .clamp_range(0.0..=1.0)
             .show(None);
         SidebarSlider::new(ui, "Great Work Bonus", &mut self.great_work_bonus)
@@ -395,7 +410,7 @@ impl MakeUi for CulturesConfig {
         SidebarSlider::new(ui, "Great Person Bonus", &mut self.great_person_bonus)
             .clamp_range(0.0..=1000.0)
             .show(None);
-        SidebarSlider::new(ui, "Great Person Duration", &mut self.great_person_duration).show(None);
+        SidebarSlider::new(ui, "Great Person Duration [Yr]", &mut self.great_person_duration).show(None);
 
         for (x, label) in self.traditions.iter_mut().zip([
             "Pioneering",
@@ -577,15 +592,15 @@ pub struct CombatConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub fortify_penalty: f32,
-    #[name("Mobilization Speed")]
+    #[name("Mobilization Speed [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub mobilization_speed: f32,
-    #[name("Base Recruitable Pop %")]
+    #[name("Base Recruitable Pop [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub base_recruit_factor: f32,
-    #[name("Combat Randomness")]
+    #[name("Combat Randomness [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub randomness: f32,
@@ -621,53 +636,38 @@ pub struct CombatConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub fort_damage: f32,
-    #[name("Monthly Defender Attrition")]
+    #[name("Monthly Defender Attrition [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub base_defender_attrition: f32,
-    #[name("Monthly Attacker Attrition")]
+    #[name("Monthly Attacker Attrition [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub base_attacker_attrition: f32,
-    #[name("Attrition From Combat Damage")]
+    #[name("Attrition From Combat Damage [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub combat_attrition: f32,
-    #[name("Attrition From Civilian Damage")]
+    #[name("Attrition From Civilian Damage [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub civilian_attrition: f32,
-    #[name("Civilian Damage From Combat Modifier")]
+    #[name("Civilian Damage From Combat Modifier [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub civilian_damage: f32,
-    #[name("Maximum Civilian Damage Ratio")]
+    #[name("Maximum Civilian Damage Ratio [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub civilian_damage_max: f32,
-    #[name("Region Claim Difficulty")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000.0))]
-    pub claim_difficulty: f32,
-    #[name("Base Rebel Rate in Claimed Regions")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    pub base_rebel_rate: f32,
-    #[name("Number of Tribute Payments")]
-    #[control(SidebarSlider)]
-    pub tribute_time: u32,
-    #[name("Economy % to Tribute")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1.0))]
-    pub tribute_ratio: f32,
 }
 
 #[derive(Debug, Deserialize, Resource, Serialize, MakeUi)]
 pub struct DiplomacyConfig {
-    #[name("Initial Peace Length")]
+    #[name("Initial Peace Length [Yr]")]
     #[control(SidebarSlider)]
     pub initial_peace_length: u32,
-    #[name("Truce Length")]
+    #[name("Truce Length [Yr]")]
     #[control(SidebarSlider)]
     pub truce_length: u32,
     #[name("Policy Change Time Mean")]
@@ -678,11 +678,11 @@ pub struct DiplomacyConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub policy_time_dev: f32,
-    #[name("Relations Change Speed")]
+    #[name("Relations Change Speed [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub relations_speed: f32,
-    #[name("Base Relations Improvement")]
+    #[name("Base Relations Improvement [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub base_good_shift: f32,
@@ -702,4 +702,19 @@ pub struct DiplomacyConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(-1.0..=0.0))]
     pub enemy_threshold: f32,
+    #[name("Region Claim Difficulty")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1000.0))]
+    pub claim_difficulty: f32,
+    #[name("Base Rebel Rate in Claimed Regions [%]")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub base_rebel_rate: f32,
+    #[name("Tribute Duration [Yr]")]
+    #[control(SidebarSlider)]
+    pub tribute_time: u32,
+    #[name("Economy to Tribute [%]")]
+    #[control(SidebarSlider)]
+    #[add(clamp_range(0.0..=1.0))]
+    pub tribute_ratio: f32,
 }
