@@ -16,8 +16,7 @@ pub struct ClimateConfig {
     #[name("Preview Mode")]
     #[control(SidebarEnumDropdown)]
     pub preview_mode: ClimatePreviewMode,
-    #[name("Mountains Biome Index")]
-    #[control(SidebarSlider)]
+    #[serde(skip)]
     pub mountains_biome: u8,
     #[name("")]
     #[control(SidebarStructList)]

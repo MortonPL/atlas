@@ -102,6 +102,13 @@ pub struct MapGraphicsData {
 }
 
 impl MapGraphicsData {
+    /// Access one of the graphical layers.
+    pub fn get_layer(&self, layer: MapDataLayer) -> &MapGraphicsLayer {
+        self.layers
+            .get(&layer)
+            .expect("MapGraphicsData should map all layers")
+    }
+
     /// Access mutably one of the graphical layers.
     pub fn get_layer_mut(&mut self, layer: MapDataLayer) -> &mut MapGraphicsLayer {
         self.layers

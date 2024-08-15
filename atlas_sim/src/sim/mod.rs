@@ -63,8 +63,9 @@ impl WarMap {
 
     pub fn inc_war_map_num(&mut self, us: Entity, them: Entity) -> u32 {
         let pair = EntityPair::new(us, them);
-        if let Some((num, _)) = self.0.get_mut(&pair) {
+        if let Some((num, truce)) = self.0.get_mut(&pair) {
             *num += 1;
+            *truce = 0;
             *num
         } else {
             self.0.insert_unique_unchecked(pair, (1, 0));
@@ -82,7 +83,7 @@ impl WarMap {
             *num
         } else {
             self.0.insert_unique_unchecked(pair, (0, truce));
-            1
+            0
         }
     }
 }
@@ -121,9 +122,9 @@ impl SimMapData {
         id
     }
 
-    pub fn add_conflict_member(&mut self, us_e: Entity, color: [u8; 3], id: u32, is_attacker: bool) {
+    pub fn add_conflict_member(&mut self, us_e: Entity, color: [u8; 3], id: u32, is_attacker: bool, build_up: u32) {
         let conflict = self.conflicts.get_mut(&id).unwrap();
-        conflict.add_member(us_e, color, is_attacker);
+        conflict.add_member(us_e, color, build_up, is_attacker);
         let enemies = if is_attacker {
             conflict.defenders.keys()
         } else {

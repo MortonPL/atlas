@@ -22,14 +22,14 @@ use crate::{
     },
 };
 
-/// Minimum camera zoom as Z in world space (bad idea?).
-const MIN_CAMERA_ZOOM: f32 = 1.0;
-/// Maximum camera zoom as Z in world space (bad idea?).
-const MAX_CAMERA_ZOOM: f32 = 15.0;
+/// Minimum camera zoom.
+const MIN_CAMERA_ZOOM: f32 = 0.25;
+/// Maximum camera zoom.
+const MAX_CAMERA_ZOOM: f32 = 2.0;
 /// Mutliplier to scroll value.
 const CAMERA_ZOOM_SPEED: f32 = 0.05;
 /// Mutliplier to drag value.
-const CAMERA_DRAG_SPEED: f32 = 12.0;
+const CAMERA_DRAG_SPEED: f32 = 4.0;
 /// Multiplier to rotation value.
 const CAMERA_ROTATE_SPEED: f32 = 0.2;
 
@@ -122,7 +122,7 @@ impl Default for UiCameraData {
     fn default() -> Self {
         Self {
             vec: Default::default(),
-            zoom: 5.0,
+            zoom: 1.0,
             vec2: Default::default(),
             saved_rotation: Default::default(),
             rotation: Default::default(),
@@ -315,7 +315,7 @@ fn startup(mut commands: Commands, mut light: ResMut<AmbientLight>) {
     // Spawn camera.
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, -5.0).looking_to(-Vec3::Z, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, 4.0).looking_to(-Vec3::Z, Vec3::Y),
             tonemapping: Tonemapping::None,
             dither: DebandDither::Disabled,
             ..default()
@@ -333,7 +333,7 @@ fn update_input(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     window: Query<&Window>,
-    mut cameras: Query<&mut Transform, With<MainCamera>>,
+    mut cameras: Query<(&mut Projection, &mut Transform), With<MainCamera>>,
     mut ui_state: ResMut<UiStateBase>,
 ) {
     let window = window.single();
@@ -349,7 +349,10 @@ fn update_input(
             return;
         }
     }
-    let mut camera = cameras.single_mut();
+    let (camera_p, mut camera_t) = cameras.single_mut();
+    let Projection::Perspective(ref mut camera_p) = camera_p.into_inner() else {
+        return;
+    };
     // Get zoom value.
     let mut scroll = 0.0;
     if let Some(event) = mouse_wheel.read().next() {
@@ -358,21 +361,15 @@ fn update_input(
             MouseScrollUnit::Pixel => scroll = event.y * 2.0,
         }
     }
-    let mut z = ui_state.camera.zoom;
-    // Zoom in.
-    if scroll > 0.0 {
-        z *= 1.0f32 - CAMERA_ZOOM_SPEED * (1.0 + scroll);
-    // Zoom out.
-    } else if scroll < 0.0 {
-        z *= 1.0f32 + CAMERA_ZOOM_SPEED * (1.0 - scroll);
-    }
-    ui_state.camera.zoom = z.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
-    camera.translation.z = ui_state.camera.zoom;
-
+    // Zoom in/out.
+    let mut zoom = ui_state.camera.zoom;
+    zoom -= CAMERA_ZOOM_SPEED * scroll;
+    ui_state.camera.zoom = zoom.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
+    camera_p.fov = ui_state.camera.zoom * std::f32::consts::FRAC_PI_4;
     // Handle rotation/move
     if ui_state.camera.rotate_mode {
-        camera.translation.x = 0.0;
-        camera.translation.y = 0.0;
+        camera_t.translation.x = 0.0;
+        camera_t.translation.y = 0.0;
         if mouse_button.just_pressed(MouseButton::Right) {
             if let Some(position) = window.cursor_position() {
                 ui_state.camera.vec = position;
@@ -381,7 +378,7 @@ fn update_input(
         } else if mouse_button.pressed(MouseButton::Right) {
             if let Some(position) = window.cursor_position() {
                 let delta = (position - ui_state.camera.vec) / ui_state.viewport_size;
-                let speed = CAMERA_ROTATE_SPEED * camera.translation.z / MAX_CAMERA_ZOOM;
+                let speed = CAMERA_ROTATE_SPEED * ui_state.camera.zoom;
                 let yaw = Quat::from_rotation_y(-delta.x * speed);
                 let pitch = Quat::from_rotation_x(-delta.y * speed);
                 ui_state.camera.rotation = yaw * ui_state.camera.rotation;
@@ -393,14 +390,14 @@ fn update_input(
         if mouse_button.just_pressed(MouseButton::Right) {
             if let Some(position) = window.cursor_position() {
                 ui_state.camera.vec = position;
-                ui_state.camera.vec2 = camera.translation;
+                ui_state.camera.vec2 = camera_t.translation;
             }
         } else if mouse_button.pressed(MouseButton::Right) {
             if let Some(position) = window.cursor_position() {
                 let delta = (position - ui_state.camera.vec) / ui_state.viewport_size;
-                let speed = CAMERA_DRAG_SPEED * camera.translation.z / MAX_CAMERA_ZOOM;
-                camera.translation.x = ui_state.camera.vec2.x - delta.x * speed;
-                camera.translation.y = ui_state.camera.vec2.y + delta.y * speed;
+                let speed = CAMERA_DRAG_SPEED * ui_state.camera.zoom;
+                camera_t.translation.x = ui_state.camera.vec2.x - delta.x * speed;
+                camera_t.translation.y = ui_state.camera.vec2.y + delta.y * speed;
             }
         }
     }

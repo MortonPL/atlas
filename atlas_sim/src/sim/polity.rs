@@ -368,13 +368,13 @@ pub const TRAD_MILITANT: usize = 7;
 
 pub const TRAD_LABELS: [&str; LEN_TRAD] = [
     "Pioneering",
-    "Creative",
-    "Inventive",
-    "Artistic",
-    "Industrious",
-    "Honorable",
-    "Diplomatic",
-    "Militant",
+    "Monumentality",
+    "Curosity",
+    "Creativity",
+    "Prosperity",
+    "Authority",
+    "Diplomacy",
+    "Supremacy",
 ];
 
 pub const GRT_LABELS: [&str; LEN_TRAD] = [
@@ -587,15 +587,13 @@ fn update_diplomacy(
             e
         })
         .collect();
-    if sim.is_new_year() {
-        for (_, truce) in extras.war_map.0.values_mut() {
-            *truce = truce.checked_sub(1).unwrap_or_default();
-        }
-        for polity_e in vec {
-            unsafe {
-                let (_, mut polity) = polities.get_unchecked(polity_e).unwrap();
-                polity.update_diplomacy(&config, &polities, polity_e, &mut extras, sim.time);
-            }
+    for (_, truce) in extras.war_map.0.values_mut() {
+        *truce = truce.checked_sub(1).unwrap_or_default();
+    }
+    for polity_e in vec {
+        unsafe {
+            let (_, mut polity) = polities.get_unchecked(polity_e).unwrap();
+            polity.update_diplomacy(&config, &polities, polity_e, &mut extras, sim.time);
         }
     }
 }
@@ -995,8 +993,10 @@ impl Polity {
         self.resources_acc[RES_CIVILIAN] += civ_indu;
         self.resources_acc[RES_RESEARCH] += research;
         self.resources_acc[RES_CULTURE] += culture;
-        self.resources_acc[RES_MILITARY] = (self.resources_acc[RES_MILITARY] + mil_indu).min(mil_indu * 60.0);
-        self.resources_acc[RES_LOYALTY] = (self.resources_acc[RES_LOYALTY] + loyalty).min(loyalty * 60.0);
+        self.resources_acc[RES_MILITARY] =
+            (self.resources_acc[RES_MILITARY] + mil_indu).min(mil_indu * config.rules.economy.military_stash);
+        self.resources_acc[RES_LOYALTY] =
+            (self.resources_acc[RES_LOYALTY] + loyalty).min(loyalty * config.rules.economy.loyalty_stash);
     }
 
     pub fn update_construction(
@@ -1180,7 +1180,7 @@ impl Polity {
             *val = 0.0;
         }
         for x in self.great_people.iter_mut() {
-            if (sim.time >= x.time + config.rules.culture.great_person_duration * 12) && x.active {
+            if (sim.time >= x.time + config.rules.culture.great_person_duration) && x.active {
                 x.active = false;
                 self.traditions[x.tradition as usize][1] -=
                     config.rules.culture.great_person_bonus - config.rules.culture.great_work_bonus;
@@ -1192,30 +1192,30 @@ impl Polity {
         if self.regions.is_empty() {
             return;
         }
-        let total_major_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_major;
-        let total_minor_points = self.resources_acc[RES_RESEARCH] * config.rules.tech.speed_minor;
+        let total_major_points = self.resources_acc[RES_RESEARCH] * config.rules.science.speed_major;
+        let total_minor_points = self.resources_acc[RES_RESEARCH] * config.rules.science.speed_minor;
         for (i, val) in self.tech.iter_mut().enumerate() {
-            let tech = &config.rules.tech.techs[i];
+            let tech = &config.rules.science.fields[i];
             let major = val[0].trunc();
             // Get decay and difficulty based on major level.
-            let decay = config.rules.tech.base_decay + config.rules.tech.level_decay * major;
-            let level_difficulty = 1.0 + major * config.rules.tech.level_difficulty;
+            let decay = config.rules.science.base_decay + config.rules.science.level_decay * major;
+            let level_difficulty = 1.0 + major * config.rules.science.level_difficulty;
             // Advance major level if the minor level is maxxed, otherwise advance minor level.
             // Minor level is easier to advance.
-            if val[1] >= config.rules.tech.max_level_minor * major {
+            if val[1] >= config.rules.science.max_level_minor * major {
                 // Advance major level.
                 let mut major_points = (total_major_points * self.tech_split[i]) / tech.cost - decay;
                 if major_points > 0.0 {
                     major_points /= level_difficulty;
                 }
-                val[0] = (val[0] + major_points).clamp(0.0, config.rules.tech.max_level_major);
+                val[0] = (val[0] + major_points).clamp(0.0, config.rules.science.max_level_major);
             } else {
                 // Advance minor level.
                 let mut minor_points = (total_minor_points * self.tech_split[i]) / tech.cost - decay;
                 if minor_points > 0.0 {
                     minor_points /= level_difficulty;
                 }
-                val[1] = (val[1] + minor_points).clamp(0.0, config.rules.tech.max_level_minor * major);
+                val[1] = (val[1] + minor_points).clamp(0.0, config.rules.science.max_level_minor * major);
             }
         }
         self.resources_acc[RES_RESEARCH] = 0.0;
@@ -1301,6 +1301,7 @@ impl Polity {
         time: u32,
     ) {
         if self.regions.is_empty() {
+            self.neighbours.clear();
             return;
         }
         let mut neighbours = std::mem::take(&mut self.neighbours);
@@ -1339,7 +1340,7 @@ impl Polity {
                 self.update_diplo_friend(us_e, them_e, &mut them, config, extras);
             } else if new_relations <= config.rules.diplomacy.enemy_threshold {
                 // 15 minutes no rush.
-                if config.rules.diplomacy.initial_peace_length * 12 >= time {
+                if config.rules.diplomacy.initial_peace_length >= time {
                     continue;
                 }
                 // Don't start a war if we're still fighting or if there's a truce.
@@ -1347,12 +1348,20 @@ impl Polity {
                 if wars > 0 || truce > 0 {
                     continue;
                 }
-                // Declare war (polity with higher competitiveness is the attacker).
+                // Don't start an offensive war if we're still in a different war.
                 let us_attack = self.policies[POL_COMPETITIVE] > them.policies[POL_COMPETITIVE];
+                let us_attack = if self.conflicts.is_empty() {
+                    !them.conflicts.is_empty() || us_attack
+                } else if them.conflicts.is_empty() {
+                    self.conflicts.is_empty() && us_attack
+                } else {
+                    continue;
+                };
+                // Declare war (polity with higher competitiveness is the attacker).
                 let att_def = if us_attack { (us_e, them_e) } else { (them_e, us_e) };
                 let id = extras.create_conflict(time, att_def.0, att_def.1);
-                self.join_conflict(us_e, id, extras, us_attack);
-                them.join_conflict(them_e, id, extras, !us_attack);
+                self.join_conflict(us_e, id, config, extras, us_attack);
+                them.join_conflict(them_e, id, config, extras, !us_attack);
             } else if new_relations <= config.rules.diplomacy.rival_threshold {
                 /* Do nothing. */
             }
@@ -1361,6 +1370,7 @@ impl Polity {
     }
 
     pub fn update_post_conflict(&mut self, config: &AtlasSimConfig, regions: &mut Query<&mut Region>) {
+        self.reinforcements = None;
         if self.regions.is_empty() {
             return;
         }
@@ -1370,7 +1380,6 @@ impl Polity {
                 self.jobs.military * config.rules.combat.equipment_manpower_ratio;
             self.jobs.military = 0.0;
         }
-        self.reinforcements = None;
         let adjust_forts = self.fort_damage != 0.0;
         let adjust_pops = (self.civilian_damage != 0.0) || (self.demobilized_troops != 0.0);
         if !adjust_forts && !adjust_pops {
@@ -1436,7 +1445,7 @@ impl Polity {
         self.wealth_split = [
             1.0 + not_military * self.policies[POL_PROGRESSIVE],
             1.0 + not_military * (1.0 - self.policies[POL_PROGRESSIVE]),
-            1.0 + self.policies[POL_MILITARIST],
+            (1.0 + self.policies[POL_MILITARIST]) * 2.0,
         ];
         let sum: f32 = self.wealth_split.iter().sum();
         self.wealth_split = self.wealth_split.map(|x| x / sum);
@@ -1507,7 +1516,7 @@ impl Polity {
             }
             // Join defensive wars of allies.
             if conflict.is_primary_defender(them_e) {
-                self.join_conflict(us_e, conflict.id, extras, false);
+                self.join_conflict(us_e, conflict.id, config, extras, false);
                 continue;
             // Join other wars only if not at war.
             } else if self.conflicts.is_empty() {
@@ -1516,7 +1525,7 @@ impl Polity {
                     if !self
                         .known_and_above(&conflict.primary_defender, config.rules.diplomacy.rival_threshold)
                     {
-                        self.join_conflict(us_e, conflict.id, extras, true);
+                        self.join_conflict(us_e, conflict.id, config, extras, true);
                     }
                 // Join support wars of allies if their primary is known and friendly and enemy primary is known and rival.
                 } else {
@@ -1532,7 +1541,7 @@ impl Polity {
                     if self.known_and_below(primary, config.rules.diplomacy.rival_threshold) {
                         continue;
                     }
-                    self.join_conflict(us_e, conflict.id, extras, ally_attacker);
+                    self.join_conflict(us_e, conflict.id, config, extras, ally_attacker);
                 }
             }
         }
@@ -1564,7 +1573,7 @@ impl Polity {
             // Join defensive wars of friends against unknowns or rivals.
             if conflict.is_primary_defender(them_e) {
                 if !self.known_and_above(&conflict.primary_defender, config.rules.diplomacy.rival_threshold) {
-                    self.join_conflict(us_e, conflict.id, extras, true);
+                    self.join_conflict(us_e, conflict.id, config, extras, true);
                 }
             }
         }
@@ -1584,10 +1593,23 @@ impl Polity {
             .unwrap_or_default()
     }
 
-    pub fn join_conflict(&mut self, us_e: Entity, id: u32, extras: &mut SimMapData, is_attacker: bool) {
+    pub fn join_conflict(
+        &mut self,
+        us_e: Entity,
+        id: u32,
+        config: &AtlasSimConfig,
+        extras: &mut SimMapData,
+        is_attacker: bool,
+    ) {
         let color = self.color.as_rgba_u8();
         let color = [color[0], color[1], color[2]];
-        extras.add_conflict_member(us_e, color, id, is_attacker);
+        extras.add_conflict_member(
+            us_e,
+            color,
+            id,
+            is_attacker,
+            config.rules.combat.mobilization_build_up,
+        );
         self.conflicts.insert(id);
     }
 
@@ -1595,26 +1617,35 @@ impl Polity {
         if self.reinforcements.is_some() {
             return self.reinforcements.clone().unwrap();
         }
-        let total_pop = self.population + self.jobs.military;
-        let recruitable =
-            total_pop * (self.policies[POL_MILITARIST] + config.rules.combat.base_recruit_factor).min(1.0);
-        let recruits_left = (recruitable - self.jobs.military - self.essential_jobs).max(0.0);
-        let recruits = (recruitable * config.rules.combat.mobilization_speed).min(recruits_left);
         let len = self.conflicts.len() as f32;
+        let milsize = (config.rules.combat.military_size * len).min(1.0);
+        let total_pop = self.population + self.jobs.military;
+        let military_size_left = (total_pop * milsize - self.jobs.military).max(0.0);
+        let recruits = if military_size_left > 0.0 {
+            let mobilization_rate = (self.policies[POL_MILITARIST]
+                * config.rules.combat.militarist_mobilization
+                + config.rules.combat.base_mobilization)
+                .clamp(0.0, 1.0);
+            let potential_recruits = (self.population - self.essential_jobs).max(0.0);
+            (self.population * mobilization_rate)
+                .min(potential_recruits)
+                .min(military_size_left)
+        } else {
+            0.0
+        };
         let morale = self.resources_acc[RES_LOYALTY] / len;
         self.resources_acc[RES_LOYALTY] = 0.0;
         // Can't go over military service limits.
         if recruits <= 0.0 {
             return (0.0, morale);
         }
-        let material = recruits
-            .min(self.resources_acc[RES_MILITARY] / config.rules.combat.equipment_manpower_ratio)
-            / len;
-        self.resources_acc[RES_MILITARY] -= material * len * config.rules.combat.equipment_manpower_ratio;
-        self.population -= material * len;
-        self.jobs.military += material * len;
-        self.reinforcements = Some((material, morale));
-        (material, morale)
+        let material =
+            recruits.min(self.resources_acc[RES_MILITARY] / config.rules.combat.equipment_manpower_ratio);
+        self.resources_acc[RES_MILITARY] -= material * config.rules.combat.equipment_manpower_ratio;
+        self.population -= material;
+        self.jobs.military += material;
+        self.reinforcements = Some((material / len, morale));
+        (material / len, morale)
     }
 
     pub fn demobilize(&mut self, id: u32, material: f32, morale: f32, config: &AtlasSimConfig) {
@@ -1684,9 +1715,9 @@ impl Polity {
 
     #[inline(always)]
     pub fn get_tech_multiplier(&self, config: &AtlasSimConfig, i: usize) -> f32 {
-        let bonus = config.rules.tech.bonus_major * self.tech[i][0].trunc()
-            + config.rules.tech.bonus_minor * self.tech[i][1].trunc();
-        1.0 + bonus * config.rules.tech.techs[i].strength
+        let bonus = config.rules.science.bonus_major * self.tech[i][0].trunc()
+            + config.rules.science.bonus_minor * self.tech[i][1].trunc();
+        1.0 + bonus * config.rules.science.fields[i].strength
     }
 
     #[inline(always)]

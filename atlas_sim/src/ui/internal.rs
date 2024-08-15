@@ -31,12 +31,12 @@ pub fn reset_panel_clicked(config: &mut AtlasSimConfig, ui_state: &AtlasSimUi, _
     }
     match ui_state.current_panel.get_heading() {
         "Scenario" => reset_panel!(scenario),
-        "Rules (Economy)" => reset_panel!(rules, economy),
-        "Rules (Tech)" => reset_panel!(rules, tech),
-        "Rules (Culture)" => reset_panel!(rules, culture),
-        "Rules (Region)" => reset_panel!(rules, region),
-        "Rules (Combat)" => reset_panel!(rules, combat),
-        "Rules (Diplomacy)" => reset_panel!(rules, diplomacy),
+        "Rules - Economy" => reset_panel!(rules, economy),
+        "Rules - Science" => reset_panel!(rules, science),
+        "Rules - Culture" => reset_panel!(rules, culture),
+        "Rules - Region" => reset_panel!(rules, region),
+        "Rules - Combat" => reset_panel!(rules, combat),
+        "Rules - Diplomacy" => reset_panel!(rules, diplomacy),
         "Climate" => reset_panel!(climate),
         _ => {}
     }

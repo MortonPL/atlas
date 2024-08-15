@@ -1,6 +1,6 @@
 use atlas_lib::{
     bevy::prelude::*,
-    bevy_egui::egui::{CollapsingHeader, RichText, Ui},
+    bevy_egui::egui::{CollapsingHeader, Grid, RichText, Ui},
     ui::sidebar::*,
 };
 
@@ -95,22 +95,26 @@ impl PolityUi {
         CollapsingHeader::new(RichText::new("Great Works").heading())
             .default_open(true)
             .show(ui, |ui| {
-                for x in self.great_works.iter() {
-                    ui.label(TRAD_LABELS[x.tradition as usize]);
-                    ui.label(time_to_string(x.time));
-                    ui.end_row();
-                }
+                Grid::new("g_wk").show(ui, |ui| {
+                    for x in self.great_works.iter() {
+                        ui.label(TRAD_LABELS[x.tradition as usize]);
+                        ui.label(time_to_string(x.time));
+                        ui.end_row();
+                    }
+                });
             });
         ui.end_row();
         CollapsingHeader::new(RichText::new("Great People").heading())
             .default_open(true)
             .show(ui, |ui| {
-                for x in self.great_people.iter() {
-                    ui.label(GRT_LABELS[x.tradition as usize]);
-                    let active = if x.active { "(Active)" } else { "(Retired)" };
-                    ui.label(time_to_string_plus(x.time, active));
-                    ui.end_row();
-                }
+                Grid::new("g_wp").show(ui, |ui| {
+                    for x in self.great_people.iter() {
+                        ui.label(GRT_LABELS[x.tradition as usize]);
+                        let active = if x.active { "(Active)" } else { "(Retired)" };
+                        ui.label(time_to_string_plus(x.time, active));
+                        ui.end_row();
+                    }
+                });
             });
         ui.end_row();
     }
@@ -141,17 +145,21 @@ impl MakeUi for PolityUi {
         CollapsingHeader::new(RichText::new("Neighbours").heading())
             .default_open(true)
             .show(ui, |ui| {
-                for (entity, relation) in self.neighbours.iter_mut() {
-                    SidebarSlider::new(ui, format!("{:?}", entity), relation).show(None);
-                }
+                Grid::new("g_nb").show(ui, |ui| {
+                    for (entity, relation) in self.neighbours.iter_mut() {
+                        SidebarSlider::new(ui, format!("{:?}", entity), relation).show(None);
+                    }
+                });
             });
         ui.end_row();
         CollapsingHeader::new(RichText::new("Tributes").heading())
             .default_open(true)
             .show(ui, |ui| {
-                for x in self.tributes.iter_mut() {
-                    x.make_ui(ui);
-                }
+                Grid::new("g_tb").show(ui, |ui| {
+                    for x in self.tributes.iter_mut() {
+                        x.make_ui(ui);
+                    }
+                });
             });
         ui.end_row();
     }
@@ -236,18 +244,23 @@ impl MakeUi for ConflictUi {
         CollapsingHeader::new(RichText::new("Attackers").heading())
             .default_open(true)
             .show(ui, |ui| {
-                for x in self.attackers.iter_mut() {
-                    x.make_ui(ui);
-                }
+                Grid::new("g_atk").show(ui, |ui| {
+                    for x in self.attackers.iter_mut() {
+                        x.make_ui(ui);
+                    }
+                });
             });
         ui.end_row();
         CollapsingHeader::new(RichText::new("Defenders").heading())
             .default_open(true)
             .show(ui, |ui| {
-                for x in self.defenders.iter_mut() {
-                    x.make_ui(ui);
-                }
+                Grid::new("g_def").show(ui, |ui| {
+                    for x in self.defenders.iter_mut() {
+                        x.make_ui(ui);
+                    }
+                });
             });
+        ui.end_row();
         ui.end_row();
     }
 }

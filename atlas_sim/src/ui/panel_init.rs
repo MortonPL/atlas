@@ -113,9 +113,9 @@ impl SidebarPanel<AtlasSimConfig, AtlasSimUi> for MainPanelClimate {
     }
 }
 
-make_panel!(MainPanelRulesDiplo, "Rules (Diplomacy)", diplomacy);
-make_panel!(MainPanelRulesEco, "Rules (Economy)", economy);
-make_panel!(MainPanelRulesTech, "Rules (Tech)", tech);
-make_panel!(MainPanelRulesCulture, "Rules (Culture)", culture);
-make_panel!(MainPanelRulesRegion, "Rules (Region)", region);
-make_panel!(MainPanelRulesCombat, "Rules (Combat)", combat);
+make_panel!(MainPanelRulesDiplo, "Rules - Diplomacy", diplomacy);
+make_panel!(MainPanelRulesEco, "Rules - Economy", economy);
+make_panel!(MainPanelRulesTech, "Rules - Science", science);
+make_panel!(MainPanelRulesCulture, "Rules - Culture", culture);
+make_panel!(MainPanelRulesRegion, "Rules - Region", region);
+make_panel!(MainPanelRulesCombat, "Rules - Combat", combat);

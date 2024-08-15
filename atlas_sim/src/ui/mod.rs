@@ -133,12 +133,14 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
                     button_action_enabled(ui, "Import Generated World", self.setup_mode, || {
                         open_file_dialog(ui_base, FileDialogMode::ImportSpecial)
                     });
+                    /*
                     button_action_enabled(ui, "Import World State", false, || {
                         open_file_dialog(ui_base, FileDialogMode::Import)
                     });
                     button_action_enabled(ui, "Export World State", false, || {
                         open_file_dialog(ui_base, FileDialogMode::Export)
                     });
+                    */
                     button_action(ui, "Exit", || {
                         exit.send(AppExit);
                     });
@@ -226,14 +228,14 @@ impl UiCreator<AtlasSimConfig> for AtlasSimUi {
             if self.setup_mode {
                 egui::menu::bar(ui, |ui| {
                     tab!("Scenario", MainPanelScenario, ui);
-                    tab!("Rules (Economy)", MainPanelRulesEco, ui);
-                    tab!("Rules (Region)", MainPanelRulesRegion, ui);
-                    tab!("Rules (Diplomacy)", MainPanelRulesDiplo, ui);
+                    tab!("Economy", MainPanelRulesEco, ui);
+                    tab!("Region", MainPanelRulesRegion, ui);
+                    tab!("Diplomacy", MainPanelRulesDiplo, ui);
                 });
                 egui::menu::bar(ui, |ui| {
-                    tab!("Rules (Tech)", MainPanelRulesTech, ui);
-                    tab!("Rules (Culture)", MainPanelRulesCulture, ui);
-                    tab!("Rules (Combat)", MainPanelRulesCombat, ui);
+                    tab!("Science", MainPanelRulesTech, ui);
+                    tab!("Culture", MainPanelRulesCulture, ui);
+                    tab!("Combat", MainPanelRulesCombat, ui);
                     tab!("Climate", MainPanelClimate, ui);
                 });
             } else {

@@ -41,8 +41,8 @@ impl Conflict {
         }
     }
 
-    pub fn add_member(&mut self, entity: Entity, color: [u8; 3], is_attacker: bool) {
-        let member = ConflictMember::new(entity, color);
+    pub fn add_member(&mut self, entity: Entity, color: [u8; 3], build_up: u32, is_attacker: bool) {
+        let member = ConflictMember::new(entity, color, build_up);
         if is_attacker {
             self.attackers.insert(entity, member)
         } else {
@@ -87,6 +87,9 @@ pub struct ConflictMember {
     #[name("Polity Color")]
     #[control(SidebarColor)]
     pub color: [u8; 3],
+    #[name("Months to Mobilize")]
+    #[control(SidebarSlider)]
+    pub build_up: u32,
     #[name("Material Strength")]
     #[control(SidebarSlider)]
     pub material: f32,
@@ -111,17 +114,18 @@ pub struct ConflictMember {
 }
 
 impl ConflictMember {
-    pub fn new(entity: Entity, color: [u8; 3]) -> Self {
+    pub fn new(entity: Entity, color: [u8; 3], build_up: u32) -> Self {
         Self {
             entity,
             color,
+            build_up,
             material: 0.0,
             morale: 0.0,
             attrition: 0.0,
             contribution: 0.0,
             fortifications: 0.0,
             engaged: false,
-            action: CombatAction::Delay,
+            action: CombatAction::Mobilize,
         }
     }
 }
@@ -130,8 +134,6 @@ impl ConflictMember {
 pub enum CombatAction {
     /// Disengage and do nothing.
     Surrender,
-    /// Disengage but contribute defence.
-    Delay,
     /// Engage with material damage bonus.
     Assault,
     /// Engage with morale damage bonus.
@@ -142,10 +144,16 @@ pub enum CombatAction {
     Rally,
     /// Engage with fortification damage bonus.
     Siege,
-    /// Disengage but deal some damage.
+    /// Disengage with increased attack and reduced defence (unused).
     Skirmish,
+    /// Disengage with increased attack and reduced defence (unused).
+    Delay,
     /// Disengage with fortification def bonus.
+    FortifyForced,
+    /// Engage with fortification def bonus.
     Fortify,
+    /// Disengage but contribute defence.
+    Mobilize,
 }
 
 #[derive(Component)]
@@ -177,18 +185,19 @@ impl Conflict {
             rng,
         );
         // If one side is fully defeated, end the conflict.
-        if attackers_lost || defenders_lost {
-            self.conclude(defenders_lost, polities, regions, extras, config, rng);
+        if attackers_lost && defenders_lost {
+            self.conclude_draw(polities, extras, config);
+            return;
+        } else if attackers_lost || defenders_lost {
+            self.conclude_victory(defenders_lost, polities, regions, extras, config, rng);
             return;
         }
         // Apply defender action.
-        let (mat_d_atk, mor_d_atk, mat_d_def, mor_d_def, active_d, siege_d) =
-            Self::handle_actions(config, polities, rng, &mut self.defenders);
-        let material_d = self.defenders.values().fold(0.0, |acc, x| acc + x.material);
+        let (material_d, mat_d_atk, mor_d_atk, mat_d_def, mor_d_def, active_d, siege_d) =
+            Self::handle_actions(config, polities, rng, &mut self.defenders, self.id);
         // Apply attacker action.
-        let (mat_a_atk, mor_a_atk, mat_a_def, mor_a_def, active_a, siege_a) =
-            Self::handle_actions(config, polities, rng, &mut self.attackers);
-        let material_a = self.attackers.values().fold(0.0, |acc, x| acc + x.material);
+        let (material_a, mat_a_atk, mor_a_atk, mat_a_def, mor_a_def, active_a, siege_a) =
+            Self::handle_actions(config, polities, rng, &mut self.attackers, self.id);
         // Resolve combat.
         let mat_a_mod = (mat_a_atk / mat_d_def)
             .clamp(0.33, 3.0)
@@ -237,15 +246,22 @@ impl Conflict {
                 continue;
             }
             lost = false;
+            if member.build_up > 0 {
+                member.action = CombatAction::Mobilize;
+                member.build_up -= 1;
+                continue;
+            }
+            if member.material == 0.0 || member.morale == 0.0 {
+                member.action = CombatAction::FortifyForced;
+                continue;
+            }
             member.action = match action_table.next_rng(rng) {
                 0 => CombatAction::Assault,
                 1 => CombatAction::Maneouver,
                 2 => CombatAction::Charge,
                 3 => CombatAction::Rally,
-                4 => CombatAction::Skirmish,
-                5 => CombatAction::Delay,
-                6 => CombatAction::Siege,
-                7 => CombatAction::Fortify,
+                4 => CombatAction::Siege,
+                5 => CombatAction::Fortify,
                 _ => unreachable!(),
             };
         }
@@ -257,8 +273,10 @@ impl Conflict {
         polities: &mut Query<&mut Polity>,
         rng: &mut impl Rng,
         members: &mut HashMap<Entity, ConflictMember>,
-    ) -> (f32, f32, f32, f32, u32, f32) {
+        id: u32,
+    ) -> (f32, f32, f32, f32, f32, u32, f32) {
         let randomness = (-config.rules.combat.randomness)..=config.rules.combat.randomness;
+        let mut mat_sum = 0.0;
         let mut mat_atk_sum = 0.0;
         let mut mor_atk_sum = 0.0;
         let mut mat_def_sum = 0.0;
@@ -266,12 +284,20 @@ impl Conflict {
         let mut active = 0;
         let mut siege_sum = 0.0;
         for (polity, member) in members {
+            let mut polity = polities.get_mut(*polity).unwrap();
             // Do nothing if surrendered.
             match member.action {
-                CombatAction::Surrender => continue,
+                CombatAction::Surrender => {
+                    if polity.conflicts.contains(&id) {
+                        //polity.demobilize(id, member.material, member.morale, config);
+                        //member.material = 0.0;
+                        //member.morale = 0.0;
+                        // NOTE: This bugs out wars counter :(
+                    }
+                    continue;
+                }
                 _ => active += 1,
             }
-            let mut polity = polities.get_mut(*polity).unwrap();
             let roll = 1.0 + rng.gen_range(randomness.clone());
             // Reinforce from the polity.
             let (mat, mor) = polity.mobilize(config);
@@ -279,8 +305,9 @@ impl Conflict {
             member.morale = (member.morale + mor).min(member.material * config.rules.combat.morale_cap);
             member.fortifications = polity.capacities[STR_FORTRESS];
             // Handle combat action.
-            let (mat_atk, mor_atk, mat_def, mor_def, sg) = member.handle_action(&config, &polity, roll);
+            let (mat, mat_atk, mor_atk, mat_def, mor_def, sg) = member.handle_action(&config, &polity, roll);
             member.contribution += mat_atk + mor_atk + mat_def + mor_def + sg;
+            mat_sum += mat;
             mat_atk_sum += mat_atk;
             mor_atk_sum += mor_atk;
             mat_def_sum += mat_def;
@@ -288,6 +315,7 @@ impl Conflict {
             siege_sum += sg;
         }
         (
+            mat_sum,
             mat_atk_sum.max(0.001),
             mor_atk_sum.max(0.001),
             mat_def_sum.max(0.001),
@@ -297,7 +325,44 @@ impl Conflict {
         )
     }
 
-    fn conclude(
+    fn conclude_draw(
+        &mut self,
+        polities: &mut Query<&mut Polity>,
+        extras: &mut SimMapData,
+        config: &AtlasSimConfig,
+    ) {
+        for (atk_e, _) in self.attackers.iter_mut() {
+            let mut atk_p = unsafe { polities.get_unchecked(*atk_e).unwrap() };
+            for (def_e, _) in self.defenders.iter_mut() {
+                let mut def_p = unsafe { polities.get_unchecked(*def_e).unwrap() };
+                let wars =
+                    extras
+                        .war_map
+                        .dec_war_map_num(*atk_e, *def_e, config.rules.diplomacy.truce_length);
+                if let Some((_, relation, _)) = atk_p.neighbours.get_mut(def_e) {
+                    // Reset relations if they exist and there are no other wars between them.
+                    if wars == 0 {
+                        *relation = 0.0;
+                        if let Some((_, relation, _)) = def_p.neighbours.get_mut(atk_e) {
+                            *relation = 0.0;
+                        }
+                    }
+                }
+            }
+        }
+        // Demobilize and clean up.
+        for (polity, member) in self.defenders.iter_mut() {
+            let mut polity = polities.get_mut(*polity).unwrap();
+            polity.demobilize(self.id, member.material, member.morale, config);
+        }
+        for (polity, member) in self.attackers.iter_mut() {
+            let mut polity = polities.get_mut(*polity).unwrap();
+            polity.demobilize(self.id, member.material, member.morale, config);
+        }
+        self.concluded = true;
+    }
+
+    fn conclude_victory(
         &mut self,
         attackers_won: bool,
         polities: &mut Query<&mut Polity>,
@@ -430,7 +495,7 @@ impl Conflict {
             loser_p.regions.remove(&region_e);
             loser_p.rtree.remove(&pos);
             region.rebel_rate = (region.rebel_rate
-                + config.rules.diplomacy.base_rebel_rate
+                + config.rules.combat.base_rebel_rate
                 + loser_p.policies[POL_MILITARIST] * loser_p.get_tradition_multiplier(config, TRAD_MILITANT))
             .clamp(0.0, 2.0);
             let mut winner_p = polities.get_mut(winner_e).unwrap();
@@ -443,9 +508,11 @@ impl Conflict {
                 extras.tile_polity[*i as usize] = Some(winner_e);
             }
             // War damage.
-            region.development /= 2.0;
+            let damage = 1.0
+                - ((region.rebel_rate / 2.0) * config.rules.combat.rebel_structure_damage).clamp(0.0, 1.0);
+            region.development *= damage;
             for str in region.structures.iter_mut() {
-                *str /= 2.0;
+                *str *= damage;
             }
         }
         // Demobilize and clean up.
@@ -467,61 +534,105 @@ impl ConflictMember {
         config: &AtlasSimConfig,
         polity: &Polity,
         roll: f32,
-    ) -> (f32, f32, f32, f32, f32) {
+    ) -> (f32, f32, f32, f32, f32, f32) {
         let mat = self.get_material(config, &polity, roll);
         let mor = self.get_morale(config, &polity, roll);
         self.engaged = true;
         match self.action {
             CombatAction::Surrender => {
                 self.engaged = false;
-                (0.0, 0.0, 0.0, 0.0, 0.0)
+                (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
             }
             CombatAction::Delay => {
+                // Unused.
                 self.engaged = false;
                 let bonus = (1.0 + config.rules.combat.delay_bonus) * config.rules.combat.delay_penalty;
                 let penalty = (1.0 - config.rules.combat.delay_bonus) * config.rules.combat.delay_penalty;
-                (mat * bonus, mor * bonus, mat * penalty, mor * penalty, 0.0)
+                (
+                    mat * penalty,
+                    mat * penalty,
+                    mor * penalty,
+                    mat * bonus,
+                    mor * bonus,
+                    0.0,
+                )
             }
             CombatAction::Skirmish => {
+                // Unused.
                 self.engaged = false;
                 let bonus = (1.0 + config.rules.combat.skirmish_bonus) * config.rules.combat.skirmish_penalty;
                 let penalty =
                     (1.0 - config.rules.combat.skirmish_bonus) * config.rules.combat.skirmish_penalty;
-                (mat * bonus, mor * bonus, mat * penalty, mor * penalty, 0.0)
+                (
+                    mat * penalty,
+                    mat * bonus,
+                    mor * bonus,
+                    mat * penalty,
+                    mor * penalty,
+                    0.0,
+                )
+            }
+            CombatAction::Mobilize => {
+                self.engaged = false;
+                (0.0, 0.0, 0.0, mat, mor, 0.0)
             }
             CombatAction::Assault => {
                 let bonus = 1.0 + config.rules.combat.assault_bonus;
                 let penalty = 1.0 - config.rules.combat.assault_bonus;
-                (mat * bonus, mor * penalty, mat * bonus, mor * penalty, 0.0)
+                (mat, mat * bonus, mor * penalty, mat * bonus, mor * penalty, 0.0)
             }
             CombatAction::Maneouver => {
                 let bonus = 1.0 + config.rules.combat.maneouver_bonus;
                 let penalty = 1.0 - config.rules.combat.maneouver_bonus;
-                (mat * penalty, mor * bonus, mat * penalty, mor * bonus, 0.0)
+                (mat, mat * penalty, mor * bonus, mat * penalty, mor * bonus, 0.0)
             }
             CombatAction::Rally => {
                 let bonus = 1.0 + config.rules.combat.rally_bonus;
                 let penalty = 1.0 - config.rules.combat.rally_bonus;
-                (mat * penalty, mor * penalty, mat * bonus, mor * bonus, 0.0)
+                (mat, mat * penalty, mor * penalty, mat * bonus, mor * bonus, 0.0)
             }
             CombatAction::Charge => {
                 let bonus = 1.0 + config.rules.combat.charge_bonus;
                 let penalty = 1.0 - config.rules.combat.charge_bonus;
-                (mat * bonus, mor * bonus, mat * penalty, mor * penalty, 0.0)
+                (mat, mat * bonus, mor * bonus, mat * penalty, mor * penalty, 0.0)
             }
             CombatAction::Siege => {
                 let bonus = config.rules.combat.siege_bonus;
                 let penalty = config.rules.combat.siege_penalty;
                 let siege = (mat + mor) * bonus;
+                let mat_og = mat;
                 let mat = mat * penalty;
                 let mor = mor * penalty;
-                (mat, mor, mat, mor, siege)
+                (mat_og, mat, mor, mat, mor, siege)
             }
             CombatAction::Fortify => {
-                self.engaged = false;
-                let bonus = config.rules.combat.fortify_bonus * self.fortifications;
+                let bonus = config.rules.combat.fortify_bonus
+                    * self.fortifications
+                    * polity.get_tech_multiplier(config, SCI_MILTECH);
                 let penalty = config.rules.combat.fortify_penalty;
-                (mat * penalty, mor * penalty, mat + bonus, mor + bonus, 0.0)
+                (
+                    mat * penalty,
+                    mat * penalty,
+                    mor * penalty,
+                    mat + bonus,
+                    mor + bonus,
+                    0.0,
+                )
+            }
+            CombatAction::FortifyForced => {
+                self.engaged = false;
+                let bonus = config.rules.combat.fortify_bonus
+                    * self.fortifications
+                    * polity.get_tech_multiplier(config, SCI_MILTECH);
+                let penalty = config.rules.combat.fortify_penalty;
+                (
+                    mat * penalty,
+                    mat * penalty,
+                    mor * penalty,
+                    mat + bonus,
+                    mor + bonus,
+                    0.0,
+                )
             }
         }
     }
@@ -534,6 +645,9 @@ impl ConflictMember {
         mor_dmg: f32,
         siege: f32,
     ) {
+        if self.build_up > 0 {
+            return;
+        }
         match self.action {
             CombatAction::Surrender => return,
             _ => {}
@@ -549,7 +663,7 @@ impl ConflictMember {
                 mor_dmg_left = 0.0;
             } else {
                 self.morale = 0.0;
-                mor_dmg_left += -mor_diff * config.rules.combat.breakdown;
+                mor_dmg_left = -mor_diff * config.rules.combat.breakdown;
             }
             let mut loss;
             let mat_diff = self.material - mor_dmg_left;
@@ -557,8 +671,8 @@ impl ConflictMember {
                 loss = mor_dmg_left;
                 self.material = mat_diff;
             } else {
-                self.material = 0.0;
                 loss = self.material;
+                self.material = 0.0;
             }
             let mat_diff = self.material - mat_dmg_left;
             if mat_diff > 0.0 {

@@ -222,19 +222,20 @@ fn update_event_world_model<C: AtlasConfig>(
 fn update_event_changed(
     mut events: ResMut<EventStruct>,
     mut graphics: ResMut<MapGraphicsData>,
-    mut world: Query<&mut Handle<StandardMaterial>, With<CurrentWorldModel>>,
+    mut world: Query<&mut Handle<StandardMaterial>, Or<(With<WorldGlobeMesh>, With<WorldMapMesh>)>>,
 ) {
     // Set layer as current.
     let layer = events.viewed_layer_changed.take().expect("Always Some");
     graphics.current = layer;
     // Change worls model's material to this layer's material.
-    let layer = graphics.get_layer_mut(layer);
-    let mut mat = world.single_mut();
-    *mat = if layer.invalid {
-        graphics.empty_material.clone()
-    } else {
-        layer.material.clone()
-    };
+    let layer = graphics.get_layer(layer);
+    for mut mat in world.iter_mut() {
+        *mat = if layer.invalid {
+            graphics.empty_material.clone()
+        } else {
+            layer.material.clone()
+        };
+    }
 }
 
 /// Helper function
