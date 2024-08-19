@@ -349,17 +349,17 @@ pub struct TechConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub strength: f32,
-    #[name("Cost")]
+    #[name("Speed")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
-    pub cost: f32,
+    pub speed: f32,
 }
 
 impl Default for TechConfig {
     fn default() -> Self {
         Self {
             strength: 1.0,
-            cost: 1.0,
+            speed: 1.0,
         }
     }
 }
@@ -451,17 +451,17 @@ pub struct TraditionConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub strength: f32,
-    #[name("Cost")]
+    #[name("Speed")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
-    pub cost: f32,
+    pub speed: f32,
 }
 
 impl Default for TraditionConfig {
     fn default() -> Self {
         Self {
             strength: 1.0,
-            cost: 1.0,
+            speed: 1.0,
         }
     }
 }
@@ -487,7 +487,7 @@ impl MakeUi for RegionsConfig {
         SidebarSlider::new(ui, "New City Cost", &mut self.new_city_cost)
             .clamp_range(0.0..=1000000.0)
             .show(None);
-        SidebarSlider::new(ui, "Land Claim Cost Per Tile", &mut self.land_claim_cost)
+        SidebarSlider::new(ui, "Land Claim Cost", &mut self.land_claim_cost)
             .clamp_range(0.0..=10000.0)
             .show(None);
         SidebarSlider::new(ui, "Expansion Cost Increase Per Region", &mut self.sprawl_penalty)
@@ -535,17 +535,17 @@ pub struct StructureConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub strength: f32,
-    #[name("Cost")]
+    #[name("Speed")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
-    pub cost: f32,
+    pub speed: f32,
 }
 
 impl Default for StructureConfig {
     fn default() -> Self {
         Self {
             strength: 1.0,
-            cost: 1.0,
+            speed: 1.0,
         }
     }
 }
@@ -578,21 +578,21 @@ pub struct CombatConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub rally_bonus: f32,
-    #[name("Skirmish Bonus")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000.0))]
+    //#[name("Skirmish Bonus")]
+    //#[control(SidebarSlider)]
+    //#[add(clamp_range(0.0..=1000.0))]
     pub skirmish_bonus: f32,
-    #[name("Delay Bonus")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000.0))]
+    //#[name("Delay Bonus")]
+    //#[control(SidebarSlider)]
+    //#[add(clamp_range(0.0..=1000.0))]
     pub delay_bonus: f32,
-    #[name("Skirmish Penalty")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000.0))]
+    //#[name("Skirmish Penalty")]
+    //#[control(SidebarSlider)]
+    //#[add(clamp_range(0.0..=1000.0))]
     pub skirmish_penalty: f32,
-    #[name("Delay Penalty")]
-    #[control(SidebarSlider)]
-    #[add(clamp_range(0.0..=1000.0))]
+    //#[name("Delay Penalty")]
+    //#[control(SidebarSlider)]
+    //#[add(clamp_range(0.0..=1000.0))]
     pub delay_penalty: f32,
     #[name("Siege Bonus")]
     #[control(SidebarSlider)]
@@ -610,7 +610,7 @@ pub struct CombatConfig {
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1000.0))]
     pub fortify_penalty: f32,
-    #[name("Max Military-to-Population Per Conflict [%]")]
+    #[name("Military Size Ratio [%]")]
     #[control(SidebarSlider)]
     #[add(clamp_range(0.0..=1.0))]
     pub military_size: f32,

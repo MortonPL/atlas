@@ -96,7 +96,7 @@ pub struct GeneralConfig {
     pub generation_model: WorldModel,
     #[name("World Size")]
     #[control(SidebarSliderN)]
-    #[add(clamp_range(100..=MAX_WORLD_SIZE))]
+    #[add(clamp_range(1..=MAX_WORLD_SIZE))]
     pub world_size: [u32; 2],
 }
 

@@ -39,10 +39,10 @@ impl Default for PolityConfig {
 impl Default for EconomyConfig {
     fn default() -> Self {
         Self {
-            base_supply_need: 1.0,
+            base_supply_need: 0.9,
             base_industry_need: 0.01,
             base_wealth_need: 0.01,
-            chaos_supply_loss: 0.0,
+            chaos_supply_loss: 0.1,
             chaos_industry_loss: 0.03,
             chaos_wealth_loss: 0.03,
             pop_growth: 0.001,
@@ -128,7 +128,7 @@ impl Default for CulturesConfig {
                 Default::default(),
                 TraditionConfig {
                     strength: 10.0,
-                    cost: 1.0,
+                    speed: 1.0,
                 },
             ],
         }

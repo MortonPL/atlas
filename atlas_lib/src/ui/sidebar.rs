@@ -3,8 +3,6 @@ use std::{marker::PhantomData, ops::RangeInclusive};
 
 use crate::{base::events::EventStruct, domain::map::MapDataLayer, ui::UiEditableEnum};
 
-const NO_HINT_MESSAGE: &str = "PLEASE ADD A HINT";
-
 /// A sidebar page/panel.
 pub trait SidebarPanel<C, U>: SidebarPanelCloneHax<C, U> {
     /// Get panel heading.
@@ -60,7 +58,7 @@ pub trait SidebarControl<'u, 'v, T: ?Sized> {
 
     /// Show this control and handle input. Return a numeric value
     /// which means different things depending on the control.
-    fn show(self, hint: Option<&str>) -> usize;
+    fn show(self, _hint: Option<&str>) -> usize;
 
     /// HACK ALERT! Some controls need to handle input in two stages.
     fn post_show(_result: usize, _value: &'v mut T) {}
@@ -81,16 +79,15 @@ where
     fn new(ui: &'u mut Ui, label: impl Into<WidgetText>, value: &'v mut Num) -> Self {
         Self {
             ui,
-            inner: egui::DragValue::new(value),
+            inner: egui::DragValue::new(value).max_decimals(5),
             label: label.into(),
             __: PhantomData,
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        self.ui.add(self.inner).on_hover_text_at_pointer(hint);
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.label(self.label);
+        self.ui.add(self.inner);
         self.ui.end_row();
         0
     }
@@ -132,12 +129,11 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.label(self.label);
         self.ui.horizontal(|ui| {
             for inner in self.inners {
-                ui.add(inner).on_hover_text_at_pointer(hint);
+                ui.add(inner);
             }
         });
         self.ui.end_row();
@@ -188,12 +184,11 @@ where
         new
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
+    fn show(self, _hint: Option<&str>) -> usize {
         let mut clicked = 0;
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
+        self.ui.label(self.label);
         self.ui.horizontal(|ui| {
-            ui.add(self.inner).on_hover_text_at_pointer(hint);
+            ui.add(self.inner);
             clicked = ui.button("Random").clicked() as usize;
         });
         self.ui.end_row();
@@ -244,10 +239,9 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        self.ui.add(self.inner).on_hover_text_at_pointer(hint);
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.label(self.label);
+        self.ui.add(self.inner);
         self.ui.end_row();
         0
     }
@@ -274,10 +268,9 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        self.ui.add(self.inner).on_hover_text_at_pointer(hint);
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.label(self.label);
+        self.ui.add(self.inner);
         self.ui.end_row();
         0
     }
@@ -303,10 +296,9 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        let result = self.ui.button(self.value).on_hover_text_at_pointer(hint);
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.label(self.label);
+        let result = self.ui.button(self.value);
         self.ui.end_row();
         result.clicked() as usize
     }
@@ -326,7 +318,7 @@ where
         Self { ui, value }
     }
 
-    fn show(self, _hint: Option<&str>) -> usize {
+    fn show(self, __hint: Option<&str>) -> usize {
         self.ui.heading(self.value);
         self.ui.end_row();
         0
@@ -354,12 +346,9 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        self.ui
-            .color_edit_button_srgb(self.value)
-            .on_hover_text_at_pointer(hint);
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.label(self.label);
+        self.ui.color_edit_button_srgb(self.value);
         self.ui.end_row();
         0
     }
@@ -397,13 +386,10 @@ where
         }
     }
 
-    fn show(mut self, hint: Option<&str>) -> usize {
-        let hint = hint.unwrap_or(NO_HINT_MESSAGE);
+    fn show(mut self, _hint: Option<&str>) -> usize {
         let text = self.label.text().to_string();
-        self.ui.label(self.label).on_hover_text_at_pointer(hint);
-        egui::ComboBox::new(text, "")
-            .show_index(self.ui, &mut self.selection, T::LEN, T::index_to_str)
-            .on_hover_text_at_pointer(hint);
+        self.ui.label(self.label);
+        egui::ComboBox::new(text, "").show_index(self.ui, &mut self.selection, T::LEN, T::index_to_str);
         self.ui.end_row();
         self.selection
     }
@@ -436,10 +422,8 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        self.ui
-            .heading(self.label.text())
-            .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.heading(self.label.text());
         self.ui.end_row();
         Self::inner_show(self.ui, self.label, self.value);
         self.ui.end_row();
@@ -480,7 +464,7 @@ where
         }
     }
 
-    fn show(self, _hint: Option<&str>) -> usize {
+    fn show(self, __hint: Option<&str>) -> usize {
         Self::inner_show(self.ui, self.label, self.value);
         0
     }
@@ -517,10 +501,8 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        self.ui
-            .heading(self.label.text())
-            .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.heading(self.label.text());
         self.ui.end_row();
         self.value.make_ui(self.ui);
         self.ui.end_row();
@@ -542,7 +524,7 @@ where
         Self { ui, value }
     }
 
-    fn show(self, _hint: Option<&str>) -> usize {
+    fn show(self, __hint: Option<&str>) -> usize {
         self.value.make_ui(self.ui);
         self.ui.end_row();
         0
@@ -569,10 +551,8 @@ where
         }
     }
 
-    fn show(self, hint: Option<&str>) -> usize {
-        self.ui
-            .heading(self.label.text())
-            .on_hover_text_at_pointer(hint.unwrap_or(NO_HINT_MESSAGE));
+    fn show(self, _hint: Option<&str>) -> usize {
+        self.ui.heading(self.label.text());
         self.ui.end_row();
         for element in self.value.as_slice() {
             element.make_ui(self.ui);

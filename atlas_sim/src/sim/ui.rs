@@ -51,8 +51,6 @@ pub struct PolityUi {
 
 impl PolityUi {
     pub fn make_ui_economy(&mut self, ui: &mut Ui) {
-        ui.heading("Economy");
-        ui.end_row();
         SidebarSlider::new(
             ui,
             "Accumulated Civilian Industry",
@@ -210,7 +208,7 @@ impl MakeUi for RegionUi {
         ui.heading("Expansion & Development");
         ui.end_row();
         SidebarSlider::new(ui, "Land Claim Points", &mut self.land_claim).show(None);
-        SidebarSlider::new(ui, "New Region Points", &mut self.city_fund).show(None);
+        SidebarSlider::new(ui, "New City Points", &mut self.city_fund).show(None);
         SidebarSlider::new(ui, "Development Level", &mut self.development).show(None);
         ui.heading("Structures");
         ui.end_row();

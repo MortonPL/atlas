@@ -1096,7 +1096,7 @@ impl Polity {
             let len = region.structures.len();
             let build = build * development_points;
             for i in 0..len {
-                let increment = build * self.struct_split[i] * config.rules.region.structures[i].cost;
+                let increment = build * self.struct_split[i] * config.rules.region.structures[i].speed;
                 region.structures[i] = (region.structures[i] + increment).min(str_limit);
             }
             region.struct_levels = region.structures.iter().fold(0.0, |acc, x| acc + x);
@@ -1138,7 +1138,7 @@ impl Polity {
         }
         let culture = self.resources_acc[RES_CULTURE] * config.rules.culture.base_speed;
         for (i, val) in self.traditions.iter_mut().enumerate() {
-            let increment = self.trad_split[i] * culture / config.rules.culture.traditions[i].cost;
+            let increment = self.trad_split[i] * culture * config.rules.culture.traditions[i].speed;
             let decay = config.rules.culture.base_decay + config.rules.culture.level_decay * val[0].floor();
             let new_val = val[0] + increment - decay;
             let overflow = new_val - config.rules.culture.max_level;
@@ -1204,14 +1204,14 @@ impl Polity {
             // Minor level is easier to advance.
             if val[1] >= config.rules.science.max_level_minor * major {
                 // Advance major level.
-                let mut major_points = (total_major_points * self.tech_split[i]) / tech.cost - decay;
+                let mut major_points = (total_major_points * self.tech_split[i]) * tech.speed - decay;
                 if major_points > 0.0 {
                     major_points /= level_difficulty;
                 }
                 val[0] = (val[0] + major_points).clamp(0.0, config.rules.science.max_level_major);
             } else {
                 // Advance minor level.
-                let mut minor_points = (total_minor_points * self.tech_split[i]) / tech.cost - decay;
+                let mut minor_points = (total_minor_points * self.tech_split[i]) * tech.speed - decay;
                 if minor_points > 0.0 {
                     minor_points /= level_difficulty;
                 }

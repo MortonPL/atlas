@@ -1,4 +1,4 @@
-# Demo
+# Atlas Map Generator & History Simulator
 
 ## Building
 
@@ -19,11 +19,15 @@ cargo build --release
 With source code:
 
 ```sh
-cargo run
+cargo run --bin=atlas_gen
+# or
+cargo run --bin=atlas_sim
 ```
 
 With precompiled binary:
 
 ```sh
-./atlas.exe
+./atlas_gen.exe
+# or 
+./atlas_sim.exe
 ```
