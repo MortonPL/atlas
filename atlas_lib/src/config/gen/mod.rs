@@ -60,7 +60,7 @@ impl AtlasGenConfig {
     pub fn into_sim_config(&self) -> AtlasSimConfig {
         AtlasSimConfig {
             general: crate::config::sim::GeneralConfig {
-                world_size: self.general.world_size.clone(),
+                world_size: self.general.world_size,
             },
             scenario: Default::default(),
             climate: self.climate.into_sim_config(),

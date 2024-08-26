@@ -149,11 +149,11 @@ pub fn update_event_random_start(
     // Generate tile weights.
     let (weights, strip_weights) = calc_start_point_weights(&config, &mut logics, width, height);
     // Randomize data.
-    if !config.scenario.lock_positions {
-        if !randomize_start_points(&mut config, rng.as_mut(), &weights, &strip_weights, width) {
-            events.error_window =
-                Some("Failed to choose unique random locations for all points. Try again.".to_string());
-        }
+    if !config.scenario.lock_positions
+        && !randomize_start_points(&mut config, rng.as_mut(), &weights, &strip_weights, width)
+    {
+        events.error_window =
+            Some("Failed to choose unique random locations for all points. Try again.".to_string());
     }
     if !config.scenario.lock_colors {
         randomize_point_color(&mut config, rng.as_mut());
@@ -252,15 +252,15 @@ pub fn update_event_start_simulation(
             ),
             population: start.polity.population,
             regions: [region_entity].into(),
-            policies: start.polity.policies.clone(),
+            policies: start.polity.policies,
             next_policy: start.polity.next_policy,
             ..Default::default()
         };
         polity.rtree.insert(p);
         commands.get_entity(polity_entity).unwrap().insert((polity,));
         // Post spawn actions.
-        extras.tile_region[i as usize] = Some(region_entity.clone());
-        extras.tile_polity[i as usize] = Some(polity_entity.clone());
+        extras.tile_region[i as usize] = Some(region_entity);
+        extras.tile_polity[i as usize] = Some(polity_entity);
         extras.rtree.insert(p);
         extras.add_city_borders(i, &config);
     }

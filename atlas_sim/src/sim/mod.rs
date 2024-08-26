@@ -26,7 +26,7 @@ impl Plugin for SimPlugin {
 }
 
 /// Extra map data just for the simulation.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct SimMapData {
     /// Owner regions of specific map tiles.
     pub tile_region: Vec<Option<Entity>>,
@@ -132,22 +132,6 @@ impl SimMapData {
         };
         for enemy_e in enemies {
             self.war_map.inc_war_map_num(us_e, *enemy_e);
-        }
-    }
-}
-
-impl Default for SimMapData {
-    fn default() -> Self {
-        Self {
-            conflict_counter: 0,
-            tile_region: Default::default(),
-            tile_polity: Default::default(),
-            rtree: Default::default(),
-            deferred_regions: Default::default(),
-            city_borders: Default::default(),
-            conflicts: Default::default(),
-            war_map: Default::default(),
-            tributes: Default::default(),
         }
     }
 }

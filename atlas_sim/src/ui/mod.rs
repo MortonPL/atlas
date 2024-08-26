@@ -406,17 +406,17 @@ fn update_selection_data(
         return;
     };
     let polity = if let Ok(region) = regions.get(selection.entity) {
-        selection.region = Some(region.into_ui(&config));
+        selection.region = Some(region.as_ui(&config));
         Some(region.polity)
     } else if let Ok(conflict) = conflicts.get(selection.entity) {
         let conflict = extras.conflicts.get(&conflict.id).unwrap();
-        selection.conflict = Some(conflict.into_ui(&config));
+        selection.conflict = Some(conflict.as_ui(&config));
         None
     } else {
         None
     };
     if let Ok(polity) = polities.get(polity.unwrap_or(selection.entity)) {
-        selection.polity = Some(polity.into_ui(&config, &extras));
+        selection.polity = Some(polity.as_ui(&config, &extras));
     }
 }
 

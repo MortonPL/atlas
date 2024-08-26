@@ -386,19 +386,17 @@ fn update_input(
                 ui_state.camera.rotation = pitch * ui_state.camera.rotation;
             }
         }
-    } else {
-        if mouse_button.just_pressed(MouseButton::Right) {
-            if let Some(position) = window.cursor_position() {
-                ui_state.camera.vec = position;
-                ui_state.camera.vec2 = camera_t.translation;
-            }
-        } else if mouse_button.pressed(MouseButton::Right) {
-            if let Some(position) = window.cursor_position() {
-                let delta = (position - ui_state.camera.vec) / ui_state.viewport_size;
-                let speed = CAMERA_DRAG_SPEED * ui_state.camera.zoom;
-                camera_t.translation.x = ui_state.camera.vec2.x - delta.x * speed;
-                camera_t.translation.y = ui_state.camera.vec2.y + delta.y * speed;
-            }
+    } else if mouse_button.just_pressed(MouseButton::Right) {
+        if let Some(position) = window.cursor_position() {
+            ui_state.camera.vec = position;
+            ui_state.camera.vec2 = camera_t.translation;
+        }
+    } else if mouse_button.pressed(MouseButton::Right) {
+        if let Some(position) = window.cursor_position() {
+            let delta = (position - ui_state.camera.vec) / ui_state.viewport_size;
+            let speed = CAMERA_DRAG_SPEED * ui_state.camera.zoom;
+            camera_t.translation.x = ui_state.camera.vec2.x - delta.x * speed;
+            camera_t.translation.y = ui_state.camera.vec2.y + delta.y * speed;
         }
     }
 }

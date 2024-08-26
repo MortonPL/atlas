@@ -31,7 +31,7 @@ pub struct Conflict {
 }
 
 impl Conflict {
-    pub fn into_ui(&self, _config: &AtlasSimConfig) -> ConflictUi {
+    pub fn as_ui(&self, _config: &AtlasSimConfig) -> ConflictUi {
         ConflictUi {
             start_date: self.start_date,
             primary_attacker: self.primary_attacker,
@@ -65,7 +65,7 @@ impl Conflict {
         if (is_any || !is_attacker) && self.defenders.contains_key(entity) {
             return true;
         }
-        return false;
+        false
     }
 
     pub fn is_opposing(&self, us: &Entity, them: &Entity) -> bool {
@@ -75,7 +75,7 @@ impl Conflict {
         if self.defenders.contains_key(us) && self.attackers.contains_key(them) {
             return true;
         }
-        return false;
+        false
     }
 }
 
@@ -305,7 +305,7 @@ impl Conflict {
             member.morale = (member.morale + mor).min(member.material * config.rules.combat.morale_cap);
             member.fortifications = polity.capacities[STR_FORTRESS];
             // Handle combat action.
-            let (mat, mat_atk, mor_atk, mat_def, mor_def, sg) = member.handle_action(&config, &polity, roll);
+            let (mat, mat_atk, mor_atk, mat_def, mor_def, sg) = member.handle_action(config, &polity, roll);
             member.contribution += mat_atk + mor_atk + mat_def + mor_def + sg;
             mat_sum += mat;
             mat_atk_sum += mat_atk;
@@ -535,8 +535,8 @@ impl ConflictMember {
         polity: &Polity,
         roll: f32,
     ) -> (f32, f32, f32, f32, f32, f32) {
-        let mat = self.get_material(config, &polity, roll);
-        let mor = self.get_morale(config, &polity, roll);
+        let mat = self.get_material(config, polity, roll);
+        let mor = self.get_morale(config, polity, roll);
         self.engaged = true;
         match self.action {
             CombatAction::Surrender => {
@@ -648,9 +648,8 @@ impl ConflictMember {
         if self.build_up > 0 {
             return;
         }
-        match self.action {
-            CombatAction::Surrender => return,
-            _ => {}
+        if let CombatAction::Surrender = self.action {
+            return;
         }
         let mut mat_dmg_left = mat_dmg;
         let mut mor_dmg_left = mor_dmg;

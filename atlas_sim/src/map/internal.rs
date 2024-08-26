@@ -157,7 +157,7 @@ pub fn get_random_policies(rng: &mut impl Rng, normal: &Normal<f32>) -> [f32; LE
     normal
         .sample_iter(&mut *rng)
         .take(LEN_POL)
-        .map(|x| (x as f32).clamp(0.0, 1.0))
+        .map(|x| x.clamp(0.0, 1.0))
         .collect::<Vec<_>>()
         .try_into()
         .unwrap()
@@ -172,9 +172,8 @@ pub fn create_overlays(
 ) {
     // Despawn old markers.
     for (entity, overlay) in query.iter_mut() {
-        match overlay.overlay {
-            MapDataOverlay::StartPoints => commands.entity(entity).despawn(),
-            _ => {}
+        if overlay.overlay == MapDataOverlay::StartPoints {
+            commands.entity(entity).despawn();
         }
     }
     // Create new meshes and materials.

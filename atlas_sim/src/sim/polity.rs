@@ -166,30 +166,30 @@ impl Default for Polity {
 }
 
 impl Polity {
-    pub fn into_ui(&self, config: &AtlasSimConfig, extras: &SimMapData) -> PolityUi {
+    pub fn as_ui(&self, config: &AtlasSimConfig, extras: &SimMapData) -> PolityUi {
         PolityUi {
             this: self.this.unwrap(),
             color: color_to_u8(&self.color),
             regions: self.regions.len() as u32,
-            resources: self.resources.clone(),
-            resources_acc: self.resources_acc.clone(),
-            tech: self.tech.clone(),
+            resources: self.resources,
+            resources_acc: self.resources_acc,
+            tech: self.tech,
             next_policy: self.next_policy,
-            traditions: self.traditions.clone(),
-            policies: self.policies.clone(),
+            traditions: self.traditions,
+            policies: self.policies,
             population: self.population,
-            heritage: self.heritage.clone(),
+            heritage: self.heritage,
             great_works: self.great_works.clone(),
             great_people: self.great_people.clone(),
             jobs: self.jobs.clone(),
             avg_stability: self.avg_stability,
             avg_health: self.avg_health,
-            tributes: self.tributes.iter().flatten().map(|x| x.clone()).collect(),
+            tributes: self.tributes.iter().flatten().cloned().collect(),
             neighbours: self.neighbours.iter().map(|(k, v)| (*k, v.1)).collect(),
             conflicts: self
                 .conflicts
                 .iter()
-                .map(|x| extras.conflicts.get(x).unwrap().into_ui(config))
+                .map(|x| extras.conflicts.get(x).unwrap().as_ui(config))
                 .collect(),
         }
     }
@@ -450,7 +450,7 @@ fn update_jobs_resources(
         } else {
             (0.0, 0.0)
         };
-        polity.update_jobs(&config, &res_bonus, tribute.clone());
+        polity.update_jobs(&config, &res_bonus, tribute);
         polity.update_resources(&config, &res_bonus, tribute, &mut extras);
     }
 }
@@ -755,7 +755,7 @@ impl Polity {
                 continue;
             }
             // Check border tiles for free land.
-            let weights = region.update_expansion(&config, extras, conts, climate);
+            let weights = region.update_expansion(config, extras, conts, climate);
             // Don't bother if all land is taken or very bad.
             if !region.can_expand {
                 continue;
@@ -766,7 +766,7 @@ impl Polity {
             // Add to region.
             let tile = *region.border_tiles.iter().nth(i).unwrap();
             let weight = weights[i];
-            region.claim_tile(*region_entity, tile, weight, self.sprawl_penalty, extras, &config);
+            region.claim_tile(*region_entity, tile, weight, self.sprawl_penalty, extras, config);
         }
     }
 
@@ -828,7 +828,7 @@ impl Polity {
         }
         // Helper function.
         let calc_minimum = |polity: &Polity, res_id: usize, trad: usize, free: f32| {
-            let minimum_manpower = (polity.get_consumption(&config, res_id) - free).max(0.0)
+            let minimum_manpower = (polity.get_consumption(config, res_id) - free).max(0.0)
                 / config.rules.economy.resources[res_id].efficiency
                 / res_bonus.bonus
                 / polity.get_tradition_multiplier(config, trad);
@@ -883,14 +883,14 @@ impl Polity {
             (RES_SUPPLY, 1001, TRAD_INDUSTRIOUS),
             config,
         );
-        let indu_pop = self.get_consumption(&config, RES_INDU_POPS);
+        let indu_pop = self.get_consumption(config, RES_INDU_POPS);
         let industry = self.get_resource_yield(
             (self.jobs.industry * rb.bonus, rb.max_industry, -1.0),
             (RES_INDU_POPS, 1001, TRAD_INDUSTRIOUS),
             config,
         ) + tribute.0;
         let industry = (industry - indu_pop).max(0.0);
-        let wealth_pop = self.get_consumption(&config, RES_WEALTH_POPS);
+        let wealth_pop = self.get_consumption(config, RES_WEALTH_POPS);
         let wealth = self.get_resource_yield(
             (self.jobs.wealth * rb.bonus, rb.max_wealth, -1.0),
             (RES_WEALTH_POPS, 1001, TRAD_INDUSTRIOUS),
@@ -1027,10 +1027,10 @@ impl Polity {
             } else {
                 continue;
             };
-            if can_dev(&region) || can_build(&region) {
+            if can_dev(region) || can_build(region) {
                 undeveloped_regions += 1.0;
             }
-            if can_exp(&region) || can_split(&region) {
+            if can_exp(region) || can_split(region) {
                 expandable_regions += 1.0;
             }
         }
@@ -1038,7 +1038,7 @@ impl Polity {
         // Clear accumulated resources.
         self.resources_acc[RES_CIVILIAN] = 0.0;
         // Divide industrial effort into expansion and development.
-        self.sprawl_penalty = config.rules.region.sprawl_penalty * regions_len as f32;
+        self.sprawl_penalty = config.rules.region.sprawl_penalty * regions_len;
         let expansion_points =
             acc_points * self.policies[POL_EXPANSIONIST] * config.rules.region.base_exp_speed;
         let development_points = (acc_points - expansion_points)
@@ -1062,7 +1062,7 @@ impl Polity {
                 continue;
             };
             // Check inner tiles for being close to existing cities.
-            region.update_can_split(&extras);
+            region.update_can_split(extras);
             // Distribute expansion points.
             let (exp, split) = match (can_exp(&region), can_split(&region)) {
                 (true, true) => (
@@ -1120,7 +1120,7 @@ impl Polity {
                 let i = rng.gen_range(0..region.split_tiles.len());
                 let i = *region.split_tiles.iter().nth(i).unwrap();
                 build_cities.push(i);
-                extras.add_city_borders(i, &config);
+                extras.add_city_borders(i, config);
                 region.new_city_fund = diff;
             }
         }
@@ -1226,7 +1226,7 @@ impl Polity {
             return;
         }
         // Calculate the current supply coverage (no consumption == 100% coverage as well).
-        let consumption = self.get_consumption(&config, RES_SUPPLY);
+        let consumption = self.get_consumption(config, RES_SUPPLY);
         let coverage = if consumption.is_zero() {
             1.0
         } else {
@@ -1279,7 +1279,7 @@ impl Polity {
             } else {
                 continue;
             };
-            let border_regions = region.get_border_regions(&extras);
+            let border_regions = region.get_border_regions(extras);
             for (polity_e, new_set) in border_regions {
                 if let Some((old_set, _, flop)) = self.neighbours.get_mut(&polity_e) {
                     old_set.extend(new_set);
@@ -1571,10 +1571,10 @@ impl Polity {
                 continue;
             }
             // Join defensive wars of friends against unknowns or rivals.
-            if conflict.is_primary_defender(them_e) {
-                if !self.known_and_above(&conflict.primary_defender, config.rules.diplomacy.rival_threshold) {
-                    self.join_conflict(us_e, conflict.id, config, extras, true);
-                }
+            if conflict.is_primary_defender(them_e)
+                && !self.known_and_above(&conflict.primary_defender, config.rules.diplomacy.rival_threshold)
+            {
+                self.join_conflict(us_e, conflict.id, config, extras, true);
             }
         }
     }
@@ -1582,14 +1582,14 @@ impl Polity {
     pub fn known_and_above(&self, entity: &Entity, threshold: f32) -> bool {
         self.neighbours
             .get(entity)
-            .and_then(|(_, x, _)| Some(*x > threshold))
+            .map(|(_, x, _)| *x > threshold)
             .unwrap_or_default()
     }
 
     pub fn known_and_below(&self, entity: &Entity, threshold: f32) -> bool {
         self.neighbours
             .get(entity)
-            .and_then(|(_, x, _)| Some(*x <= threshold))
+            .map(|(_, x, _)| *x <= threshold)
             .unwrap_or_default()
     }
 
@@ -1615,7 +1615,7 @@ impl Polity {
 
     pub fn mobilize(&mut self, config: &AtlasSimConfig) -> (f32, f32) {
         if self.reinforcements.is_some() {
-            return self.reinforcements.clone().unwrap();
+            return self.reinforcements.unwrap();
         }
         let len = self.conflicts.len() as f32;
         let milsize = (config.rules.combat.military_size * len).min(1.0);
@@ -1702,7 +1702,7 @@ impl Polity {
         if input_max_cap.2 >= 0.0 {
             let diff = out - input_max_cap.2;
             if diff > 0.0 {
-                out = out + diff * config.rules.economy.resources[res].over_cap_efficiency;
+                out += diff * config.rules.economy.resources[res].over_cap_efficiency;
             }
         }
         out

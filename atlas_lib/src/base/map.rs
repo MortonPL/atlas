@@ -169,7 +169,7 @@ fn update_model_rotation<C: AtlasConfig>(
         Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0)
     };
     for mut transform in model.iter_mut() {
-        transform.rotation = quad.clone();
+        transform.rotation = quad;
     }
 }
 

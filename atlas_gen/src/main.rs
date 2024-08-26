@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 use atlas_lib::{
     base::events::EventPlugin,

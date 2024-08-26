@@ -188,6 +188,7 @@ pub trait AtlasConfig: Resource + Default {
 }
 
 pub trait IntoSimConfig {
+    #![allow(clippy::wrong_self_convention)]
     fn into_sim_config(&self) -> Self;
 }
 

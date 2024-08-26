@@ -45,8 +45,8 @@ impl Default for ClimateConfig {
 impl IntoSimConfig for ClimateConfig {
     fn into_sim_config(&self) -> Self {
         Self {
-            preview_mode: self.preview_mode.clone(),
-            mountains_biome: self.mountains_biome.clone(),
+            preview_mode: self.preview_mode,
+            mountains_biome: self.mountains_biome,
             default_biome: self.default_biome.clone(),
             biomes: self.biomes.iter().map(|x| x.into_sim_config()).collect(),
         }
@@ -86,10 +86,10 @@ impl IntoSimConfig for BiomeConfig {
     fn into_sim_config(&self) -> Self {
         Self {
             name: self.name.clone(),
-            color: self.color.clone(),
-            simple_color: self.simple_color.clone(),
+            color: self.color,
+            simple_color: self.simple_color,
             deposits: vec![],
-            habitability: self.habitability.clone(),
+            habitability: self.habitability,
         }
     }
 }

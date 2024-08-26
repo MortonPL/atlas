@@ -145,7 +145,7 @@ impl Region {
         self.need_visual_update = true;
     }
 
-    pub fn into_ui(&self, config: &AtlasSimConfig) -> RegionUi {
+    pub fn as_ui(&self, config: &AtlasSimConfig) -> RegionUi {
         RegionUi {
             population: self.population,
             deposits: self
@@ -157,7 +157,7 @@ impl Region {
             land_claim: self.land_claim_fund,
             city_fund: self.new_city_fund,
             development: self.development,
-            structures: self.structures.clone(),
+            structures: self.structures,
             stability: self.stability,
             healthcare: self.healthcare,
             security: self.security,
@@ -198,13 +198,13 @@ impl Region {
         self.resource_chunks = resource_chunks;
         // Assign tiles, check if the region can expand or split.
         self.tiles = tiles;
-        self.update_expansion(&config, &extras, conts, climate);
+        self.update_expansion(config, extras, conts, climate);
         self.can_split_size = self.tiles.len() as u32 > config.rules.region.min_split_size;
         self.split_tiles = self
             .tiles
             .iter()
             .filter(|x| !extras.city_borders.contains(x))
-            .map(|x| *x)
+            .copied()
             .collect();
         // Recalculate xywh & centroid.
         self.update_xywh(config);
@@ -246,7 +246,7 @@ impl Region {
         tran.scale = Vec3::new(s.0, s.1, s.1);
         // Update the material (with tint) and texture (with shape).
         let mat = materials.get_mut(mat.clone()).unwrap();
-        let img = mat.base_color_texture.as_ref().map(|x| x.clone()).unwrap();
+        let img = mat.base_color_texture.as_ref().cloned().unwrap();
         let img = images.get_mut(img).unwrap();
         img.texture_descriptor.size = Extent3d {
             width,
