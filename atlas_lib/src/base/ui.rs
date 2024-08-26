@@ -340,15 +340,14 @@ fn update_input(
     if !window.focused {
         return;
     }
-    // Don't scroll with mouse if it's not inside the viewport or if a dialog is open.
-    if let Some(cursor) = window.cursor_position() {
-        if (cursor[0] > ui_state.viewport_size[0])
+    // Don't zoom with mouse if it's not inside the viewport or if a dialog is open.
+    let cant_scroll = if let Some(cursor) = window.cursor_position() {
+        (cursor[0] > ui_state.viewport_size[0])
             || (cursor[1] > ui_state.viewport_size[1])
             || ui_state.file_dialog.is_some()
-        {
-            return;
-        }
-    }
+    } else {
+        false
+    };
     let (camera_p, mut camera_t) = cameras.single_mut();
     let Projection::Perspective(ref mut camera_p) = camera_p.into_inner() else {
         return;
@@ -362,10 +361,12 @@ fn update_input(
         }
     }
     // Zoom in/out.
-    let mut zoom = ui_state.camera.zoom;
-    zoom -= CAMERA_ZOOM_SPEED * scroll;
-    ui_state.camera.zoom = zoom.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
-    camera_p.fov = ui_state.camera.zoom * std::f32::consts::FRAC_PI_4;
+    if !cant_scroll {
+        let mut zoom = ui_state.camera.zoom;
+        zoom -= CAMERA_ZOOM_SPEED * scroll;
+        ui_state.camera.zoom = zoom.clamp(MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
+        camera_p.fov = ui_state.camera.zoom * std::f32::consts::FRAC_PI_4;
+    }
     // Handle rotation/move
     if ui_state.camera.rotate_mode {
         camera_t.translation.x = 0.0;
@@ -386,7 +387,6 @@ fn update_input(
             }
         }
     } else {
-        ui_state.camera.rotation = Quat::default();
         if mouse_button.just_pressed(MouseButton::Right) {
             if let Some(position) = window.cursor_position() {
                 ui_state.camera.vec = position;

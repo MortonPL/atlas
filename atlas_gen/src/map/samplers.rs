@@ -10,7 +10,7 @@ use atlas_lib::{
         WorldModel,
     },
 };
-use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, SuperSimplex};
+use noise::{Fbm, MultiFractal, NoiseFn, OpenSimplex, Perlin, PerlinSurflet, SuperSimplex};
 
 /// A Sampler allows to sample (obtain) a value in [0.0, 1.0] range in 2D space.
 trait Sampler {
@@ -326,6 +326,13 @@ pub fn add_with_algorithm(
             world_size,
             strength,
         ),
+        NoiseAlgorithm::PerlinSurflet(config) => sample_add(
+            data,
+            FbmSampler::<PerlinSurflet>::new(config),
+            model,
+            world_size,
+            strength,
+        ),
         NoiseAlgorithm::OpenSimplex(config) => sample_add(
             data,
             FbmSampler::<OpenSimplex>::new(config),
@@ -354,6 +361,9 @@ pub fn fill_with_algorithm(
     match algorithm.as_ref() {
         NoiseAlgorithm::Perlin(config) => {
             sample_fill(data, FbmSampler::<Perlin>::new(config), model, world_size)
+        }
+        NoiseAlgorithm::PerlinSurflet(config) => {
+            sample_fill(data, FbmSampler::<PerlinSurflet>::new(config), model, world_size)
         }
         NoiseAlgorithm::OpenSimplex(config) => {
             sample_fill(data, FbmSampler::<OpenSimplex>::new(config), model, world_size)

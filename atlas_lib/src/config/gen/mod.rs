@@ -380,6 +380,7 @@ pub struct FbmConfig {
 #[serde(rename_all = "lowercase")]
 pub enum NoiseAlgorithm {
     Perlin(FbmConfig),
+    PerlinSurflet(FbmConfig),
     OpenSimplex(FbmConfig),
     SuperSimplex(FbmConfig),
     #[empty]

@@ -155,7 +155,7 @@ fn check_event_regen(events: Res<EventStruct>) -> bool {
 ///
 /// Update rotation mode and apply transformations.
 fn update_model_rotation<C: AtlasConfig>(
-    mut model: Query<&mut Transform, With<CurrentWorldModel>>,
+    mut model: Query<&mut Transform, Or<(With<WorldGlobeMesh>, With<WorldMapMesh>)>>,
     config: Res<C>,
     mut ui_base: ResMut<UiStateBase>,
 ) {
@@ -163,9 +163,13 @@ fn update_model_rotation<C: AtlasConfig>(
         WorldModel::Flat => false,
         WorldModel::Globe => true,
     };
-    if ui_base.camera.rotate_mode {
-        let mut transform = model.single_mut();
-        transform.rotation = ui_base.camera.rotation;
+    let quad = if ui_base.camera.rotate_mode {
+        ui_base.camera.rotation
+    } else {
+        Quat::from_euler(EulerRot::XYZ, FRAC_PI_2, 0.0, 0.0)
+    };
+    for mut transform in model.iter_mut() {
+        transform.rotation = quad.clone();
     }
 }
 

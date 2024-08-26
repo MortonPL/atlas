@@ -23,8 +23,7 @@ is loaded from that directory from files:
 * final topography layer (with sea cutoff and coastal erosion applied) - `realtopography.png`,
 * temperature layer - `temperature.png`,
 * precipitation layer - `precipitation.png`,
-* climate layer - `climate.png`,
-* climate map - `climatemap.png`.
+* climate layer - `climate.png`.
 
 #### Exit
 

@@ -29,12 +29,12 @@ impl Default for TopographyConfig {
             coastal_erosion: 1,
             algorithm: NoiseAlgorithm::Perlin(FbmConfig {
                 midpoint: QuadPointLerp {
-                    start: 0.0,
-                    midpoint: 0.1,
+                    start: 0.1,
+                    midpoint: 0.0,
                     midpoint2: 0.2,
-                    end: 0.4,
-                    midpoint_position: 0.70,
-                    midpoint2_position: 0.95,
+                    end: 0.65,
+                    midpoint_position: 0.50,
+                    midpoint2_position: 0.75,
                     ..Default::default()
                 },
                 ..Default::default()

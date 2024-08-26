@@ -6,7 +6,7 @@ mod ui;
 
 use atlas_lib::{
     base::events::EventPlugin,
-    bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*, tasks::available_parallelism},
+    bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*},
     bevy_prng::WyRand,
     bevy_rand::prelude::EntropyPlugin,
     config::{sim::AtlasSimConfig, ConfigPlugin},
@@ -28,8 +28,8 @@ fn main() {
                 .set(TaskPoolPlugin {
                     task_pool_options: TaskPoolOptions {
                         compute: TaskPoolThreadAssignmentPolicy {
-                            min_threads: available_parallelism(),
-                            max_threads: std::usize::MAX,
+                            min_threads: 1,
+                            max_threads: 1,
                             percent: 1.0,
                         },
                         ..Default::default()

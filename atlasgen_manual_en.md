@@ -97,9 +97,10 @@ accessible via the GUI.
 
 This program uses two dimensional fractal noise as the basis of the generation process, with sample data
 scaled to [0.0; 1.0] range.
-There are 3 base noise algorithms available:
+There are 4 base noise algorithms available:
 
 * Perlin (`perlin`)
+* PerlinSurflet (`perlinsurflet`)
 * OpenSimplex (`opensimplex`)
 * SuperSimplex (`supersimplex`)
 * FromImage (`fromimage`) - a special case. No data is generated, useful for when users supply exisitng data and don't want it to be overriden.
@@ -215,7 +216,7 @@ The following can be configured:
 ### Temperature (`[temperature]`)
 
 Configuration for temperature map. Each map tile contains temperature data (mean annual at surface level).
-Temperature ranges from 0 (-50 degrees Celsius) to 255 (+127,5 degrees), with one temperature unit equal
+Temperature ranges from 0 (-50 degrees Celsius) to 255 (+77,5 degrees), with one temperature unit equal
 to 0.5 degrees Celsius and value of 100 equal to 0 degrees.
 
 The following can be configured:
@@ -230,7 +231,7 @@ The following can be configured:
 ### Precipitation (`[precipitation]`)
 
 Configuration for precipitation (rainfall and snowfall) map. Each map tile contains precipitation data (mean annual).
-Precipitation ranges from 0 (0 mm) to 255 (5199 mm), with one precipitation unit equal to 20 milimeters of water.
+Precipitation ranges from 0 (0 mm) to 255 (5100 mm), with one precipitation unit equal to 20 milimeters of water.
 
 The following can be configures:
 
