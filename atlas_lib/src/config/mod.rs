@@ -13,7 +13,7 @@ use std::{collections::BTreeSet, marker::PhantomData};
 
 pub use io::*;
 
-pub const MAX_WORLD_SIZE: u32 = 1000;
+pub const MAX_WORLD_SIZE: u32 = 10000;
 
 /// Plugin responsible for the generator/simulator configuration and I/O.
 #[derive(Default)]

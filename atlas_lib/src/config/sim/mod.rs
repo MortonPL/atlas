@@ -62,7 +62,7 @@ pub struct GeneralConfig {
 pub struct ScenarioConfig {
     #[name("# of Starting Points")]
     #[control(SidebarSlider)]
-    #[add(clamp_range(1..=1000))]
+    #[add(clamp_range(1..=10000))]
     pub num_starts: u32,
     #[name("Random Start Point Algorithm")]
     #[control(SidebarEnumDropdown)]
